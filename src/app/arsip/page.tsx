@@ -3,7 +3,8 @@
 import { useState } from "react";
 import Navbar from "@/components/Navbar";
 import Footer from "@/components/Footer";
-import AssetDetailModal from "@/components/AssetDetailModal"; // Import Modal
+// PERBAIKAN DI SINI: Menambahkan { AssetType } ke dalam import
+import AssetDetailModal, { AssetType } from "@/components/AssetDetailModal";
 import { Search, ChevronDown, Eye } from "lucide-react";
 
 // --- MOCK DATA ---
@@ -42,7 +43,7 @@ export default function ArsipPage() {
   const [filterKir, setFilterKir] = useState("");
 
   // State untuk menyimpan data barang yang sedang diklik (awalnya null)
-  const [selectedAsset, setSelectedAsset] = useState<any>(null);
+  const [selectedAsset, setSelectedAsset] = useState<AssetType | null>(null);
 
   // --- LOGIKA FILTERING ---
   const filteredData = mockData.filter((item) => {

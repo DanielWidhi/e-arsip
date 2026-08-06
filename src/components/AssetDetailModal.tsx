@@ -3,10 +3,21 @@
 import { X, CheckCircle, AlertTriangle, Wrench } from "lucide-react";
 
 // Tipe data untuk properti yang dikirim ke modal
+export type AssetType = {
+  id: number;
+  kode: string;
+  nama: string;
+  merk: string;
+  tahun: string;
+  kondisi: string;
+  kir: string;
+  foto?: string | null;
+};
+
 type AssetDetailModalProps = {
   isOpen: boolean;
   onClose: () => void;
-  asset: any; // Nantinya ganti dengan tipe data 16 kolom Anda
+  asset: AssetType | null;
 };
 
 export default function AssetDetailModal({ isOpen, onClose, asset }: AssetDetailModalProps) {
