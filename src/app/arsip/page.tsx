@@ -1,5 +1,5 @@
 "use client";
-
+import Link from "next/link";
 import { useState } from "react";
 import Navbar from "@/components/Navbar";
 import Footer from "@/components/Footer";
@@ -58,7 +58,7 @@ export default function ArsipPage() {
     <div className="min-h-screen flex flex-col bg-slate-50 font-sans">
       <Navbar />
 
-      <main className="flex-grow w-full max-w-7xl mx-auto px-6 py-10 flex flex-col gap-8">
+      <main className="grow w-full max-w-7xl mx-auto px-6 py-10 flex flex-col gap-8">
         {/* Header */}
         <div className="flex flex-col gap-2">
           <h1 className="text-3xl md:text-4xl font-bold text-slate-900 tracking-tight">Daftar Inventaris Peralatan & Mesin (KIB B)</h1>
@@ -155,14 +155,14 @@ export default function ArsipPage() {
                       <td className="px-6 py-4 text-sm text-slate-500">{item.tahun}</td>
                       <td className="px-6 py-4 text-sm text-slate-500">{item.kir}</td>
                       <td className="px-6 py-4 text-right">
-                        {/* INI TOMBOL UNTUK MEMUNCULKAN MODAL */}
-                        <button
-                          onClick={() => setSelectedAsset(item)}
+                        {/* MENGUBAH BUTTON MENJADI LINK KE HALAMAN DINAMIS */}
+                        <Link
+                          href={`/arsip/${item.id}`}
                           className="inline-flex items-center justify-center w-8 h-8 rounded border border-slate-200 bg-white hover:border-blue-600 hover:text-blue-600 text-slate-400 transition-all shadow-sm"
-                          title="Lihat Detail"
+                          title="Lihat Detail & QR Code"
                         >
                           <Eye size={18} />
-                        </button>
+                        </Link>
                       </td>
                     </tr>
                   ))

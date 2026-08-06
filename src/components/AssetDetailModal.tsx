@@ -1,16 +1,28 @@
 "use client";
 
-import { X, CheckCircle, AlertTriangle, Wrench } from "lucide-react";
+import { useEffect, useState } from "react";
+import { X, CheckCircle, AlertTriangle, Wrench, Download } from "lucide-react";
+import { QRCodeCanvas } from "qrcode.react";
 
-// Tipe data untuk properti yang dikirim ke modal
 export type AssetType = {
   id: number;
   kode: string;
   nama: string;
+  nomorRegister: string;
   merk: string;
+  ukuran: string;
+  bahan: string;
   tahun: string;
+  pabrik: string;
+  rangka: string;
+  mesin: string;
+  polisi: string;
+  bpkb: string;
+  asalUsul: string;
+  harga: number | string;
   kondisi: string;
   kir: string;
+  keterangan: string;
   foto?: string | null;
 };
 
@@ -21,61 +33,97 @@ type AssetDetailModalProps = {
 };
 
 export default function AssetDetailModal({ isOpen, onClose, asset }: AssetDetailModalProps) {
+  const [qrUrl, setQrUrl] = useState("");
+
+  // Setel URL QR Code mengarah ke halaman publik (/arsip/[id])
+  useEffect(() => {
+    // Dibungkus setTimeout agar React tidak protes "synchronously render"
+    setTimeout(() => {
+      if (asset && typeof window !== "undefined") {
+        setQrUrl(`${window.location.origin}/arsip/${asset.id}`);
+      }
+    }, 0);
+  }, [asset]);
+
   if (!isOpen || !asset) return null;
 
-  // Render Ikon Status
+  // FUNGSI DOWNLOAD QR CODE
+  const downloadQRCode = () => {
+    const canvas = document.getElementById("qrCodeAdminEl") as HTMLCanvasElement;
+    if (canvas) {
+      const pngUrl = canvas.toDataURL("image/png").replace("image/png", "image/octet-stream");
+      const downloadLink = document.createElement("a");
+      downloadLink.href = pngUrl;
+      downloadLink.download = `Stiker_QR_${asset.kode}.png`;
+      document.body.appendChild(downloadLink);
+      downloadLink.click();
+      document.body.removeChild(downloadLink);
+    }
+  };
+
   const renderStatus = () => {
-    if (asset.kondisi === "Baik") {
+    if (asset.kondisi === "Baik")
       return (
         <span className="inline-flex items-center gap-1.5 px-3 py-1.5 rounded-full bg-green-100 text-green-700 text-sm font-semibold shadow-sm">
           <CheckCircle size={16} /> Kondisi: Baik
         </span>
       );
-    } else if (asset.kondisi === "Rusak Ringan") {
+    if (asset.kondisi === "Rusak Ringan")
       return (
         <span className="inline-flex items-center gap-1.5 px-3 py-1.5 rounded-full bg-amber-100 text-amber-700 text-sm font-semibold shadow-sm">
           <Wrench size={16} /> Kondisi: Rusak Ringan
         </span>
       );
-    } else {
-      return (
-        <span className="inline-flex items-center gap-1.5 px-3 py-1.5 rounded-full bg-red-100 text-red-700 text-sm font-semibold shadow-sm">
-          <AlertTriangle size={16} /> Kondisi: Rusak Berat
-        </span>
-      );
-    }
+    return (
+      <span className="inline-flex items-center gap-1.5 px-3 py-1.5 rounded-full bg-red-100 text-red-700 text-sm font-semibold shadow-sm">
+        <AlertTriangle size={16} /> Kondisi: Rusak Berat
+      </span>
+    );
   };
 
   return (
-    // OVERLAY: Latar belakang gelap transparan (klik luar untuk tutup)
     <div className="fixed inset-0 z-50 flex items-center justify-center bg-slate-900/50 backdrop-blur-sm p-4 sm:p-6" onClick={onClose}>
-      {/* MODAL CONTAINER: Animasi muncul, max height 90% layar agar tidak tembus */}
-      <div
-        className="relative flex w-full max-w-4xl max-h-[90vh] flex-col rounded-xl bg-white shadow-2xl animate-in fade-in zoom-in-95 duration-200"
-        onClick={(e) => e.stopPropagation()} // Mencegah klik di dalam modal menutup overlay
-      >
-        {/* HEADER: Fix di atas */}
+      <div className="relative flex w-full max-w-5xl max-h-[90vh] flex-col rounded-xl bg-white shadow-2xl animate-in fade-in zoom-in-95 duration-200" onClick={(e) => e.stopPropagation()}>
+        {/* HEADER */}
         <div className="flex items-center justify-between border-b border-slate-200 p-4 md:p-6 bg-slate-50 rounded-t-xl">
           <h2 className="text-xl md:text-2xl font-bold text-slate-800">Detail Informasi Inventaris</h2>
-          <button onClick={onClose} className="rounded-full p-2 text-slate-400 hover:bg-slate-200 hover:text-slate-700 transition-colors focus:outline-none" aria-label="Tutup">
+          <button onClick={onClose} className="rounded-full p-2 text-slate-400 hover:bg-slate-200 hover:text-slate-700 transition-colors focus:outline-none">
             <X size={24} />
           </button>
         </div>
 
-        {/* BODY: Area yang bisa di-scroll jika di HP kekecilan */}
-        <div className="overflow-y-auto p-4 md:p-6">
+        {/* BODY */}
+        <div className="overflow-y-auto p-4 md:p-6 custom-scrollbar">
           <div className="flex flex-col lg:flex-row gap-6 md:gap-8">
-            {/* KOLOM KIRI (HP: Atas, PC: Kiri) - FOTO & STATUS */}
-            <div className="w-full lg:w-1/3 flex flex-col gap-4">
-              <div className="aspect-video lg:aspect-square w-full overflow-hidden rounded-lg border border-slate-200 bg-slate-100 relative shadow-inner">
-                <img src={asset.foto || "https://images.unsplash.com/photo-1549317661-bd32c8ce0db2?auto=format&fit=crop&q=80&w=600"} alt="Foto Aset" className="h-full w-full object-cover" />
+            {/* KOLOM KIRI: Foto (1:1) & QR Code */}
+            <div className="w-full lg:w-1/3 flex flex-col gap-6">
+              {/* Foto 1:1 */}
+              <div className="flex flex-col gap-3">
+                <div className="aspect-square w-full overflow-hidden rounded-xl border border-slate-200 bg-slate-100 relative shadow-sm">
+                  {/* eslint-disable-next-line @next/next/no-img-element */}
+                  <img src={asset.foto || "https://images.unsplash.com/photo-1549317661-bd32c8ce0db2?auto=format&fit=crop&q=80&w=600"} alt="Foto Aset" className="h-full w-full object-cover" />
+                </div>
+                <div className="flex justify-start">{renderStatus()}</div>
               </div>
-              <div className="flex justify-start">{renderStatus()}</div>
+
+              {/* Garis Pembatas */}
+              <div className="w-full border-t border-slate-200 border-dashed"></div>
+
+              {/* QR Code Section */}
+              <div className="flex flex-col items-center w-full gap-4">
+                <div className="bg-slate-50 p-4 rounded-xl border border-slate-200 flex flex-col items-center gap-3 w-full">
+                  <QRCodeCanvas id="qrCodeAdminEl" value={qrUrl} size={140} level={"H"} includeMargin={true} />
+                  <p className="text-xs font-mono text-slate-500 font-semibold">{asset.kode}</p>
+                </div>
+
+                <button onClick={downloadQRCode} className="w-full bg-blue-600 hover:bg-blue-700 text-white font-semibold py-2.5 px-4 rounded-lg flex items-center justify-center gap-2 transition-colors shadow-sm">
+                  <Download size={18} /> Download Stiker QR
+                </button>
+              </div>
             </div>
 
-            {/* KOLOM KANAN (HP: Bawah, PC: Kanan) - DATA LENGKAP */}
+            {/* KOLOM KANAN: Data Spesifikasi */}
             <div className="w-full lg:w-2/3 flex flex-col">
-              {/* Judul Barang & Kode */}
               <div className="mb-6 border-b border-slate-200 pb-4">
                 <h3 className="text-2xl md:text-3xl font-bold text-slate-900 mb-2">{asset.nama}</h3>
                 <div className="flex items-center gap-2">
@@ -84,22 +132,20 @@ export default function AssetDetailModal({ isOpen, onClose, asset }: AssetDetail
                 </div>
               </div>
 
-              {/* GRID DATA 16 KOLOM (HP: 1 Kolom, PC: 2 Kolom) */}
               <div className="grid grid-cols-1 sm:grid-cols-2 gap-x-6 gap-y-4">
-                {/* Data 1-12 */}
                 {[
-                  { label: "Nomor Register", value: "0001" },
+                  { label: "Nomor Register", value: asset.nomorRegister },
                   { label: "Merk / Type", value: asset.merk },
-                  { label: "Ukuran / CC", value: "125 CC" },
-                  { label: "Bahan", value: "Besi / Plastik" },
+                  { label: "Ukuran / CC", value: asset.ukuran },
+                  { label: "Bahan", value: asset.bahan },
                   { label: "Tahun Pembelian", value: asset.tahun },
-                  { label: "Pabrik", value: "Astra Honda Motor" },
-                  { label: "Rangka", value: "MH1JB000000K" },
-                  { label: "No Mesin", value: "JB00E-0000000" },
-                  { label: "Polisi", value: "DK 1234 ABC" },
-                  { label: "BPKB", value: "12345678" },
-                  { label: "Asal Usul", value: "APBD" },
-                  { label: "Harga (Rp)", value: "Rp 18.500.000" },
+                  { label: "Pabrik", value: asset.pabrik },
+                  { label: "Rangka", value: asset.rangka },
+                  { label: "No Mesin", value: asset.mesin },
+                  { label: "Polisi", value: asset.polisi },
+                  { label: "BPKB", value: asset.bpkb },
+                  { label: "Asal Usul", value: asset.asalUsul },
+                  { label: "Harga (Rp)", value: `Rp ${asset.harga.toLocaleString("id-ID")}` },
                   { label: "Kartu Inventaris Ruangan (KIR)", value: asset.kir },
                 ].map((item, index) => (
                   <div key={index} className="flex flex-col border-b border-slate-100 pb-2">
@@ -108,19 +154,16 @@ export default function AssetDetailModal({ isOpen, onClose, asset }: AssetDetail
                   </div>
                 ))}
 
-                {/* Keterangan (Memakan ruang penuh / 2 kolom di PC) */}
                 <div className="flex flex-col sm:col-span-2 pt-2">
                   <span className="text-xs font-medium text-slate-500 uppercase tracking-wider mb-1">Keterangan</span>
-                  <span className="text-sm md:text-base text-slate-700 leading-relaxed bg-slate-50 p-3 rounded-lg border border-slate-100">
-                    Kendaraan operasional dinas kecamatan. Diservis rutin setiap 3 bulan di bengkel resmi. Kondisi mesin masih sangat prima.
-                  </span>
+                  <span className="text-sm md:text-base text-slate-700 leading-relaxed bg-slate-50 p-3 rounded-lg border border-slate-100">{asset.keterangan}</span>
                 </div>
               </div>
             </div>
           </div>
         </div>
 
-        {/* FOOTER: Fix di bawah */}
+        {/* FOOTER MODAL */}
         <div className="flex justify-end border-t border-slate-200 bg-slate-50 p-4 md:p-6 rounded-b-xl">
           <button onClick={onClose} className="rounded-lg border border-slate-300 bg-white px-6 py-2.5 text-sm font-semibold text-slate-700 hover:bg-slate-100 focus:outline-none focus:ring-2 focus:ring-blue-600 transition-colors shadow-sm">
             Tutup

@@ -4,7 +4,7 @@ import { useState } from "react";
 import { LogIn, ArrowLeft, Eye, EyeOff, ShieldCheck } from "lucide-react";
 import Link from "next/link";
 import { useRouter } from "next/navigation";
-import { url } from "inspector";
+
 
 export default function LoginPage() {
   const router = useRouter();
@@ -15,10 +15,17 @@ export default function LoginPage() {
     e.preventDefault();
     setIsLoading(true);
 
-    // Simulasi proses login (Nanti kita ganti dengan autentikasi Supabase)
+    // Simulasi proses login
     setTimeout(() => {
       setIsLoading(false);
-      // Setelah berhasil login, arahkan ke halaman Dashboard Admin
+
+      // ========================================================
+      // TAMBAHAN BARU: Berikan "Tiket Bohongan" agar lolos Middleware
+      // (Nanti baris ini akan dihapus saat kita sudah pakai Supabase asli)
+      // ========================================================
+      document.cookie = "sb-access-token=tiket-dummy-untuk-masuk; path=/; max-age=86400";
+
+      // Setelah tiket diberikan, arahkan ke halaman Dashboard Admin
       router.push("/admin/dashboard");
     }, 1000);
   };
@@ -66,7 +73,7 @@ export default function LoginPage() {
         </Link>
 
         {/* Kotak Form */}
-        <div className="w-full max-w-[400px] bg-white p-8 sm:p-10 rounded-3xl shadow-xl border border-slate-100 lg:shadow-none lg:border-none lg:p-0">
+        <div className="w-full max-w-400px bg-white p-8 sm:p-10 rounded-3xl shadow-xl border border-slate-100 lg:shadow-none lg:border-none lg:p-0">
           <div className="text-center mb-10">
             <h2 className="text-3xl font-bold text-slate-900 mb-2 tracking-tight">Panel Admin</h2>
             <p className="text-slate-500 text-sm">Masuk menggunakan NIP dan Kata Sandi.</p>
@@ -104,7 +111,7 @@ export default function LoginPage() {
             <button
               type="submit"
               disabled={isLoading}
-              className="w-full h-12 flex items-center justify-center text-sm font-bold bg-blue-600 hover:bg-blue-700 text-white mt-2 rounded-xl transition-colors disabled:opacity-70 disabled:cursor-not-allowed shadow-md shadow-blue-600/20 active:translate-y-[1px]"
+              className="w-full h-12 flex items-center justify-center text-sm font-bold bg-blue-600 hover:bg-blue-700 text-white mt-2 rounded-xl transition-colors disabled:opacity-70 disabled:cursor-not-allowed shadow-md shadow-blue-600/20 active:translate-y-1px"
             >
               {isLoading ? (
                 "Memverifikasi..."

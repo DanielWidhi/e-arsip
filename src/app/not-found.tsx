@@ -9,7 +9,7 @@ export default function NotFound() {
     <div className="min-h-screen flex flex-col bg-slate-50 font-sans">
       <Navbar />
 
-      <main className="flex-grow flex flex-col items-center justify-center px-4 py-16 relative overflow-hidden">
+      <main className="grow flex flex-col items-center justify-center px-4 py-16 relative overflow-hidden">
         {/* Teks "404" Besar di Background (Transparan) */}
         <div className="absolute inset-0 flex items-center justify-center -z-10 pointer-events-none select-none opacity-[0.03]">
           <span className="font-bold text-slate-900 tracking-tighter" style={{ fontSize: "20rem", lineHeight: 1 }}>
@@ -20,6 +20,7 @@ export default function NotFound() {
         {/* Kotak Konten Utama (Card) */}
         <div className="max-w-xl w-full flex flex-col items-center text-center bg-white p-8 md:p-12 rounded-2xl border border-slate-200 shadow-xl relative z-10 animate-in fade-in zoom-in-95 duration-500">
           {/* Ilustrasi Kotak Kosong */}
+          {/* eslint-disable-next-line @next/next/no-img-element */}
           <img
             src="https://lh3.googleusercontent.com/aida-public/AB6AXuD64O1q7YxcAf2MSTybPOSBVp5hrCk7W5NqHfKii6cGXIyGWKyCtX4VHYUswyc4tCq3cNhvd0x8Vv9Wzzs9kVgvMIosLwItkOyPXTDTYH0fcNfv1OZ7U7Jou0_rEBTVVp7KYcLk-fa5cgmocXnzPYNVxQYyUdbES4EqtYNJ1lkhoNDNzZ6xlWYrR0vLSyahESOiPNj-xVZcqAWN6PgnvuX6V4nfgYnbmlVNqnl03TnW-db5d4FVOTe90g"
             alt="Ilustrasi Tidak Ditemukan"
