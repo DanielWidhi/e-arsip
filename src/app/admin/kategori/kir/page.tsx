@@ -1,31 +1,52 @@
 "use client";
 
-import { useState } from "react";
-import { Search, Plus, Edit, Trash2, X, Save } from "lucide-react";
+import { useState, useEffect } from "react";
+import { Search, Plus, Edit, Trash2, X, Save, Loader2 } from "lucide-react";
+import { createClient } from "@/lib/supabase";
+
+type KirType = {
+  id: number;
+  nama_ruangan: string;
+};
 
 export default function MasterKirPage() {
-  const [dataKir, setDataKir] = useState([
-    { id: 1, nama: "Ruang Camat" },
-    { id: 2, nama: "Ruang Pelayanan Terpadu" },
-    { id: 3, nama: "Ruang Rapat Utama" },
-    { id: 4, nama: "Ruang Kepegawaian" },
-    { id: 5, nama: "Garasi Kendaraan" },
-  ]);
-
+  const [dataKir, setDataKir] = useState<KirType[]>([]);
+  const [isLoading, setIsLoading] = useState(true);
+  const [isSaving, setIsSaving] = useState(false);
   const [searchTerm, setSearchTerm] = useState("");
 
-  // State untuk Modal Inline
   const [isModalOpen, setIsModalOpen] = useState(false);
   const [editingId, setEditingId] = useState<number | null>(null);
   const [inputValue, setInputValue] = useState("");
 
-  const filteredData = dataKir.filter((item) => item.nama.toLowerCase().includes(searchTerm.toLowerCase()));
+  const supabase = createClient();
 
-  // Fungsi buka modal (bisa untuk Tambah atau Edit)
-  const openModal = (item?: { id: number; nama: string }) => {
+  const fetchKir = async () => {
+    setIsLoading(true);
+    const { data, error } = await supabase.from("master_kir").select("*").order("id", { ascending: true });
+
+    if (error) {
+      alert("Gagal mengambil data KIR: " + error.message);
+    } else if (data) {
+      setDataKir(data);
+    }
+    setIsLoading(false);
+  };
+
+  useEffect(() => {
+    // 1. PERBAIKAN ERROR MERAH: Dibungkus setTimeout
+    setTimeout(() => {
+      fetchKir();
+    }, 0);
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, []);
+
+  const filteredData = dataKir.filter((item) => item.nama_ruangan.toLowerCase().includes(searchTerm.toLowerCase()));
+
+  const openModal = (item?: KirType) => {
     if (item) {
       setEditingId(item.id);
-      setInputValue(item.nama);
+      setInputValue(item.nama_ruangan);
     } else {
       setEditingId(null);
       setInputValue("");
@@ -33,23 +54,39 @@ export default function MasterKirPage() {
     setIsModalOpen(true);
   };
 
-  // Fungsi Simpan
-  const handleSave = (e: React.FormEvent) => {
+  const handleSave = async (e: React.FormEvent) => {
     e.preventDefault();
+    if (!inputValue.trim()) return;
+
+    setIsSaving(true);
+
     if (editingId) {
-      // Update
-      setDataKir(dataKir.map((k) => (k.id === editingId ? { ...k, nama: inputValue } : k)));
+      const { error } = await supabase.from("master_kir").update({ nama_ruangan: inputValue }).eq("id", editingId);
+
+      if (error) alert("Gagal mengubah data: " + error.message);
+      else fetchKir();
     } else {
-      // Create
-      setDataKir([...dataKir, { id: Date.now(), nama: inputValue }]);
+      const { error } = await supabase.from("master_kir").insert([{ nama_ruangan: inputValue }]);
+
+      if (error) alert("Gagal menambah data: " + error.message);
+      else fetchKir();
     }
+
     setIsModalOpen(false);
+    setIsSaving(false);
   };
 
-  // Fungsi Hapus
-  const handleDelete = (id: number, nama: string) => {
-    if (window.confirm(`Hapus ruangan "${nama}" dari sistem?`)) {
-      setDataKir(dataKir.filter((k) => k.id !== id));
+  const handleDelete = async (id: number, nama: string) => {
+    const confirmDelete = window.confirm(`Apakah Anda yakin ingin menghapus ruangan "${nama}"?\nPastikan tidak ada barang yang sedang berada di ruangan ini.`);
+
+    if (confirmDelete) {
+      const { error } = await supabase.from("master_kir").delete().eq("id", id);
+
+      if (error) {
+        alert("Gagal menghapus data: " + error.message);
+      } else {
+        fetchKir();
+      }
     }
   };
 
@@ -79,8 +116,9 @@ export default function MasterKirPage() {
         </div>
       </div>
 
-      <div className="bg-white rounded-xl border border-slate-200 shadow-sm overflow-hidden w-full">
-        <div className="overflow-x-auto w-full">
+      {/* 2. PERBAIKAN WARNING HIJAU: Ubah min-h-[300px] menjadi min-h-75 */}
+      <div className="bg-white rounded-xl border border-slate-200 shadow-sm overflow-hidden w-full min-h-75 flex flex-col">
+        <div className="overflow-x-auto w-full flex-1">
           <table className="min-w-full text-left border-collapse whitespace-nowrap">
             <thead>
               <tr className="bg-slate-50 border-b border-slate-200 text-xs font-semibold text-slate-500 uppercase tracking-wider">
@@ -90,17 +128,23 @@ export default function MasterKirPage() {
               </tr>
             </thead>
             <tbody className="divide-y divide-slate-200 text-sm text-slate-700">
-              {filteredData.length > 0 ? (
+              {isLoading ? (
+                <tr>
+                  <td colSpan={3} className="px-6 py-16 text-center">
+                    <Loader2 className="animate-spin mx-auto text-blue-600" size={32} />
+                  </td>
+                </tr>
+              ) : filteredData.length > 0 ? (
                 filteredData.map((item, index) => (
                   <tr key={item.id} className="hover:bg-slate-50/80 transition-colors">
                     <td className="px-6 py-4 text-slate-500">{index + 1}</td>
-                    <td className="px-6 py-4 font-medium text-slate-900">{item.nama}</td>
+                    <td className="px-6 py-4 font-medium text-slate-900">{item.nama_ruangan}</td>
                     <td className="px-6 py-4 text-center">
                       <div className="flex items-center justify-center gap-1.5">
                         <button onClick={() => openModal(item)} className="p-1.5 text-slate-400 hover:text-blue-600 hover:bg-blue-50 rounded-md transition-colors">
                           <Edit size={16} />
                         </button>
-                        <button onClick={() => handleDelete(item.id, item.nama)} className="p-1.5 text-slate-400 hover:text-red-600 hover:bg-red-50 rounded-md transition-colors">
+                        <button onClick={() => handleDelete(item.id, item.nama_ruangan)} className="p-1.5 text-slate-400 hover:text-red-600 hover:bg-red-50 rounded-md transition-colors">
                           <Trash2 size={16} />
                         </button>
                       </div>
@@ -143,11 +187,12 @@ export default function MasterKirPage() {
                 />
               </div>
               <div className="flex justify-end gap-3">
-                <button type="button" onClick={() => setIsModalOpen(false)} className="px-4 py-2 text-sm font-semibold text-slate-600 bg-white border border-slate-200 rounded-lg hover:bg-slate-50">
+                <button type="button" onClick={() => setIsModalOpen(false)} className="px-4 py-2 text-sm font-semibold text-slate-600 bg-white border border-slate-200 rounded-lg hover:bg-slate-50 transition-colors">
                   Batal
                 </button>
-                <button type="submit" className="px-4 py-2 text-sm font-semibold text-white bg-blue-600 rounded-lg hover:bg-blue-700 flex items-center gap-2">
-                  <Save size={16} /> Simpan
+                <button type="submit" disabled={isSaving} className="px-4 py-2 text-sm font-semibold text-white bg-blue-600 rounded-lg hover:bg-blue-700 flex items-center gap-2 transition-colors disabled:opacity-50">
+                  {isSaving ? <Loader2 size={16} className="animate-spin" /> : <Save size={16} />}
+                  {isSaving ? "Menyimpan..." : "Simpan"}
                 </button>
               </div>
             </form>

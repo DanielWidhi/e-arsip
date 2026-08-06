@@ -1,11 +1,47 @@
 "use client";
 
-import { Bell, Menu } from "lucide-react";
-import { usePathname } from "next/navigation";
+import { useEffect, useState } from "react";
+import { Bell, Menu, LogOut, Globe, LayoutDashboard, ChevronDown } from "lucide-react";
+import { usePathname, useRouter } from "next/navigation";
+import { createClient } from "@/lib/supabase";
+import Link from "next/link";
 
-// Menerima props onMenuClick dari layout.tsx
 export default function AdminHeader({ onMenuClick }: { onMenuClick: () => void }) {
   const pathname = usePathname();
+  const router = useRouter();
+
+  const [profile, setProfile] = useState({ nama: "Memuat...", role: "..." });
+  const [notifCount, setNotifCount] = useState(0);
+
+  // STATE UNTUK BUKA/TUTUP DROPDOWN PROFIL
+  const [isProfileOpen, setIsProfileOpen] = useState(false);
+
+  const supabase = createClient();
+
+  useEffect(() => {
+    const fetchHeaderData = async () => {
+      const {
+        data: { user },
+      } = await supabase.auth.getUser();
+      if (user && user.email) {
+        const { data: userData } = await supabase.from("users").select("nama, role").eq("email", user.email).single();
+        if (userData) setProfile({ nama: userData.nama, role: userData.role });
+        else setProfile({ nama: "Admin Sistem", role: "Pengguna" });
+      }
+
+      const { count } = await supabase.from("inventaris_kib_b").select("*", { count: "exact", head: true }).in("kondisi", ["Rusak Ringan", "Rusak Berat"]);
+      if (count !== null) setNotifCount(count);
+    };
+    fetchHeaderData();
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, []);
+
+  // FUNGSI KELUAR (LOGOUT)
+  const handleLogout = async () => {
+    await supabase.auth.signOut();
+    document.cookie = "sb-access-token=; expires=Thu, 01 Jan 1970 00:00:00 UTC; path=/;";
+    router.push("/login");
+  };
 
   const currentMenu = pathname.includes("inventaris")
     ? "Manajemen Inventaris"
@@ -17,40 +53,71 @@ export default function AdminHeader({ onMenuClick }: { onMenuClick: () => void }
           ? "Kategori / KIR"
           : pathname.includes("kategori/asal-usul")
             ? "Kategori / Asal Usul"
-            : "Beranda";
+            : pathname.includes("pemeliharaan")
+              ? "Pemeliharaan Aset"
+              : "Beranda";
 
   return (
     <header className="flex justify-between items-center w-full px-4 md:px-8 h-16 sticky top-0 z-30 bg-white border-b border-slate-200 shrink-0 shadow-sm">
-      {/* Kiri: Tombol Hamburger (Mobile) & Breadcrumb */}
       <div className="flex items-center gap-3">
-        {/* Tombol Hamburger HANYA muncul di HP (md:hidden) */}
         <button onClick={onMenuClick} className="md:hidden p-2 -ml-2 text-slate-600 hover:bg-slate-100 rounded-lg transition-colors focus:outline-none focus:ring-2 focus:ring-blue-600">
           <Menu size={24} />
         </button>
-
         <div className="flex items-center gap-2 text-slate-500 text-sm">
           <span className="hidden sm:inline">Dashboard</span>
           <span className="hidden sm:inline text-slate-300">/</span>
-          <span className="font-semibold text-slate-800 truncate max-w-150px sm:max-w-none">{currentMenu}</span>
+          <span className="font-semibold text-slate-800 truncate max-w-[150px] sm:max-w-none">{currentMenu}</span>
         </div>
       </div>
 
-      {/* Kanan: Profil & Notifikasi */}
       <div className="flex items-center gap-2 md:gap-4">
-        <button className="w-10 h-10 rounded-full flex items-center justify-center text-slate-500 hover:bg-slate-100 transition-colors">
+        <Link href="/admin/pemeliharaan" className="relative w-10 h-10 rounded-full flex items-center justify-center text-slate-500 hover:bg-slate-100 transition-colors">
           <Bell size={20} />
-        </button>
+          {notifCount > 0 && <span className="absolute top-1.5 right-1.5 flex h-4 w-4 items-center justify-center rounded-full bg-red-600 text-[9px] font-bold text-white shadow-sm ring-2 ring-white">{notifCount}</span>}
+        </Link>
+
         <div className="h-8 w-px bg-slate-200 mx-1 hidden sm:block"></div>
-        <button className="flex items-center gap-3 hover:bg-slate-50 p-1.5 rounded-lg transition-colors">
-          <div className="w-8 h-8 rounded-full overflow-hidden bg-slate-200 border border-slate-200 shrink-0">
-            {/* eslint-disable-next-line @next/next/no-img-element */}
-            <img src="https://ui-avatars.com/api/?name=Admin+Sistem&background=0D8ABC&color=fff" alt="Profile" className="w-full h-full object-cover" />
-          </div>
-          <div className="hidden lg:block text-left">
-            <p className="text-sm font-semibold text-slate-800 leading-tight">Admin Sistem</p>
-            <p className="text-xs text-slate-500 leading-tight">Superadmin</p>
-          </div>
-        </button>
+
+        {/* ========================================================== */}
+        {/* DROPDOWN PROFIL AREA */}
+        {/* ========================================================== */}
+        <div className="relative">
+          {/* Tombol Profil (Pemicu Dropdown) */}
+          <button onClick={() => setIsProfileOpen(!isProfileOpen)} className="flex items-center gap-2 md:gap-3 hover:bg-slate-50 p-1.5 pr-2 md:pr-3 rounded-lg transition-colors text-left border border-transparent hover:border-slate-200">
+            <div className="w-8 h-8 rounded-full overflow-hidden bg-slate-200 border border-slate-200 shrink-0">
+              {/* eslint-disable-next-line @next/next/no-img-element */}
+              <img src={`https://ui-avatars.com/api/?name=${profile.nama}&background=0D8ABC&color=fff&bold=true`} alt="Profile" className="w-full h-full object-cover" />
+            </div>
+            <div className="hidden lg:block text-left">
+              <p className="text-sm font-bold text-slate-800 leading-tight truncate max-w-[150px]">{profile.nama}</p>
+              <p className="text-xs font-medium text-slate-500 leading-tight">{profile.role}</p>
+            </div>
+            <ChevronDown size={14} className="text-slate-400 hidden lg:block" />
+          </button>
+
+          {/* Menu Dropdown Melayang */}
+          {isProfileOpen && (
+            <>
+              {/* Overlay transparan untuk menutup dropdown jika klik di luar */}
+              <div className="fixed inset-0 z-40" onClick={() => setIsProfileOpen(false)}></div>
+
+              <div className="absolute right-0 mt-2 w-56 bg-white border border-slate-200 rounded-xl shadow-lg py-2 z-50 animate-in slide-in-from-top-2 duration-200">
+                <div className="px-4 py-2 border-b border-slate-100 mb-1 lg:hidden">
+                  <p className="text-sm font-bold text-slate-800 truncate">{profile.nama}</p>
+                  <p className="text-xs font-medium text-slate-500">{profile.role}</p>
+                </div>
+
+                <Link href="/" className="flex items-center gap-2 px-4 py-2.5 text-sm font-medium text-slate-700 hover:bg-slate-50 hover:text-blue-600 transition-colors">
+                  <Globe size={16} /> Ke Halaman Publik
+                </Link>
+
+                <button onClick={handleLogout} className="w-full flex items-center gap-2 px-4 py-2.5 text-sm font-medium text-red-600 hover:bg-red-50 transition-colors mt-1 border-t border-slate-100 pt-3">
+                  <LogOut size={16} /> Keluar (Logout)
+                </button>
+              </div>
+            </>
+          )}
+        </div>
       </div>
     </header>
   );

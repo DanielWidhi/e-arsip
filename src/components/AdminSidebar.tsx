@@ -2,8 +2,9 @@
 
 import { useState } from "react";
 import Link from "next/link";
-import { usePathname } from "next/navigation";
-import { Home, Package, Users, Settings, LogOut, X, Tags, ChevronDown } from "lucide-react";
+import { usePathname, useRouter } from "next/navigation";
+import { Home, Package, Users, Settings, LogOut, X, Tags, ChevronDown, Wrench } from "lucide-react";
+import { createClient } from "@/lib/supabase";
 
 type AdminSidebarProps = {
   isOpen: boolean;
@@ -12,11 +13,22 @@ type AdminSidebarProps = {
 
 export default function AdminSidebar({ isOpen, setIsOpen }: AdminSidebarProps) {
   const pathname = usePathname();
-  // State untuk membuka/menutup submenu Kategori
+  const router = useRouter();
+  const supabase = createClient();
+
   const [isKategoriOpen, setIsKategoriOpen] = useState(pathname.includes("/kategori"));
 
   const closeMenuMobile = () => {
     setIsOpen(false);
+  };
+
+  // FUNGSI LOGOUT YANG BENAR
+  const handleLogout = async () => {
+    await supabase.auth.signOut();
+    document.cookie = "sb-access-token=; expires=Thu, 01 Jan 1970 00:00:00 UTC; path=/;";
+    closeMenuMobile();
+    router.push("/login");
+    router.refresh(); // Memaksa browser menghapus cache halaman admin
   };
 
   return (
@@ -30,13 +42,18 @@ export default function AdminSidebar({ isOpen, setIsOpen }: AdminSidebarProps) {
           <X size={24} />
         </button>
 
-        <div className="px-6 mb-8 flex items-center gap-3">
-          <div className="w-8 h-8 bg-blue-600 rounded flex items-center justify-center shrink-0">
-            <span className="font-bold text-white text-xs">SA</span>
-          </div>
-          <div>
-            <h1 className="text-xl font-bold text-white tracking-tight leading-tight">Simaset</h1>
-            <p className="text-xs text-slate-400 mt-0.5">Sistem Manajemen Aset</p>
+        <div className="px-6 mb-8 flex items-start gap-3">
+          {/* eslint-disable-next-line @next/next/no-img-element */}
+          <img src="/images/logo-badung.png" alt="Logo Badung" className="w-10 h-10 object-contain drop-shadow-sm shrink-0 bg-white rounded-md p-0.5" />
+          <div className="flex flex-col mt-0.5">
+            <h1 className="text-2xl font-black text-white tracking-tight leading-none mb-1.5">SATE</h1>
+            <p className="text-[10px] text-slate-400 leading-snug font-medium tracking-wide pr-2">
+              SISTEM ASET TERINTEGRASI
+              <br />
+              EFEKTIF AKUNTABEL
+              <br />
+              TRANSPARAN
+            </p>
           </div>
         </div>
 
@@ -52,7 +69,6 @@ export default function AdminSidebar({ isOpen, setIsOpen }: AdminSidebarProps) {
             </Link>
           </li>
 
-          {/* MENU KATEGORI DENGAN SUBMENU */}
           <li>
             <button
               onClick={() => setIsKategoriOpen(!isKategoriOpen)}
@@ -64,8 +80,6 @@ export default function AdminSidebar({ isOpen, setIsOpen }: AdminSidebarProps) {
               </div>
               <ChevronDown size={16} className={`transition-transform duration-200 ${isKategoriOpen ? "rotate-180" : ""}`} />
             </button>
-
-            {/* Isi Submenu */}
             <div className={`overflow-hidden transition-all duration-300 ease-in-out ${isKategoriOpen ? "max-h-40 opacity-100 mt-1" : "max-h-0 opacity-0"}`}>
               <ul className="flex flex-col gap-1 pl-11 pr-2 border-l border-slate-700 ml-5">
                 <li>
@@ -100,6 +114,18 @@ export default function AdminSidebar({ isOpen, setIsOpen }: AdminSidebarProps) {
               <span>Inventaris</span>
             </Link>
           </li>
+
+          <li>
+            <Link
+              onClick={closeMenuMobile}
+              href="/admin/pemeliharaan"
+              className={`flex items-center gap-3 px-3 py-2.5 rounded-lg text-sm font-semibold transition-colors group ${pathname === "/admin/pemeliharaan" ? "text-white bg-blue-600/20 border-l-4 border-blue-600" : "text-slate-300 hover:bg-slate-800 hover:text-white"}`}
+            >
+              <Wrench size={20} className={pathname === "/admin/pemeliharaan" ? "text-blue-600" : "group-hover:text-white"} />
+              <span>Pemeliharaan</span>
+            </Link>
+          </li>
+
           <li>
             <Link
               onClick={closeMenuMobile}
@@ -110,6 +136,7 @@ export default function AdminSidebar({ isOpen, setIsOpen }: AdminSidebarProps) {
               <span>Pengguna</span>
             </Link>
           </li>
+
           <li>
             <Link
               onClick={closeMenuMobile}
@@ -123,10 +150,11 @@ export default function AdminSidebar({ isOpen, setIsOpen }: AdminSidebarProps) {
         </ul>
 
         <div className="px-4 mt-auto">
-          <Link onClick={closeMenuMobile} href="/login" className="w-full flex items-center gap-3 px-3 py-2.5 rounded-lg text-slate-400 text-sm font-semibold hover:bg-red-500/10 hover:text-red-500 transition-colors group">
+          {/* UBAH LINK MENJADI BUTTON AGAR FUNGSI LOGOUT BERJALAN */}
+          <button onClick={handleLogout} className="w-full flex items-center gap-3 px-3 py-2.5 rounded-lg text-slate-400 text-sm font-semibold hover:bg-red-500/10 hover:text-red-500 transition-colors group">
             <LogOut size={20} className="group-hover:text-red-500 transition-colors" />
             <span>Keluar</span>
-          </Link>
+          </button>
         </div>
       </nav>
     </>

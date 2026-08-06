@@ -1,95 +1,90 @@
 "use client";
 
-import { useState } from "react";
-import { Search, Filter, Download, ChevronDown, Upload, Plus, Edit, Trash2, ChevronLeft, ChevronRight, Eye } from "lucide-react";
+import { useState, useEffect } from "react";
+import { Search, Filter, Download, ChevronDown, Upload, Plus, Edit, Trash2, ChevronLeft, ChevronRight, Eye, Loader2 } from "lucide-react";
 
 import { generatePdfKibB, AssetItem } from "@/utils/exportPdfKibB";
 import AssetCreateModal from "@/components/AssetCreateModal";
 import AssetDetailModal, { AssetType } from "@/components/AssetDetailModal";
 import AssetEditModal from "@/components/AssetEditModal";
-
-// --- MOCK DATA ---
-const mockInventaris: AssetItem[] = [
-  {
-    id: 1,
-    kode: "02.06.01.01.01",
-    nama: "Laptop ASUS ExpertBook",
-    nomorRegister: "0001",
-    merk: "ASUS",
-    ukuran: "14 inch",
-    bahan: "Plastik",
-    tahun: "2023",
-    pabrik: "PF12345",
-    rangka: "-",
-    mesin: "-",
-    polisi: "-",
-    bpkb: "-",
-    asalUsul: "APBD",
-    harga: 15000000,
-    kondisi: "Baik",
-    kir: "Ruang Camat",
-    keterangan: "Baik",
-  },
-  {
-    id: 2,
-    kode: "02.06.02.01.15",
-    nama: "Printer Laser Color",
-    nomorRegister: "0002",
-    merk: "HP",
-    ukuran: "A4",
-    bahan: "Plastik",
-    tahun: "2022",
-    pabrik: "-",
-    rangka: "-",
-    mesin: "-",
-    polisi: "-",
-    bpkb: "-",
-    asalUsul: "APBD",
-    harga: 2800000,
-    kondisi: "Baik",
-    kir: "Ruang Pelayanan",
-    keterangan: "-",
-  },
-  {
-    id: 3,
-    kode: "02.06.01.04.02",
-    nama: "Proyektor DLP",
-    nomorRegister: "0003",
-    merk: "Epson",
-    ukuran: "-",
-    bahan: "Plastik",
-    tahun: "2021",
-    pabrik: "-",
-    rangka: "-",
-    mesin: "-",
-    polisi: "-",
-    bpkb: "-",
-    asalUsul: "APBD",
-    harga: 5500000,
-    kondisi: "Rusak Ringan",
-    kir: "Ruang Rapat Utama",
-    keterangan: "-",
-  },
-];
+import { createClient } from "@/lib/supabase";
 
 export default function InventarisAdminPage() {
-  // --- STATE DATA TABEL ---
-  const [dataInventaris, setDataInventaris] = useState<AssetItem[]>(mockInventaris);
+  const [dataInventaris, setDataInventaris] = useState<AssetItem[]>([]);
+  const [isLoading, setIsLoading] = useState(true);
 
-  // --- STATE PENCARIAN & FILTER ---
   const [searchTerm, setSearchTerm] = useState("");
   const [showFilter, setShowFilter] = useState(false);
   const [filterTahun, setFilterTahun] = useState("");
   const [filterKondisi, setFilterKondisi] = useState("");
   const [filterKir, setFilterKir] = useState("");
 
-  // --- STATE MODAL ---
   const [isCreateModalOpen, setIsCreateModalOpen] = useState(false);
   const [isEditModalOpen, setIsEditModalOpen] = useState(false);
+  const [isDetailModalOpen, setIsDetailModalOpen] = useState(false);
   const [selectedAsset, setSelectedAsset] = useState<AssetType | null>(null);
   const [assetToEdit, setAssetToEdit] = useState<AssetItem | null>(null);
 
-  // --- LOGIKA FILTERING ---
+  const supabase = createClient();
+
+  const fetchInventaris = async () => {
+    setIsLoading(true);
+
+    const { data, error } = await supabase.from("inventaris_kib_b").select(`*, kir:master_kir(nama_ruangan), asal_usul:master_asal_usul(nama_asal)`).order("id", { ascending: false });
+
+    if (error) {
+      console.error("Error fetching data:", error.message);
+      alert("Gagal mengambil data dari database!");
+    } else if (data) {
+      // 1. PERBAIKAN ERROR MERAH: Mengubah (item: any) menjadi (item: Record<string, any>)
+      // eslint-disable-next-line @typescript-eslint/no-explicit-any
+      const formattedData: AssetItem[] = data.map((item: Record<string, any>) => ({
+        id: item.id,
+        kode: item.kode_barang,
+        nama: item.nama_barang,
+        nomorRegister: item.nomor_register || "0000",
+        merk: item.merk_type || "-",
+        ukuran: item.ukuran_cc || "-",
+        bahan: item.bahan || "-",
+        tahun: item.tahun_beli || "-",
+        pabrik: item.pabrik || "-",
+        rangka: item.no_rangka || "-",
+        mesin: item.no_mesin || "-",
+        polisi: item.no_polisi || "-",
+        bpkb: item.no_bpkb || "-",
+        asalUsul: item.asal_usul?.nama_asal || "-",
+        asal_usul_id: item.asal_usul_id,
+        harga: item.harga || 0,
+        kondisi: item.kondisi,
+        kir: item.kir?.nama_ruangan || "-",
+        kir_id: item.kir_id,
+        keterangan: item.keterangan || "-",
+        foto: item.foto_url || null,
+      }));
+
+      setDataInventaris(formattedData);
+    }
+
+    setIsLoading(false);
+  };
+
+  useEffect(() => {
+    // 2. PERBAIKAN ERROR MERAH: Membungkus fungsi dengan setTimeout
+    setTimeout(() => {
+      fetchInventaris();
+    }, 0);
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, []);
+
+  const handleDelete = async (id: number, nama: string) => {
+    const confirmDelete = window.confirm(`Peringatan!\n\nApakah Anda yakin ingin menghapus "${nama}"?\nData yang dihapus tidak dapat dikembalikan.`);
+    if (confirmDelete) {
+      const { error } = await supabase.from("inventaris_kib_b").delete().eq("id", id);
+      if (error) alert("Gagal menghapus data: " + error.message);
+      else setDataInventaris(dataInventaris.filter((item) => item.id !== id));
+    }
+  };
+
   const filteredData = dataInventaris.filter((item) => {
     const matchSearch = item.nama.toLowerCase().includes(searchTerm.toLowerCase()) || item.kode.includes(searchTerm);
     const matchTahun = filterTahun === "" || item.tahun === filterTahun;
@@ -98,24 +93,19 @@ export default function InventarisAdminPage() {
     return matchSearch && matchTahun && matchKondisi && matchKir;
   });
 
-  // --- FUNGSI CRUD TABEL ---
-  const handleDelete = (id: number, nama: string) => {
-    const confirmDelete = window.confirm(`Peringatan!\n\nApakah Anda yakin ingin menghapus "${nama}"?\nData yang dihapus tidak dapat dikembalikan.`);
-    if (confirmDelete) {
-      const newData = dataInventaris.filter((item) => item.id !== id);
-      setDataInventaris(newData);
-    }
-  };
-
   const handleEditClick = (item: AssetItem) => {
     setAssetToEdit(item);
     setIsEditModalOpen(true);
   };
 
+  const handleOpenDetail = (item: AssetItem) => {
+    setSelectedAsset(item as unknown as AssetType);
+    setIsDetailModalOpen(true);
+  };
+
   const exportToPDF = () => generatePdfKibB(filteredData);
   const exportToExcel = () => alert("Fitur Export Excel akan menggunakan library SheetJS (xlsx) nantinya.");
 
-  // --- FUNGSI TAMPILAN BADGE ---
   const getKondisiBadge = (kondisi: string) => {
     if (kondisi === "Baik")
       return (
@@ -138,25 +128,21 @@ export default function InventarisAdminPage() {
 
   return (
     <div className="max-w-7xl mx-auto space-y-6">
-      {/* HEADER HALAMAN & TOOLBAR */}
       <div className="flex flex-col xl:flex-row justify-between items-start xl:items-end gap-4">
         <div>
           <h2 className="text-2xl font-bold text-slate-900 tracking-tight">Daftar Inventaris KIB B</h2>
           <p className="text-sm text-slate-500 mt-1">Kelola data peralatan dan mesin secara terpusat.</p>
         </div>
 
-        {/* Toolbar (Pencarian & Tombol Aksi) */}
         <div className="flex flex-col sm:flex-row flex-wrap items-center gap-3 w-full xl:w-auto mt-2 xl:mt-0">
           <div className="relative w-full sm:flex-1 sm:min-w-50 xl:w-64">
-            <div className="absolute inset-y-0 left-0 pl-3 flex items-center pointer-events-none text-slate-400">
-              <Search size={18} />
-            </div>
+            <Search className="absolute inset-y-0 left-3 top-1/2 -translate-y-1/2 text-slate-400" size={18} />
             <input
               type="text"
               placeholder="Cari aset..."
               value={searchTerm}
               onChange={(e) => setSearchTerm(e.target.value)}
-              className="block w-full pl-10 pr-3 py-2.5 sm:py-2 border border-slate-200 rounded-lg text-sm placeholder-slate-400 focus:outline-none focus:ring-2 focus:ring-blue-600 focus:border-blue-600 transition-shadow bg-white text-slate-800 shadow-sm"
+              className="block w-full pl-10 pr-3 py-2.5 sm:py-2 border border-slate-200 rounded-lg text-sm bg-white text-slate-800 shadow-sm outline-none focus:ring-2 focus:ring-blue-600"
             />
           </div>
 
@@ -165,15 +151,14 @@ export default function InventarisAdminPage() {
               onClick={() => setShowFilter(!showFilter)}
               className={`flex justify-center items-center gap-2 border text-sm font-semibold py-2.5 sm:py-2 px-3 rounded-lg transition-all shadow-sm ${showFilter ? "bg-blue-50 border-blue-200 text-blue-700" : "bg-white border-slate-200 text-slate-700 hover:bg-slate-50"}`}
             >
-              <Filter size={16} className={showFilter ? "text-blue-600" : "text-slate-500"} />
-              <span>Filter</span>
+              <Filter size={16} />
+              <span className="hidden sm:inline">Filter</span>
             </button>
-
             <div className="relative group w-full sm:w-auto">
               <button className="w-full flex justify-center items-center gap-2 bg-white border border-slate-200 text-slate-700 hover:bg-slate-50 hover:shadow-sm text-sm font-semibold py-2.5 sm:py-2 px-3 rounded-lg transition-all">
-                <Download size={16} className="text-slate-500" />
-                <span>Export</span>
-                <ChevronDown size={14} className="text-slate-400 hidden sm:block" />
+                <Download size={16} />
+                <span className="hidden sm:inline">Export</span>
+                <ChevronDown size={14} className="hidden sm:block" />
               </button>
               <div className="absolute right-0 mt-1 w-full sm:w-32 bg-white border border-slate-200 rounded-lg shadow-lg py-1 opacity-0 invisible group-hover:opacity-100 group-hover:visible transition-all z-10">
                 <button onClick={exportToExcel} className="w-full text-left px-4 py-2 text-sm text-slate-700 hover:bg-slate-50 transition-colors">
@@ -184,12 +169,10 @@ export default function InventarisAdminPage() {
                 </button>
               </div>
             </div>
-
             <button className="flex justify-center items-center gap-2 bg-white border border-slate-200 text-slate-700 hover:bg-slate-50 hover:shadow-sm text-sm font-semibold py-2.5 sm:py-2 px-3 rounded-lg transition-all">
-              <Upload size={16} className="text-slate-500" />
+              <Upload size={16} />
               <span className="hidden sm:inline">Import CSV</span>
             </button>
-
             <button onClick={() => setIsCreateModalOpen(true)} className="flex justify-center items-center gap-2 bg-blue-600 hover:bg-blue-700 text-white py-2.5 sm:py-2 px-4 rounded-lg text-sm font-semibold transition-colors shadow-sm">
               <Plus size={18} />
               <span className="hidden sm:inline">Tambah Aset</span>
@@ -198,25 +181,21 @@ export default function InventarisAdminPage() {
         </div>
       </div>
 
-      {/* PANEL FILTER */}
       {showFilter && (
         <div className="bg-white p-4 rounded-xl border border-slate-200 shadow-sm flex flex-col sm:flex-row flex-wrap items-start sm:items-center gap-4 animate-in slide-in-from-top-2 duration-200">
           <div className="flex items-center gap-2 w-full sm:w-auto">
             <span className="text-sm font-semibold text-slate-700 w-16">Tahun:</span>
-            <select value={filterTahun} onChange={(e) => setFilterTahun(e.target.value)} className="flex-1 sm:w-40 border border-slate-200 rounded-lg px-3 py-2 sm:py-1.5 text-sm text-slate-700 focus:ring-2 focus:ring-blue-600 outline-none">
+            <select value={filterTahun} onChange={(e) => setFilterTahun(e.target.value)} className="flex-1 sm:w-40 border border-slate-200 rounded-lg px-3 py-2 sm:py-1.5 text-sm text-slate-700 outline-none">
               <option value="">Semua</option>
+              <option value="2026">2026</option>
+              <option value="2025">2025</option>
+              <option value="2024">2024</option>
               <option value="2023">2023</option>
-              <option value="2022">2022</option>
-              <option value="2021">2021</option>
             </select>
           </div>
           <div className="flex items-center gap-2 w-full sm:w-auto">
             <span className="text-sm font-semibold text-slate-700 w-16">Kondisi:</span>
-            <select
-              value={filterKondisi}
-              onChange={(e) => setFilterKondisi(e.target.value)}
-              className="flex-1 sm:w-40 border border-slate-200 rounded-lg px-3 py-2 sm:py-1.5 text-sm text-slate-700 focus:ring-2 focus:ring-blue-600 outline-none"
-            >
+            <select value={filterKondisi} onChange={(e) => setFilterKondisi(e.target.value)} className="flex-1 sm:w-40 border border-slate-200 rounded-lg px-3 py-2 sm:py-1.5 text-sm text-slate-700 outline-none">
               <option value="">Semua</option>
               <option value="Baik">Baik</option>
               <option value="Rusak Ringan">Rusak Ringan</option>
@@ -225,11 +204,11 @@ export default function InventarisAdminPage() {
           </div>
           <div className="flex items-center gap-2 w-full sm:w-auto">
             <span className="text-sm font-semibold text-slate-700 w-16 sm:w-10">KIR:</span>
-            <select value={filterKir} onChange={(e) => setFilterKir(e.target.value)} className="flex-1 sm:w-48 border border-slate-200 rounded-lg px-3 py-2 sm:py-1.5 text-sm text-slate-700 focus:ring-2 focus:ring-blue-600 outline-none">
+            <select value={filterKir} onChange={(e) => setFilterKir(e.target.value)} className="flex-1 sm:w-48 border border-slate-200 rounded-lg px-3 py-2 sm:py-1.5 text-sm text-slate-700 outline-none">
               <option value="">Semua Ruangan</option>
               <option value="Ruang Camat">Ruang Camat</option>
               <option value="Ruang Pelayanan">Ruang Pelayanan</option>
-              <option value="Ruang Rapat Utama">Ruang Rapat Utama</option>
+              <option value="Garasi">Garasi</option>
             </select>
           </div>
           <button
@@ -245,9 +224,8 @@ export default function InventarisAdminPage() {
         </div>
       )}
 
-      {/* CARD TABEL */}
-      <div className="bg-white rounded-xl border border-slate-200 shadow-sm overflow-hidden flex flex-col w-full">
-        <div className="overflow-x-auto w-full">
+      <div className="bg-white rounded-xl border border-slate-200 shadow-sm overflow-hidden flex flex-col w-full min-h-100">
+        <div className="overflow-x-auto w-full flex-1">
           <table className="min-w-full text-left border-collapse whitespace-nowrap">
             <thead>
               <tr className="bg-slate-50 border-b border-slate-200 text-xs font-semibold text-slate-500 uppercase tracking-wider">
@@ -260,7 +238,16 @@ export default function InventarisAdminPage() {
               </tr>
             </thead>
             <tbody className="divide-y divide-slate-200 text-sm text-slate-700">
-              {filteredData.length > 0 ? (
+              {isLoading ? (
+                <tr>
+                  <td colSpan={6} className="px-6 py-20 text-center">
+                    <div className="flex flex-col items-center justify-center text-slate-500 gap-3">
+                      <Loader2 size={32} className="animate-spin text-blue-600" />
+                      <p>Memuat data dari Database...</p>
+                    </div>
+                  </td>
+                </tr>
+              ) : filteredData.length > 0 ? (
                 filteredData.map((item, index) => (
                   <tr key={item.id} className="hover:bg-slate-50/80 transition-colors">
                     <td className="px-6 py-4 text-slate-500">{index + 1}</td>
@@ -269,9 +256,8 @@ export default function InventarisAdminPage() {
                     <td className="px-6 py-4">{getKondisiBadge(item.kondisi)}</td>
                     <td className="px-6 py-4 text-right tabular-nums">{item.harga.toLocaleString("id-ID")}</td>
                     <td className="px-6 py-4 text-center">
-                      {/* IKON AKSI PERMANEN (Tidak perlu hover) */}
                       <div className="flex items-center justify-center gap-1.5">
-                        <button onClick={() => setSelectedAsset(item as unknown as AssetType)} className="p-1.5 text-slate-400 hover:text-blue-600 hover:bg-blue-50 rounded-md transition-colors" title="Lihat Detail">
+                        <button onClick={() => handleOpenDetail(item)} className="p-1.5 text-slate-400 hover:text-blue-600 hover:bg-blue-50 rounded-md transition-colors" title="Lihat Detail">
                           <Eye size={16} />
                         </button>
                         <button onClick={() => handleEditClick(item)} className="p-1.5 text-slate-400 hover:text-blue-600 hover:bg-blue-50 rounded-md transition-colors" title="Edit Data">
@@ -287,7 +273,7 @@ export default function InventarisAdminPage() {
               ) : (
                 <tr>
                   <td colSpan={6} className="px-6 py-12 text-center text-slate-500">
-                    Tidak ada data yang sesuai filter.
+                    Tidak ada data inventaris.
                   </td>
                 </tr>
               )}
@@ -295,7 +281,6 @@ export default function InventarisAdminPage() {
           </table>
         </div>
 
-        {/* PAGINATION */}
         <div className="px-6 py-4 border-t border-slate-200 bg-white flex flex-col sm:flex-row items-center justify-between gap-4 mt-auto">
           <div className="text-sm text-slate-500 text-center sm:text-left">
             Showing <span className="font-semibold text-slate-800">{filteredData.length > 0 ? 1 : 0}</span> to <span className="font-semibold text-slate-800">{filteredData.length}</span> of{" "}
@@ -306,7 +291,7 @@ export default function InventarisAdminPage() {
               <ChevronLeft size={18} />
             </button>
             <div className="hidden sm:flex items-center gap-1">
-              <button className="w-8 h-8 rounded-lg flex items-center justify-center text-sm font-semibold bg-blue-600 text-white shadow-sm">1</button>
+              <button className="w-8 h-8 rounded-lg flex items-center justify-center text-sm font-semibold bg-blue-50 text-blue-600">1</button>
             </div>
             <button className="p-2 border border-slate-200 rounded-lg text-slate-700 hover:bg-slate-50 transition-colors disabled:opacity-50" disabled>
               <ChevronRight size={18} />
@@ -315,19 +300,20 @@ export default function InventarisAdminPage() {
         </div>
       </div>
 
-      {/* --- KOMPONEN MODAL DARI FILE LUAR --- */}
-      <AssetDetailModal isOpen={selectedAsset !== null} onClose={() => setSelectedAsset(null)} asset={selectedAsset} />
-
-      <AssetCreateModal isOpen={isCreateModalOpen} onClose={() => setIsCreateModalOpen(false)} />
-
+      <AssetDetailModal isOpen={isDetailModalOpen} onClose={() => setIsDetailModalOpen(false)} asset={selectedAsset} />
+      <AssetCreateModal
+        isOpen={isCreateModalOpen}
+        onClose={() => {
+          setIsCreateModalOpen(false);
+          fetchInventaris();
+        }}
+      />
       <AssetEditModal
         isOpen={isEditModalOpen}
         onClose={() => setIsEditModalOpen(false)}
         asset={assetToEdit}
-        onSave={(updatedAsset) => {
-          // Logika menyimpan data hasil editan kembali ke tabel
-          const updatedList = dataInventaris.map((item) => (item.id === updatedAsset.id ? updatedAsset : item));
-          setDataInventaris(updatedList);
+        onSave={() => {
+          fetchInventaris();
         }}
       />
     </div>

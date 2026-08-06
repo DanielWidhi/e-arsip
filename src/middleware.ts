@@ -1,39 +1,51 @@
-// src/middleware.ts
-import { NextResponse } from "next/server";
-import type { NextRequest } from "next/server";
+import { createServerClient, type CookieOptions } from "@supabase/ssr";
+import { NextResponse, type NextRequest } from "next/server";
 
-export function middleware(request: NextRequest) {
-  // 1. Ambil URL tujuan pengguna
-  const path = request.nextUrl.pathname;
+export async function middleware(request: NextRequest) {
+  // 1. Persiapkan respons default
+  let supabaseResponse = NextResponse.next({
+    request: {
+      headers: request.headers,
+    },
+  });
 
-  // 2. Cek apakah pengguna mencoba masuk ke area yang dilindungi
-  const isProtectedPath = path.startsWith("/admin") || path.startsWith("/superadmin");
+  // 2. Inisialisasi Supabase khusus untuk Server (Membaca Cookie Asli)
+  const supabase = createServerClient(process.env.NEXT_PUBLIC_SUPABASE_URL!, process.env.NEXT_PUBLIC_SUPABASE_ANON_KEY!, {
+    cookies: {
+      getAll() {
+        return request.cookies.getAll();
+      },
+      setAll(cookiesToSet) {
+        cookiesToSet.forEach(({ name, value }) => request.cookies.set(name, value));
+        supabaseResponse = NextResponse.next({
+          request,
+        });
+        cookiesToSet.forEach(({ name, value, options }) => supabaseResponse.cookies.set(name, value, options));
+      },
+    },
+  });
 
-  // 3. Cek Tiket Login (Untuk saat ini kita deteksi dari Cookies)
-  // (Nantinya kode ini akan disesuaikan dengan Supabase Auth)
-  const isAuthenticated = request.cookies.has("sb-access-token"); // Nama cookie standar Supabase
+  // 3. Minta Supabase mengecek apakah ada User asli yang sedang login
+  const {
+    data: { user },
+  } = await supabase.auth.getUser();
 
-  // 4. LOGIKA PENJAGA GERBANG:
-  // Jika mencoba masuk area terlindungi TAPI tidak terotentikasi (belum login)
-  if (isProtectedPath && !isAuthenticated) {
-    // Tendang (Redirect) kembali ke halaman Login!
+  // 4. LOGIKA PENJAGA GERBANG
+  const isProtectedPath = request.nextUrl.pathname.startsWith("/admin");
+
+  if (isProtectedPath && !user) {
+    // Jika mau masuk halaman admin TAPI user tidak valid -> Tendang ke /login
     return NextResponse.redirect(new URL("/login", request.url));
   }
 
-  // Jika aman (sudah login, atau mengakses halaman publik seperti Beranda/Arsip), biarkan lewat
-  return NextResponse.next();
+  // Jika aman, biarkan lewat
+  return supabaseResponse;
 }
 
-// 5. Konfigurasi agar middleware hanya berjalan di URL tertentu (biar website tidak lambat)
 export const config = {
   matcher: [
     /*
-     * Cocokkan semua request path KECUALI untuk:
-     * - api (API routes)
-     * - _next/static (static files)
-     * - _next/image (image optimization files)
-     * - favicon.ico (favicon file)
-     * - public folder (images, etc)
+     * Mengecek semua rute KECUALI file statis (gambar, css, dll)
      */
     "/((?!api|_next/static|_next/image|favicon.ico|images/|.*\\..*).*)",
   ],

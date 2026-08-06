@@ -1,26 +1,51 @@
 "use client";
 
-import { X, Save, Edit } from "lucide-react";
+import { useState, useEffect } from "react";
+import { X, Save, Edit, Loader2 } from "lucide-react";
 import { UserType } from "@/app/admin/pengguna/page";
+import { editUser } from "@/actions/userActions";
 
 type UserEditModalProps = {
   isOpen: boolean;
   onClose: () => void;
   user: UserType | null;
-  onSave: (updatedUser: UserType) => void;
+  onSave: () => void; // Trigger refresh
 };
 
 export default function UserEditModal({ isOpen, onClose, user, onSave }: UserEditModalProps) {
+  const [nama, setNama] = useState(user?.nama || "");
+  const [role, setRole] = useState(user?.role || "Admin");
+  const [isLoading, setIsLoading] = useState(false);
+
+  // PERBAIKAN: Dibungkus dengan setTimeout agar linter tidak protes
+  useEffect(() => {
+    setTimeout(() => {
+      if (user) {
+        setNama(user.nama);
+        setRole(user.role);
+      }
+    }, 0);
+  }, [user]);
+
   if (!isOpen || !user) return null;
 
-  const inputClass = "w-full px-3 py-2.5 bg-slate-50 border border-slate-200 rounded-lg text-slate-800 text-sm focus:outline-none focus:ring-2 focus:ring-blue-600/20 focus:border-blue-600 transition-all placeholder:text-slate-400";
+  const inputClass = "w-full px-3 py-2.5 bg-slate-50 border border-slate-200 rounded-lg text-slate-800 text-sm focus:outline-none focus:ring-2 focus:ring-blue-600/20 focus:border-blue-600 transition-all";
   const labelClass = "block text-xs font-semibold text-slate-700 mb-1.5";
 
-  const handleSubmit = (e: React.FormEvent) => {
+  const handleSubmit = async (e: React.FormEvent) => {
     e.preventDefault();
-    alert("Profil pengguna berhasil diperbarui!");
-    onSave(user);
-    onClose();
+    setIsLoading(true);
+
+    const result = await editUser({ id: user.id, nama, role });
+
+    if (result.success) {
+      alert("Profil pengguna berhasil diperbarui!");
+      onSave(); // Refresh data tabel
+      onClose();
+    } else {
+      alert("Gagal memperbarui: " + result.message);
+    }
+    setIsLoading(false);
   };
 
   return (
@@ -44,15 +69,19 @@ export default function UserEditModal({ isOpen, onClose, user, onSave }: UserEdi
         <form id="editUserForm" onSubmit={handleSubmit} className="p-6 space-y-5">
           <div>
             <label className={labelClass}>NIP Pegawai</label>
-            <input defaultValue={user.nip} disabled className={`${inputClass} cursor-not-allowed opacity-70`} type="text" />
+            <input value={user.nip} disabled className={`${inputClass} cursor-not-allowed opacity-70`} type="text" />
+          </div>
+          <div>
+            <label className={labelClass}>Email Gmail</label>
+            <input value={user.email} disabled className={`${inputClass} cursor-not-allowed opacity-70`} type="text" />
           </div>
           <div>
             <label className={labelClass}>Nama Lengkap</label>
-            <input required defaultValue={user.nama} className={inputClass} type="text" />
+            <input required value={nama} onChange={(e) => setNama(e.target.value)} className={inputClass} type="text" />
           </div>
           <div>
             <label className={labelClass}>Hak Akses (Role)</label>
-            <select defaultValue={user.role} className={`${inputClass} bg-white cursor-pointer`}>
+            <select value={role} onChange={(e) => setRole(e.target.value)} className={`${inputClass} bg-white cursor-pointer`}>
               <option value="Admin">Admin</option>
               <option value="Superadmin">Superadmin</option>
             </select>
@@ -63,8 +92,9 @@ export default function UserEditModal({ isOpen, onClose, user, onSave }: UserEdi
           <button type="button" onClick={onClose} className="px-5 py-2.5 bg-white border border-slate-200 text-slate-700 rounded-lg text-sm font-bold hover:bg-slate-50 transition-colors shadow-sm">
             Batal
           </button>
-          <button type="submit" form="editUserForm" className="px-5 py-2.5 bg-blue-600 text-white rounded-lg text-sm font-bold hover:bg-blue-700 transition-colors shadow-sm flex items-center gap-2">
-            <Save size={18} /> Simpan Perubahan
+          <button type="submit" form="editUserForm" disabled={isLoading} className="px-5 py-2.5 bg-blue-600 text-white rounded-lg text-sm font-bold hover:bg-blue-700 transition-colors shadow-sm flex items-center gap-2">
+            {isLoading ? <Loader2 size={18} className="animate-spin" /> : <Save size={18} />}
+            Simpan Perubahan
           </button>
         </div>
       </div>

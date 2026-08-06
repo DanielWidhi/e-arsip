@@ -1,29 +1,52 @@
 "use client";
 
-import { useState } from "react";
-import { Search, Plus, Edit, Trash2, X, Save } from "lucide-react";
+import { useState, useEffect } from "react";
+import { Search, Plus, Edit, Trash2, X, Save, Loader2 } from "lucide-react";
+import { createClient } from "@/lib/supabase";
+
+type AsalUsulType = {
+  id: number;
+  nama_asal: string;
+};
 
 export default function MasterAsalUsulPage() {
-  const [dataAsal, setDataAsal] = useState([
-    { id: 1, nama: "APBD Kabupaten" },
-    { id: 2, nama: "APBD Provinsi" },
-    { id: 3, nama: "Hibah Pihak Ketiga" },
-    { id: 4, nama: "Bantuan Pusat" },
-  ]);
-
+  const [dataAsal, setDataAsal] = useState<AsalUsulType[]>([]);
+  const [isLoading, setIsLoading] = useState(true);
+  const [isSaving, setIsSaving] = useState(false);
   const [searchTerm, setSearchTerm] = useState("");
 
-  // State untuk Modal
   const [isModalOpen, setIsModalOpen] = useState(false);
   const [editingId, setEditingId] = useState<number | null>(null);
   const [inputValue, setInputValue] = useState("");
 
-  const filteredData = dataAsal.filter((item) => item.nama.toLowerCase().includes(searchTerm.toLowerCase()));
+  const supabase = createClient();
 
-  const openModal = (item?: { id: number; nama: string }) => {
+  const fetchAsalUsul = async () => {
+    setIsLoading(true);
+    const { data, error } = await supabase.from("master_asal_usul").select("*").order("id", { ascending: true });
+
+    if (error) {
+      alert("Gagal mengambil data Asal Usul: " + error.message);
+    } else if (data) {
+      setDataAsal(data);
+    }
+    setIsLoading(false);
+  };
+
+  useEffect(() => {
+    // 1. PERBAIKAN ERROR MERAH: Dibungkus setTimeout
+    setTimeout(() => {
+      fetchAsalUsul();
+    }, 0);
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, []);
+
+  const filteredData = dataAsal.filter((item) => item.nama_asal.toLowerCase().includes(searchTerm.toLowerCase()));
+
+  const openModal = (item?: AsalUsulType) => {
     if (item) {
       setEditingId(item.id);
-      setInputValue(item.nama);
+      setInputValue(item.nama_asal);
     } else {
       setEditingId(null);
       setInputValue("");
@@ -31,19 +54,39 @@ export default function MasterAsalUsulPage() {
     setIsModalOpen(true);
   };
 
-  const handleSave = (e: React.FormEvent) => {
+  const handleSave = async (e: React.FormEvent) => {
     e.preventDefault();
+    if (!inputValue.trim()) return;
+
+    setIsSaving(true);
+
     if (editingId) {
-      setDataAsal(dataAsal.map((k) => (k.id === editingId ? { ...k, nama: inputValue } : k)));
+      const { error } = await supabase.from("master_asal_usul").update({ nama_asal: inputValue }).eq("id", editingId);
+
+      if (error) alert("Gagal mengubah data: " + error.message);
+      else fetchAsalUsul();
     } else {
-      setDataAsal([...dataAsal, { id: Date.now(), nama: inputValue }]);
+      const { error } = await supabase.from("master_asal_usul").insert([{ nama_asal: inputValue }]);
+
+      if (error) alert("Gagal menambah data: " + error.message);
+      else fetchAsalUsul();
     }
+
     setIsModalOpen(false);
+    setIsSaving(false);
   };
 
-  const handleDelete = (id: number, nama: string) => {
-    if (window.confirm(`Hapus asal usul "${nama}" dari sistem?`)) {
-      setDataAsal(dataAsal.filter((k) => k.id !== id));
+  const handleDelete = async (id: number, nama: string) => {
+    const confirmDelete = window.confirm(`Apakah Anda yakin ingin menghapus sumber/asal "${nama}"?\nPastikan tidak ada barang yang menggunakan status asal-usul ini.`);
+
+    if (confirmDelete) {
+      const { error } = await supabase.from("master_asal_usul").delete().eq("id", id);
+
+      if (error) {
+        alert("Gagal menghapus data: " + error.message);
+      } else {
+        fetchAsalUsul();
+      }
     }
   };
 
@@ -73,8 +116,9 @@ export default function MasterAsalUsulPage() {
         </div>
       </div>
 
-      <div className="bg-white rounded-xl border border-slate-200 shadow-sm overflow-hidden w-full">
-        <div className="overflow-x-auto w-full">
+      {/* 2. PERBAIKAN WARNING KUNING: Mengubah min-h-[300px] menjadi min-h-75 */}
+      <div className="bg-white rounded-xl border border-slate-200 shadow-sm overflow-hidden w-full min-h-75 flex flex-col">
+        <div className="overflow-x-auto w-full flex-1">
           <table className="min-w-full text-left border-collapse whitespace-nowrap">
             <thead>
               <tr className="bg-slate-50 border-b border-slate-200 text-xs font-semibold text-slate-500 uppercase tracking-wider">
@@ -84,17 +128,23 @@ export default function MasterAsalUsulPage() {
               </tr>
             </thead>
             <tbody className="divide-y divide-slate-200 text-sm text-slate-700">
-              {filteredData.length > 0 ? (
+              {isLoading ? (
+                <tr>
+                  <td colSpan={3} className="px-6 py-16 text-center">
+                    <Loader2 className="animate-spin mx-auto text-blue-600" size={32} />
+                  </td>
+                </tr>
+              ) : filteredData.length > 0 ? (
                 filteredData.map((item, index) => (
                   <tr key={item.id} className="hover:bg-slate-50/80 transition-colors">
                     <td className="px-6 py-4 text-slate-500">{index + 1}</td>
-                    <td className="px-6 py-4 font-medium text-slate-900">{item.nama}</td>
+                    <td className="px-6 py-4 font-medium text-slate-900">{item.nama_asal}</td>
                     <td className="px-6 py-4 text-center">
                       <div className="flex items-center justify-center gap-1.5">
                         <button onClick={() => openModal(item)} className="p-1.5 text-slate-400 hover:text-blue-600 hover:bg-blue-50 rounded-md transition-colors">
                           <Edit size={16} />
                         </button>
-                        <button onClick={() => handleDelete(item.id, item.nama)} className="p-1.5 text-slate-400 hover:text-red-600 hover:bg-red-50 rounded-md transition-colors">
+                        <button onClick={() => handleDelete(item.id, item.nama_asal)} className="p-1.5 text-slate-400 hover:text-red-600 hover:bg-red-50 rounded-md transition-colors">
                           <Trash2 size={16} />
                         </button>
                       </div>
@@ -113,7 +163,6 @@ export default function MasterAsalUsulPage() {
         </div>
       </div>
 
-      {/* --- INLINE MODAL --- */}
       {isModalOpen && (
         <div className="fixed inset-0 z-50 flex items-center justify-center bg-slate-900/40 backdrop-blur-sm p-4" onClick={() => setIsModalOpen(false)}>
           <div className="w-full max-w-md bg-white rounded-xl shadow-2xl animate-in fade-in zoom-in-95" onClick={(e) => e.stopPropagation()}>
@@ -137,11 +186,12 @@ export default function MasterAsalUsulPage() {
                 />
               </div>
               <div className="flex justify-end gap-3">
-                <button type="button" onClick={() => setIsModalOpen(false)} className="px-4 py-2 text-sm font-semibold text-slate-600 bg-white border border-slate-200 rounded-lg hover:bg-slate-50">
+                <button type="button" onClick={() => setIsModalOpen(false)} className="px-4 py-2 text-sm font-semibold text-slate-600 bg-white border border-slate-200 rounded-lg hover:bg-slate-50 transition-colors">
                   Batal
                 </button>
-                <button type="submit" className="px-4 py-2 text-sm font-semibold text-white bg-blue-600 rounded-lg hover:bg-blue-700 flex items-center gap-2">
-                  <Save size={16} /> Simpan
+                <button type="submit" disabled={isSaving} className="px-4 py-2 text-sm font-semibold text-white bg-blue-600 rounded-lg hover:bg-blue-700 flex items-center gap-2 transition-colors disabled:opacity-50">
+                  {isSaving ? <Loader2 size={16} className="animate-spin" /> : <Save size={16} />}
+                  {isSaving ? "Menyimpan..." : "Simpan"}
                 </button>
               </div>
             </form>
