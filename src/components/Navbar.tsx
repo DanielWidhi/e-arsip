@@ -5,30 +5,33 @@ import Link from "next/link";
 import { User, Menu, X, ChevronDown, LayoutDashboard, LogOut } from "lucide-react";
 import { usePathname, useRouter } from "next/navigation";
 import { createClient } from "@/lib/supabase";
-// 1. IMPORT TIPE DATA 'Session' DARI SUPABASE
 import { Session } from "@supabase/supabase-js";
 
 export default function Navbar() {
   const [isOpen, setIsOpen] = useState(false);
   const [isProfileOpen, setIsProfileOpen] = useState(false);
-
-  const [userProfile, setUserProfile] = useState<{ nama: string; role: string } | null>(null);
+  const [userProfile, setUserProfile] = useState<{ nama: string; role: string; avatar_url?: string } | null>(null);
 
   const pathname = usePathname();
   const router = useRouter();
   const supabase = createClient();
 
-  useEffect(() => {
-    // 2. PERBAIKAN: Gunakan tipe data 'Session' yang resmi
-    const checkSession = async (session: Session | null) => {
-      if (session?.user?.email) {
-        const { data } = await supabase.from("users").select("nama, role").eq("email", session.user.email).single();
-        if (data) setUserProfile({ nama: data.nama, role: data.role });
-      } else {
-        setUserProfile(null);
+  const checkSession = async (session: Session | null) => {
+    if (session?.user?.email) {
+      const { data } = await supabase.from("users").select("nama, role, avatar_url").eq("email", session.user.email).single();
+      if (data) {
+        setUserProfile({
+          nama: data.nama,
+          role: data.role,
+          avatar_url: data.avatar_url, // Ambil avatar_url
+        });
       }
-    };
+    } else {
+      setUserProfile(null);
+    }
+  };
 
+  useEffect(() => {
     supabase.auth.getSession().then(({ data: { session } }) => {
       checkSession(session);
     });
@@ -39,7 +42,22 @@ export default function Navbar() {
       checkSession(session);
     });
 
-    return () => subscription.unsubscribe();
+    // ========================================================
+    // SENSOR "PENDENGAR": Ambil ulang foto jika ada sinyal upload baru
+    // ========================================================
+    const handleAvatarUpdate = async () => {
+      const {
+        data: { session },
+      } = await supabase.auth.getSession();
+      checkSession(session);
+    };
+
+    window.addEventListener("local-avatar-updated", handleAvatarUpdate);
+
+    return () => {
+      subscription.unsubscribe();
+      window.removeEventListener("local-avatar-updated", handleAvatarUpdate);
+    };
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, []);
 
@@ -78,9 +96,10 @@ export default function Navbar() {
           {userProfile ? (
             <div className="relative">
               <button onClick={() => setIsProfileOpen(!isProfileOpen)} className="flex items-center gap-2 hover:bg-slate-50 p-1.5 pr-3 rounded-lg transition-colors border border-transparent hover:border-slate-200">
-                <div className="w-8 h-8 rounded-full overflow-hidden bg-slate-200 shrink-0">
+                <div className="w-8 h-8 rounded-full overflow-hidden bg-slate-200 border border-slate-200 shrink-0">
+                  {/* UPDATE AVATAR DI SINI */}
                   {/* eslint-disable-next-line @next/next/no-img-element */}
-                  <img src={`https://ui-avatars.com/api/?name=${userProfile.nama}&background=0D8ABC&color=fff&bold=true`} alt="Profile" className="w-full h-full object-cover" />
+                  <img src={userProfile.avatar_url || `https://ui-avatars.com/api/?name=${userProfile.nama}&background=0D8ABC&color=fff&bold=true`} alt="Profile" className="w-full h-full object-cover" />
                 </div>
                 <div className="text-left hidden lg:block">
                   <p className="text-xs font-bold text-slate-800 truncate max-w-30">{userProfile.nama}</p>
@@ -129,8 +148,9 @@ export default function Navbar() {
           {userProfile && (
             <div className="flex items-center gap-3 pb-4 border-b border-slate-100">
               <div className="w-10 h-10 rounded-full overflow-hidden bg-slate-200 shrink-0">
+                {/* UPDATE AVATAR DI SINI */}
                 {/* eslint-disable-next-line @next/next/no-img-element */}
-                <img src={`https://ui-avatars.com/api/?name=${userProfile.nama}&background=0D8ABC&color=fff&bold=true`} alt="Profile" className="w-full h-full object-cover" />
+                <img src={userProfile.avatar_url || `https://ui-avatars.com/api/?name=${userProfile.nama}&background=0D8ABC&color=fff&bold=true`} alt="Profile" className="w-full h-full object-cover" />
               </div>
               <div>
                 <p className="text-sm font-bold text-slate-800">{userProfile.nama}</p>

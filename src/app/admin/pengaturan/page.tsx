@@ -1,21 +1,61 @@
 "use client";
 
-import { useState, useEffect } from "react";
-import { Eye, EyeOff, Camera, Loader2, Save } from "lucide-react";
+import { useState, useEffect, useRef, useCallback } from "react";
+import { Eye, EyeOff, Camera, Loader2, Save, X } from "lucide-react";
 import { createClient } from "@/lib/supabase";
+import Cropper, { Area } from "react-easy-crop";
+
+const createImage = (url: string): Promise<HTMLImageElement> =>
+  new Promise((resolve, reject) => {
+    const image = new Image();
+    image.addEventListener("load", () => resolve(image));
+    image.addEventListener("error", (error) => reject(error));
+    image.setAttribute("crossOrigin", "anonymous");
+    image.src = url;
+  });
+
+async function getCroppedImg(imageSrc: string, pixelCrop: Area, fileName: string): Promise<File> {
+  const image = await createImage(imageSrc);
+  const canvas = document.createElement("canvas");
+  const ctx = canvas.getContext("2d");
+
+  if (!ctx) throw new Error("No 2d context");
+
+  canvas.width = pixelCrop.width;
+  canvas.height = pixelCrop.height;
+
+  ctx.drawImage(image, pixelCrop.x, pixelCrop.y, pixelCrop.width, pixelCrop.height, 0, 0, pixelCrop.width, pixelCrop.height);
+
+  return new Promise((resolve, reject) => {
+    canvas.toBlob((blob) => {
+      if (!blob) {
+        reject(new Error("Canvas is empty"));
+        return;
+      }
+      resolve(new File([blob], fileName, { type: "image/jpeg" }));
+    }, "image/jpeg");
+  });
+}
 
 export default function PengaturanAdminPage() {
   const supabase = createClient();
 
   const [isLoading, setIsLoading] = useState(true);
   const [isSaving, setIsSaving] = useState(false);
-  const [profile, setProfile] = useState({ nip: "", nama: "", email: "" });
+  const [profile, setProfile] = useState({ id: 0, nip: "", nama: "", email: "", avatar_url: "" });
 
   const [newPassword, setNewPassword] = useState("");
   const [confirmPassword, setConfirmPassword] = useState("");
-
   const [showNewPassword, setShowNewPassword] = useState(false);
   const [showConfirmPassword, setShowConfirmPassword] = useState(false);
+
+  const fileInputRef = useRef<HTMLInputElement>(null);
+  const [imageSrc, setImageSrc] = useState<string | null>(null);
+  const [crop, setCrop] = useState({ x: 0, y: 0 });
+  const [zoom, setZoom] = useState(1);
+  const [croppedAreaPixels, setCroppedAreaPixels] = useState<Area | null>(null);
+  const [isCropModalOpen, setIsCropModalOpen] = useState(false);
+  const [isUploading, setIsUploading] = useState(false);
 
   useEffect(() => {
     const fetchProfile = async () => {
@@ -24,7 +64,7 @@ export default function PengaturanAdminPage() {
       } = await supabase.auth.getUser();
       if (user && user.email) {
         const { data } = await supabase.from("users").select("*").eq("email", user.email).single();
-        if (data) setProfile({ nip: data.nip, nama: data.nama, email: data.email });
+        if (data) setProfile({ id: data.id, nip: data.nip, nama: data.nama, email: data.email, avatar_url: data.avatar_url });
       }
       setIsLoading(false);
     };
@@ -32,24 +72,62 @@ export default function PengaturanAdminPage() {
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, []);
 
+  const onFileChange = async (e: React.ChangeEvent<HTMLInputElement>) => {
+    if (e.target.files && e.target.files.length > 0) {
+      const file = e.target.files[0];
+      const imageDataUrl = await new Promise<string>((resolve) => {
+        const reader = new FileReader();
+        reader.onload = (e) => resolve(e.target?.result as string);
+        reader.readAsDataURL(file);
+      });
+      setImageSrc(imageDataUrl);
+      setIsCropModalOpen(true);
+      if (fileInputRef.current) fileInputRef.current.value = "";
+    }
+  };
+
+  const onCropComplete = useCallback((_croppedArea: Area, croppedAreaPixels: Area) => {
+    setCroppedAreaPixels(croppedAreaPixels);
+  }, []);
+
+  const handleUploadAvatar = async () => {
+    if (!imageSrc || !croppedAreaPixels) return;
+    setIsUploading(true);
+
+    try {
+      const croppedFile = await getCroppedImg(imageSrc, croppedAreaPixels, `avatar_${profile.nip}_${Date.now()}.jpg`);
+
+      const { data: uploadData, error: uploadError } = await supabase.storage.from("avatars").upload(`public/${croppedFile.name}`, croppedFile, { cacheControl: "3600", upsert: true });
+
+      if (uploadError) throw uploadError;
+
+      const {
+        data: { publicUrl },
+      } = supabase.storage.from("avatars").getPublicUrl(uploadData.path);
+
+      const { error: dbError } = await supabase.from("users").update({ avatar_url: publicUrl }).eq("id", profile.id);
+      if (dbError) throw dbError;
+
+      alert("Foto profil berhasil diperbarui!");
+      setProfile({ ...profile, avatar_url: publicUrl });
+      setIsCropModalOpen(false);
+      window.dispatchEvent(new Event("local-avatar-updated"));
+    } catch (error: unknown) {
+      const errorMessage = error instanceof Error ? error.message : "Terjadi kesalahan yang tidak diketahui";
+      alert("Gagal mengupload foto: " + errorMessage);
+    }
+    setIsUploading(false);
+  };
+
   const handleUpdatePassword = async () => {
-    if (newPassword.length < 6) {
-      alert("Kata sandi minimal 6 karakter!");
-      return;
-    }
-    if (newPassword !== confirmPassword) {
-      alert("Konfirmasi kata sandi tidak cocok!");
-      return;
-    }
+    if (newPassword.length < 6) return alert("Kata sandi minimal 6 karakter!");
+    if (newPassword !== confirmPassword) return alert("Konfirmasi kata sandi tidak cocok!");
 
     setIsSaving(true);
-    // Supabase menyediakan API bawaan untuk user mengupdate password mereka sendiri dengan aman
     const { error } = await supabase.auth.updateUser({ password: newPassword });
-
-    if (error) {
-      alert("Gagal mengubah kata sandi: " + error.message);
-    } else {
-      alert("Kata sandi berhasil diperbarui! Silakan gunakan kata sandi baru untuk login selanjutnya.");
+    if (error) alert("Gagal mengubah kata sandi: " + error.message);
+    else {
+      alert("Kata sandi berhasil diperbarui!");
       setNewPassword("");
       setConfirmPassword("");
     }
@@ -63,6 +141,8 @@ export default function PengaturanAdminPage() {
       </div>
     );
 
+  const avatarImage = profile.avatar_url || `https://ui-avatars.com/api/?name=${profile.nama}&background=0D8ABC&color=fff&size=200&bold=true`;
+
   return (
     <div className="max-w-3xl mx-auto w-full">
       <div className="bg-white rounded-xl border border-slate-200 shadow-sm overflow-hidden">
@@ -74,13 +154,17 @@ export default function PengaturanAdminPage() {
         <div className="p-6 md:p-8">
           <div className="flex flex-col md:flex-row gap-8">
             <div className="shrink-0 flex flex-col items-center gap-3">
-              <div className="w-24 h-24 rounded-full bg-slate-100 overflow-hidden border border-slate-200 relative group cursor-pointer">
+              <input type="file" accept="image/*" className="hidden" ref={fileInputRef} onChange={onFileChange} />
+              <div onClick={() => fileInputRef.current?.click()} className="w-24 h-24 rounded-full bg-slate-100 overflow-hidden border border-slate-200 relative group cursor-pointer shadow-sm">
                 {/* eslint-disable-next-line @next/next/no-img-element */}
-                <img src={`https://ui-avatars.com/api/?name=${profile.nama}&background=0D8ABC&color=fff&size=150`} alt="Profile" className="w-full h-full object-cover" />
-                <div className="absolute inset-0 bg-black/40 flex items-center justify-center opacity-0 group-hover:opacity-100 transition-opacity">
+                <img src={avatarImage} alt="Profile" className="w-full h-full object-cover" />
+                <div className="absolute inset-0 bg-black/50 flex items-center justify-center opacity-0 group-hover:opacity-100 transition-opacity">
                   <Camera size={24} className="text-white" />
                 </div>
               </div>
+              <button onClick={() => fileInputRef.current?.click()} className="text-xs font-semibold text-blue-600 hover:text-blue-700 hover:underline">
+                Ubah Foto
+              </button>
             </div>
 
             <div className="flex-1 space-y-5">
@@ -115,6 +199,7 @@ export default function PengaturanAdminPage() {
                     className="w-full px-4 py-2.5 pr-10 bg-white border border-slate-200 rounded-lg text-slate-800 text-sm focus:outline-none focus:ring-2 focus:ring-blue-600/20 focus:border-blue-600"
                   />
                   <button type="button" onClick={() => setShowNewPassword(!showNewPassword)} className="absolute inset-y-0 right-0 px-3 flex items-center text-slate-400 hover:text-slate-600">
+                    {/* PERBAIKAN: Mengganti salah satu EyeOff menjadi Eye */}
                     {showNewPassword ? <EyeOff size={18} /> : <Eye size={18} />}
                   </button>
                 </div>
@@ -130,6 +215,7 @@ export default function PengaturanAdminPage() {
                     className="w-full px-4 py-2.5 pr-10 bg-white border border-slate-200 rounded-lg text-slate-800 text-sm focus:outline-none focus:ring-2 focus:ring-blue-600/20 focus:border-blue-600"
                   />
                   <button type="button" onClick={() => setShowConfirmPassword(!showConfirmPassword)} className="absolute inset-y-0 right-0 px-3 flex items-center text-slate-400 hover:text-slate-600">
+                    {/* PERBAIKAN: Mengganti salah satu EyeOff menjadi Eye */}
                     {showConfirmPassword ? <EyeOff size={18} /> : <Eye size={18} />}
                   </button>
                 </div>
@@ -138,26 +224,49 @@ export default function PengaturanAdminPage() {
           </div>
         </div>
 
-        <div className="px-6 md:px-8 py-5 bg-slate-50 border-t border-slate-200 flex flex-col-reverse sm:flex-row justify-end gap-3 rounded-b-xl">
-          <button
-            onClick={() => {
-              setNewPassword("");
-              setConfirmPassword("");
-            }}
-            className="w-full sm:w-auto px-5 py-2.5 bg-white border border-slate-200 text-slate-700 rounded-lg text-sm font-semibold hover:bg-slate-50 hover:text-slate-900 transition-colors shadow-sm"
-          >
-            Batal
-          </button>
+        <div className="px-6 md:px-8 py-5 bg-slate-50 border-t border-slate-200 flex justify-end gap-3 rounded-b-xl">
           <button
             onClick={handleUpdatePassword}
             disabled={isSaving || !newPassword}
             className="w-full sm:w-auto px-5 py-2.5 bg-blue-600 text-white rounded-lg text-sm font-semibold hover:bg-blue-700 transition-colors shadow-sm flex items-center justify-center gap-2 disabled:opacity-50"
           >
-            {isSaving ? <Loader2 size={18} className="animate-spin" /> : <Save size={18} />}
-            Simpan Perubahan
+            {isSaving ? <Loader2 size={18} className="animate-spin" /> : <Save size={18} />} Simpan Kata Sandi
           </button>
         </div>
       </div>
+
+      {isCropModalOpen && imageSrc && (
+        <div className="fixed inset-0 z-50 flex items-center justify-center bg-slate-900/80 backdrop-blur-sm p-4">
+          <div className="bg-white rounded-2xl shadow-2xl w-full max-w-lg overflow-hidden animate-in zoom-in-95 duration-200 flex flex-col">
+            <div className="flex items-center justify-between px-6 py-4 border-b border-slate-100">
+              <h3 className="font-bold text-slate-900">Sesuaikan Foto Profil</h3>
+              <button onClick={() => setIsCropModalOpen(false)} className="text-slate-400 hover:text-slate-700">
+                <X size={20} />
+              </button>
+            </div>
+
+            <div className="relative w-full h-80 bg-slate-100">
+              <Cropper image={imageSrc} crop={crop} zoom={zoom} aspect={1} cropShape="round" showGrid={false} onCropChange={setCrop} onCropComplete={onCropComplete} onZoomChange={setZoom} />
+            </div>
+
+            <div className="p-6 bg-white space-y-4">
+              <div>
+                <label className="text-xs font-semibold text-slate-500 mb-2 block">Perbesar / Perkecil (Zoom)</label>
+                <input type="range" value={zoom} min={1} max={3} step={0.1} onChange={(e) => setZoom(Number(e.target.value))} className="w-full accent-blue-600" />
+              </div>
+              <div className="flex justify-end gap-3 pt-2">
+                <button onClick={() => setIsCropModalOpen(false)} className="px-5 py-2.5 text-sm font-semibold text-slate-700 bg-white border border-slate-200 rounded-lg hover:bg-slate-50">
+                  Batal
+                </button>
+                <button onClick={handleUploadAvatar} disabled={isUploading} className="px-5 py-2.5 text-sm font-semibold text-white bg-blue-600 rounded-lg hover:bg-blue-700 flex items-center gap-2 disabled:opacity-50">
+                  {isUploading ? <Loader2 size={16} className="animate-spin" /> : <Save size={16} />}
+                  {isUploading ? "Mengunggah..." : "Simpan Foto"}
+                </button>
+              </div>
+            </div>
+          </div>
+        </div>
+      )}
     </div>
   );
 }

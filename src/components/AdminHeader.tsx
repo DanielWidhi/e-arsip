@@ -1,7 +1,7 @@
 "use client";
 
 import { useEffect, useState } from "react";
-import { Bell, Menu, LogOut, Globe, LayoutDashboard, ChevronDown } from "lucide-react";
+import { Bell, Menu, LogOut, Globe, ChevronDown } from "lucide-react";
 import { usePathname, useRouter } from "next/navigation";
 import { createClient } from "@/lib/supabase";
 import Link from "next/link";
@@ -10,33 +10,53 @@ export default function AdminHeader({ onMenuClick }: { onMenuClick: () => void }
   const pathname = usePathname();
   const router = useRouter();
 
-  const [profile, setProfile] = useState({ nama: "Memuat...", role: "..." });
+  const [profile, setProfile] = useState({ nama: "Memuat...", role: "...", avatar_url: "" });
   const [notifCount, setNotifCount] = useState(0);
-
-  // STATE UNTUK BUKA/TUTUP DROPDOWN PROFIL
   const [isProfileOpen, setIsProfileOpen] = useState(false);
 
   const supabase = createClient();
 
-  useEffect(() => {
-    const fetchHeaderData = async () => {
-      const {
-        data: { user },
-      } = await supabase.auth.getUser();
-      if (user && user.email) {
-        const { data: userData } = await supabase.from("users").select("nama, role").eq("email", user.email).single();
-        if (userData) setProfile({ nama: userData.nama, role: userData.role });
-        else setProfile({ nama: "Admin Sistem", role: "Pengguna" });
-      }
+  const fetchHeaderData = async () => {
+    const {
+      data: { user },
+    } = await supabase.auth.getUser();
+    if (user && user.email) {
+      const { data: userData } = await supabase.from("users").select("nama, role, avatar_url").eq("email", user.email).single();
 
-      const { count } = await supabase.from("inventaris_kib_b").select("*", { count: "exact", head: true }).in("kondisi", ["Rusak Ringan", "Rusak Berat"]);
-      if (count !== null) setNotifCount(count);
+      if (userData) {
+        setProfile({
+          nama: userData.nama,
+          role: userData.role,
+          avatar_url: userData.avatar_url,
+        });
+      } else {
+        setProfile({ nama: "Admin Sistem", role: "Pengguna", avatar_url: "" });
+      }
+    }
+
+    const { count } = await supabase.from("inventaris_kib_b").select("*", { count: "exact", head: true }).in("kondisi", ["Rusak Ringan", "Rusak Berat"]);
+
+    if (count !== null) setNotifCount(count);
+  };
+
+  useEffect(() => {
+    // PERBAIKAN: Dibungkus dengan setTimeout
+    setTimeout(() => {
+      fetchHeaderData();
+    }, 0);
+
+    const handleAvatarUpdate = () => {
+      fetchHeaderData();
     };
-    fetchHeaderData();
+
+    window.addEventListener("local-avatar-updated", handleAvatarUpdate);
+
+    return () => {
+      window.removeEventListener("local-avatar-updated", handleAvatarUpdate);
+    };
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, []);
 
-  // FUNGSI KELUAR (LOGOUT)
   const handleLogout = async () => {
     await supabase.auth.signOut();
     document.cookie = "sb-access-token=; expires=Thu, 01 Jan 1970 00:00:00 UTC; path=/;";
@@ -66,7 +86,8 @@ export default function AdminHeader({ onMenuClick }: { onMenuClick: () => void }
         <div className="flex items-center gap-2 text-slate-500 text-sm">
           <span className="hidden sm:inline">Dashboard</span>
           <span className="hidden sm:inline text-slate-300">/</span>
-          <span className="font-semibold text-slate-800 truncate max-w-[150px] sm:max-w-none">{currentMenu}</span>
+          {/* PERBAIKAN: Mengubah max-w-[150px] menjadi max-w-37.5 */}
+          <span className="font-semibold text-slate-800 truncate max-w-37.5 sm:max-w-none">{currentMenu}</span>
         </div>
       </div>
 
@@ -78,29 +99,23 @@ export default function AdminHeader({ onMenuClick }: { onMenuClick: () => void }
 
         <div className="h-8 w-px bg-slate-200 mx-1 hidden sm:block"></div>
 
-        {/* ========================================================== */}
-        {/* DROPDOWN PROFIL AREA */}
-        {/* ========================================================== */}
         <div className="relative">
-          {/* Tombol Profil (Pemicu Dropdown) */}
           <button onClick={() => setIsProfileOpen(!isProfileOpen)} className="flex items-center gap-2 md:gap-3 hover:bg-slate-50 p-1.5 pr-2 md:pr-3 rounded-lg transition-colors text-left border border-transparent hover:border-slate-200">
             <div className="w-8 h-8 rounded-full overflow-hidden bg-slate-200 border border-slate-200 shrink-0">
               {/* eslint-disable-next-line @next/next/no-img-element */}
-              <img src={`https://ui-avatars.com/api/?name=${profile.nama}&background=0D8ABC&color=fff&bold=true`} alt="Profile" className="w-full h-full object-cover" />
+              <img src={profile.avatar_url || `https://ui-avatars.com/api/?name=${profile.nama}&background=0D8ABC&color=fff&bold=true`} alt="Profile" className="w-full h-full object-cover" />
             </div>
             <div className="hidden lg:block text-left">
-              <p className="text-sm font-bold text-slate-800 leading-tight truncate max-w-[150px]">{profile.nama}</p>
+              {/* PERBAIKAN: Mengubah max-w-[150px] menjadi max-w-37.5 */}
+              <p className="text-sm font-bold text-slate-800 leading-tight truncate max-w-37.5">{profile.nama}</p>
               <p className="text-xs font-medium text-slate-500 leading-tight">{profile.role}</p>
             </div>
             <ChevronDown size={14} className="text-slate-400 hidden lg:block" />
           </button>
 
-          {/* Menu Dropdown Melayang */}
           {isProfileOpen && (
             <>
-              {/* Overlay transparan untuk menutup dropdown jika klik di luar */}
               <div className="fixed inset-0 z-40" onClick={() => setIsProfileOpen(false)}></div>
-
               <div className="absolute right-0 mt-2 w-56 bg-white border border-slate-200 rounded-xl shadow-lg py-2 z-50 animate-in slide-in-from-top-2 duration-200">
                 <div className="px-4 py-2 border-b border-slate-100 mb-1 lg:hidden">
                   <p className="text-sm font-bold text-slate-800 truncate">{profile.nama}</p>
