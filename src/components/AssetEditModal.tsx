@@ -1,8 +1,9 @@
 "use client";
 
-import { useState, useEffect } from "react";
-import { X, Info, Wrench, Save, Loader2, ImagePlus } from "lucide-react"; // <-- Menambahkan ImagePlus
+import { useState, useEffect, useRef } from "react";
+import { X, Info, Wrench, Save, Loader2, ImagePlus } from "lucide-react";
 import { createClient } from "@/lib/supabase";
+import Swal from "sweetalert2";
 
 type AssetEditModalProps = {
   isOpen: boolean;
@@ -10,6 +11,51 @@ type AssetEditModalProps = {
   // eslint-disable-next-line @typescript-eslint/no-explicit-any
   asset: any;
   onSave: () => void;
+};
+
+const compressImage = (file: File, maxWidth = 800, maxHeight = 800, quality = 0.7): Promise<File> => {
+  return new Promise((resolve, reject) => {
+    const reader = new FileReader();
+    reader.readAsDataURL(file);
+    reader.onload = (event) => {
+      const img = new Image();
+      img.src = event.target?.result as string;
+      img.onload = () => {
+        const canvas = document.createElement("canvas");
+        let width = img.width;
+        let height = img.height;
+
+        if (width > height) {
+          if (width > maxWidth) {
+            height = Math.round((height * maxWidth) / width);
+            width = maxWidth;
+          }
+        } else {
+          if (height > maxHeight) {
+            width = Math.round((width * maxHeight) / height);
+            height = maxHeight;
+          }
+        }
+
+        canvas.width = width;
+        canvas.height = height;
+        const ctx = canvas.getContext("2d");
+        if (!ctx) return reject(new Error("Gagal kompres"));
+        ctx.drawImage(img, 0, 0, width, height);
+
+        canvas.toBlob(
+          (blob) => {
+            if (!blob) return reject(new Error("Gagal kompres"));
+            resolve(new File([blob], file.name.replace(/\.[^/.]+$/, ".jpg"), { type: "image/jpeg" }));
+          },
+          "image/jpeg",
+          quality,
+        );
+      };
+      img.onerror = (err) => reject(err);
+    };
+    reader.onerror = (err) => reject(err);
+  });
 };
 
 export default function AssetEditModal({ isOpen, onClose, asset, onSave }: AssetEditModalProps) {
@@ -38,6 +84,14 @@ export default function AssetEditModal({ isOpen, onClose, asset, onSave }: Asset
   const [kondisi, setKondisi] = useState("Baik");
   const [kirId, setKirId] = useState("");
 
+  // STATE UNTUK GAMBAR
+  const fileInputRef = useRef<HTMLInputElement>(null);
+  const [selectedFile, setSelectedFile] = useState<File | null>(null);
+  const [imagePreview, setImagePreview] = useState<string | null>(null);
+
+  // STATE BARU: Sensor saat file diseret di atas kotak
+  const [isDragging, setIsDragging] = useState(false);
+
   useEffect(() => {
     setTimeout(async () => {
       if (isOpen && asset) {
@@ -64,6 +118,9 @@ export default function AssetEditModal({ isOpen, onClose, asset, onSave }: Asset
 
         setKirId(asset.kir_id ? asset.kir_id.toString() : "");
         setAsalUsulId(asset.asal_usul_id ? asset.asal_usul_id.toString() : "");
+
+        setImagePreview(asset.foto || null);
+        setSelectedFile(null);
       }
     }, 0);
     // eslint-disable-next-line react-hooks/exhaustive-deps
@@ -74,45 +131,134 @@ export default function AssetEditModal({ isOpen, onClose, asset, onSave }: Asset
   const inputClass = "w-full px-3 py-2.5 bg-slate-50 border border-slate-200 rounded-lg text-slate-800 text-sm focus:outline-none focus:ring-2 focus:ring-blue-600/20 focus:border-blue-600 transition-all placeholder:text-slate-400";
   const labelClass = "block text-xs font-semibold text-slate-700 mb-1.5";
 
+  // ========================================================
+  // REVISI PENTING: SATUKAN FUNGSI PROSES & KOMPRESI FILE
+  // ========================================================
+  const processFile = async (file: File) => {
+    // TOLAK FORMAT HEIC APPLE
+    if (file.name.toLowerCase().endsWith(".heic") || file.type === "image/heic") {
+      Swal.fire({
+        icon: "error",
+        title: "Format Tidak Didukung",
+        text: "Sistem tidak menerima file format HEIC (Apple). Silakan gunakan format JPG, JPEG, atau PNG.",
+        confirmButtonColor: "#ba1a1a",
+      });
+      return;
+    }
+
+    try {
+      setIsLoading(true);
+      const compressedFile = await compressImage(file, 800, 800, 0.7);
+      setSelectedFile(compressedFile);
+      setImagePreview(URL.createObjectURL(compressedFile));
+    } catch (err) {
+      console.error(err);
+      Swal.fire({ icon: "error", title: "Gagal Memproses", text: "Gagal mengompres gambar.", confirmButtonColor: "#ba1a1a" });
+    } finally {
+      setIsLoading(false);
+    }
+  };
+
+  const handleFileChange = async (e: React.ChangeEvent<HTMLInputElement>) => {
+    if (e.target.files && e.target.files.length > 0) {
+      await processFile(e.target.files[0]);
+      if (fileInputRef.current) fileInputRef.current.value = "";
+    }
+  };
+
+  // --- REVISI PENTING: FUNGSI SENSOR DRAG & DROP HTML5 ---
+  const handleDragOver = (e: React.DragEvent) => {
+    e.preventDefault(); // Mencegah browser membuka gambar di tab baru
+    setIsDragging(true);
+  };
+
+  const handleDragLeave = () => {
+    setIsDragging(false);
+  };
+
+  const handleDrop = async (e: React.DragEvent) => {
+    e.preventDefault();
+    setIsDragging(false);
+
+    if (e.dataTransfer.files && e.dataTransfer.files.length > 0) {
+      await processFile(e.dataTransfer.files[0]); // Ambil file pertama saja (Exactly 1 Photo)
+    }
+  };
+
   const handleSubmit = async (e: React.FormEvent) => {
     e.preventDefault();
     setIsLoading(true);
 
-    const updatedAsset = {
-      kode_barang: kodeBarang,
-      nama_barang: namaBarang,
-      nomor_register: noRegister,
-      merk_type: merkType,
-      ukuran_cc: ukuranCc,
-      bahan: bahan,
-      tahun_beli: tahunBeli,
-      pabrik: pabrik,
-      no_rangka: noRangka,
-      no_mesin: noMesin,
-      no_polisi: noPolisi,
-      no_bpkb: noBpkb,
-      asal_usul_id: asalUsulId ? Number(asalUsulId) : null,
-      harga: harga ? Number(harga) : 0,
-      kondisi: kondisi,
-      kir_id: kirId ? Number(kirId) : null,
-      keterangan: keterangan,
-    };
+    try {
+      let finalFotoUrl = asset.foto || null;
 
-    const { error } = await supabase.from("inventaris_kib_b").update(updatedAsset).eq("id", asset.id);
+      if (selectedFile) {
+        const fileExt = selectedFile.name.split(".").pop();
+        const fileName = `asset_${Date.now()}.${fileExt}`;
+        const filePath = `public/${fileName}`;
 
-    if (error) {
-      alert("Gagal memperbarui data: " + error.message);
-    } else {
-      alert("Data inventaris berhasil diperbarui!");
+        const { data: uploadData, error: uploadError } = await supabase.storage.from("assets").upload(filePath, selectedFile, { cacheControl: "3600", upsert: true });
+
+        if (uploadError) throw uploadError;
+
+        const {
+          data: { publicUrl },
+        } = supabase.storage.from("assets").getPublicUrl(uploadData.path);
+        finalFotoUrl = publicUrl;
+      }
+
+      const updatedAsset = {
+        kode_barang: kodeBarang,
+        nama_barang: namaBarang,
+        nomor_register: noRegister,
+        merk_type: merkType,
+        ukuran_cc: ukuranCc,
+        bahan: bahan,
+        tahun_beli: tahunBeli,
+        pabrik: pabrik,
+        no_rangka: noRangka,
+        no_mesin: noMesin,
+        no_polisi: noPolisi,
+        no_bpkb: noBpkb,
+        asal_usul_id: asalUsulId ? Number(asalUsulId) : null,
+        harga: harga ? Number(harga) : 0,
+        kondisi: kondisi,
+        kir_id: kirId ? Number(kirId) : null,
+        keterangan: keterangan,
+        foto_url: finalFotoUrl,
+      };
+
+      const { error } = await supabase.from("inventaris_kib_b").update(updatedAsset).eq("id", asset.id);
+
+      if (error) throw error;
+
+      Swal.fire({
+        icon: "success",
+        title: "Data Diperbarui!",
+        text: "Data inventaris berhasil disimpan kembali ke sistem.",
+        confirmButtonColor: "#2563eb",
+        timer: 2000,
+        showConfirmButton: false,
+      });
       onSave();
       onClose();
+    } catch (error: unknown) {
+      const errorMessage = error instanceof Error ? error.message : "Terjadi kesalahan yang tidak diketahui";
+      Swal.fire({
+        icon: "error",
+        title: "Gagal Memperbarui",
+        text: errorMessage,
+        confirmButtonColor: "#ba1a1a",
+      });
+    } finally {
+      setIsLoading(false);
     }
-    setIsLoading(false);
   };
 
   return (
     <div className="fixed inset-0 z-50 flex items-center justify-center bg-slate-900/40 backdrop-blur-sm p-4 sm:p-6 md:p-8 overflow-y-auto" onClick={onClose}>
       <div className="relative flex w-full max-w-5xl flex-col rounded-xl bg-white shadow-2xl animate-in fade-in zoom-in-95 duration-200 my-auto" onClick={(e) => e.stopPropagation()}>
+        {/* HEADER */}
         <div className="flex items-center justify-between px-6 py-5 border-b border-slate-200 bg-white rounded-t-xl sticky top-0 z-20">
           <div>
             <h2 className="text-lg md:text-xl font-bold text-slate-900 tracking-tight">Edit Data Inventaris</h2>
@@ -125,6 +271,7 @@ export default function AssetEditModal({ isOpen, onClose, asset, onSave }: Asset
           </button>
         </div>
 
+        {/* BODY */}
         <div className="p-6 md:p-8 overflow-y-auto max-h-[calc(100vh-180px)] custom-scrollbar">
           <form id="editAssetForm" onSubmit={handleSubmit} className="grid grid-cols-1 lg:grid-cols-2 gap-8 lg:gap-12">
             <div className="space-y-5">
@@ -209,30 +356,22 @@ export default function AssetEditModal({ isOpen, onClose, asset, onSave }: Asset
 
               <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
                 <div>
-                  <label className={labelClass}>
-                    No. Rangka <span className="text-slate-400 font-normal ml-1">(Opsional)</span>
-                  </label>
+                  <label className={labelClass}>No. Rangka</label>
                   <input value={noRangka} onChange={(e) => setNoRangka(e.target.value)} className={inputClass} type="text" />
                 </div>
                 <div>
-                  <label className={labelClass}>
-                    No. Mesin <span className="text-slate-400 font-normal ml-1">(Opsional)</span>
-                  </label>
+                  <label className={labelClass}>No. Mesin</label>
                   <input value={noMesin} onChange={(e) => setNoMesin(e.target.value)} className={inputClass} type="text" />
                 </div>
               </div>
 
               <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
                 <div>
-                  <label className={labelClass}>
-                    No. Polisi <span className="text-slate-400 font-normal ml-1">(Opsional)</span>
-                  </label>
+                  <label className={labelClass}>No. Polisi</label>
                   <input value={noPolisi} onChange={(e) => setNoPolisi(e.target.value)} className={inputClass} type="text" />
                 </div>
                 <div>
-                  <label className={labelClass}>
-                    BPKB <span className="text-slate-400 font-normal ml-1">(Opsional)</span>
-                  </label>
+                  <label className={labelClass}>BPKB</label>
                   <input value={noBpkb} onChange={(e) => setNoBpkb(e.target.value)} className={inputClass} type="text" />
                 </div>
               </div>
@@ -274,19 +413,41 @@ export default function AssetEditModal({ isOpen, onClose, asset, onSave }: Asset
                 </div>
               </div>
 
-              {/* ==================================================== */}
-              {/* BAGIAN FOTO YANG TERLEWAT SEBELUMNYA TELAH DITAMBAHKAN */}
-              {/* ==================================================== */}
+              {/* AREA UPLOAD FOTO DENGAN INTEGRASI DRAG & DROP DAN SENSOR SEBELUMNYA */}
               <div className="mt-4">
                 <label className={labelClass}>
-                  Upload Foto Aset <span className="text-slate-400 font-normal ml-1">(Tahap Selanjutnya)</span>
+                  Upload Foto Aset <span className="text-slate-400 font-normal ml-1">(Maks 5MB)</span>
                 </label>
-                <div className="border-2 border-dashed border-slate-300 rounded-xl p-6 flex flex-col items-center justify-center text-center bg-slate-50 hover:bg-slate-100 transition-colors cursor-pointer group opacity-60">
-                  <div className="w-12 h-12 rounded-full bg-white border border-slate-200 shadow-sm flex items-center justify-center text-slate-400 mb-2">
-                    <ImagePlus size={24} />
-                  </div>
-                  <p className="text-xs font-bold text-slate-500 mb-1">Fitur Upload Gambar belum aktif</p>
-                  <p className="text-[10px] text-slate-400 font-medium">Membutuhkan setup Supabase Storage Bucket.</p>
+                <input type="file" accept="image/jpeg, image/png, image/gif" className="hidden" ref={fileInputRef} onChange={handleFileChange} />
+
+                {/* 
+                  REVISI: Menambahkan detektor drag-and-drop HTML5 (onDragOver, onDragLeave, onDrop) 
+                  serta transisi hover biru yang interaktif saat file diseret.
+                */}
+                <div
+                  onClick={() => fileInputRef.current?.click()}
+                  onDragOver={handleDragOver}
+                  onDragLeave={handleDragLeave}
+                  onDrop={handleDrop}
+                  className={`border-2 border-dashed rounded-xl p-6 flex flex-col items-center justify-center text-center transition-all cursor-pointer group transform duration-200
+                    ${isDragging ? "border-blue-500 bg-blue-50/50 scale-[1.01]" : "border-slate-300 bg-slate-50 hover:bg-slate-100 hover:border-blue-400"}
+                  `}
+                >
+                  {imagePreview ? (
+                    <div className="relative w-full h-40 rounded-lg overflow-hidden border">
+                      {/* eslint-disable-next-line @next/next/no-img-element */}
+                      <img src={imagePreview} alt="Preview" className="w-full h-full object-cover" />
+                      <div className="absolute inset-0 bg-black/45 flex items-center justify-center text-white opacity-0 group-hover:opacity-100 transition-opacity font-semibold text-xs">Ganti / Seret Foto Baru</div>
+                    </div>
+                  ) : (
+                    <>
+                      <div className="w-12 h-12 rounded-full bg-white border border-slate-200 shadow-sm flex items-center justify-center text-slate-400 mb-2">
+                        <ImagePlus size={24} />
+                      </div>
+                      <p className="text-xs font-bold text-blue-600 mb-1">Klik untuk upload atau seret file ke sini</p>
+                      <p className="text-[10px] text-slate-400 font-medium">Mendukung format JPG, JPEG, PNG, GIF</p>
+                    </>
+                  )}
                 </div>
               </div>
             </div>
@@ -304,7 +465,7 @@ export default function AssetEditModal({ isOpen, onClose, asset, onSave }: Asset
             className="w-full sm:w-auto px-6 py-2.5 bg-blue-600 text-white rounded-lg text-sm font-bold hover:bg-blue-700 transition-colors shadow-sm flex items-center justify-center gap-2 active:scale-95 disabled:opacity-50"
           >
             {isLoading ? <Loader2 className="animate-spin" size={18} /> : <Save size={18} />}
-            {isLoading ? "Menyimpan..." : "Simpan Perubahan"}
+            Simpan Perubahan
           </button>
         </div>
       </div>

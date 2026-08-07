@@ -23,7 +23,7 @@ export default function Navbar() {
         setUserProfile({
           nama: data.nama,
           role: data.role,
-          avatar_url: data.avatar_url, // Ambil avatar_url
+          avatar_url: data.avatar_url,
         });
       }
     } else {
@@ -42,9 +42,6 @@ export default function Navbar() {
       checkSession(session);
     });
 
-    // ========================================================
-    // SENSOR "PENDENGAR": Ambil ulang foto jika ada sinyal upload baru
-    // ========================================================
     const handleAvatarUpdate = async () => {
       const {
         data: { session },
@@ -65,6 +62,7 @@ export default function Navbar() {
     await supabase.auth.signOut();
     document.cookie = "sb-access-token=; expires=Thu, 01 Jan 1970 00:00:00 UTC; path=/;";
     setUserProfile(null);
+    setIsProfileOpen(false); // Tutup dropdown saat logout
     router.refresh();
   };
 
@@ -95,9 +93,9 @@ export default function Navbar() {
         <div className="hidden md:flex items-center">
           {userProfile ? (
             <div className="relative">
+              {/* Tombol Profil */}
               <button onClick={() => setIsProfileOpen(!isProfileOpen)} className="flex items-center gap-2 hover:bg-slate-50 p-1.5 pr-3 rounded-lg transition-colors border border-transparent hover:border-slate-200">
-                <div className="w-8 h-8 rounded-full overflow-hidden bg-slate-200 border border-slate-200 shrink-0">
-                  {/* UPDATE AVATAR DI SINI */}
+                <div className="w-8 h-8 rounded-full overflow-hidden bg-slate-200 shrink-0">
                   {/* eslint-disable-next-line @next/next/no-img-element */}
                   <img src={userProfile.avatar_url || `https://ui-avatars.com/api/?name=${userProfile.nama}&background=0D8ABC&color=fff&bold=true`} alt="Profile" className="w-full h-full object-cover" />
                 </div>
@@ -107,19 +105,25 @@ export default function Navbar() {
                 <ChevronDown size={14} className="text-slate-400" />
               </button>
 
-              {isProfileOpen && (
-                <>
-                  <div className="fixed inset-0 z-40" onClick={() => setIsProfileOpen(false)}></div>
-                  <div className="absolute right-0 mt-2 w-48 bg-white border border-slate-200 rounded-xl shadow-lg py-2 z-50 animate-in slide-in-from-top-2 duration-200">
-                    <Link href="/admin/dashboard" className="flex items-center gap-2 px-4 py-2 text-sm font-medium text-slate-700 hover:bg-slate-50 hover:text-blue-600 transition-colors">
-                      <LayoutDashboard size={16} /> Ke Dashboard
-                    </Link>
-                    <button onClick={handleLogout} className="w-full flex items-center gap-2 px-4 py-2 text-sm font-medium text-red-600 hover:bg-red-50 transition-colors border-t border-slate-100 mt-1 pt-3">
-                      <LogOut size={16} /> Keluar
-                    </button>
-                  </div>
-                </>
-              )}
+              {/* ========================================================== */}
+              {/* BACKDROP & MENU DROPDOWN DENGAN ANIMASI MULUS             */}
+              {/* ========================================================== */}
+              {/* Backdrop transparan (selalu di DOM, dikontrol visibilitasnya) */}
+              <div className={`fixed inset-0 z-40 transition-opacity duration-200 ${isProfileOpen ? "opacity-100 visible" : "opacity-0 invisible"}`} onClick={() => setIsProfileOpen(false)} />
+
+              {/* Box Menu Dropdown (Animasi Scale & Fade-in) */}
+              <div
+                className={`absolute right-0 mt-2 w-48 bg-white border border-slate-200 rounded-xl shadow-lg py-2 z-50 transform origin-top-right transition-all duration-200 ease-in-out ${
+                  isProfileOpen ? "opacity-100 scale-100 translate-y-0 visible" : "opacity-0 scale-95 -translate-y-2 invisible"
+                }`}
+              >
+                <Link href="/admin/dashboard" className="flex items-center gap-2 px-4 py-2.5 text-sm font-medium text-slate-700 hover:bg-slate-50 hover:text-blue-600 transition-colors">
+                  <LayoutDashboard size={16} /> Ke Dashboard
+                </Link>
+                <button onClick={handleLogout} className="w-full flex items-center gap-2 px-4 py-2 text-sm font-medium text-red-600 hover:bg-red-50 transition-colors border-t border-slate-100 mt-1 pt-3">
+                  <LogOut size={16} /> Keluar
+                </button>
+              </div>
             </div>
           ) : (
             <Link href="/login" className="flex items-center gap-2 text-slate-700 hover:text-blue-700 transition-colors bg-slate-100 hover:bg-blue-50 px-4 py-2 rounded-full text-sm font-medium">
@@ -148,7 +152,6 @@ export default function Navbar() {
           {userProfile && (
             <div className="flex items-center gap-3 pb-4 border-b border-slate-100">
               <div className="w-10 h-10 rounded-full overflow-hidden bg-slate-200 shrink-0">
-                {/* UPDATE AVATAR DI SINI */}
                 {/* eslint-disable-next-line @next/next/no-img-element */}
                 <img src={userProfile.avatar_url || `https://ui-avatars.com/api/?name=${userProfile.nama}&background=0D8ABC&color=fff&bold=true`} alt="Profile" className="w-full h-full object-cover" />
               </div>

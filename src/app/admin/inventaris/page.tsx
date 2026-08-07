@@ -8,6 +8,7 @@ import AssetCreateModal from "@/components/AssetCreateModal";
 import AssetDetailModal, { AssetType } from "@/components/AssetDetailModal";
 import AssetEditModal from "@/components/AssetEditModal";
 import { createClient } from "@/lib/supabase";
+import Swal from "sweetalert2"; // Import SweetAlert2
 
 export default function InventarisAdminPage() {
   const [dataInventaris, setDataInventaris] = useState<AssetItem[]>([]);
@@ -29,14 +30,12 @@ export default function InventarisAdminPage() {
 
   const fetchInventaris = async () => {
     setIsLoading(true);
-
     const { data, error } = await supabase.from("inventaris_kib_b").select(`*, kir:master_kir(nama_ruangan), asal_usul:master_asal_usul(nama_asal)`).order("id", { ascending: false });
 
     if (error) {
       console.error("Error fetching data:", error.message);
-      alert("Gagal mengambil data dari database!");
+      Swal.fire({ icon: "error", title: "Gagal memuat data!", text: error.message, confirmButtonColor: "#2563eb" });
     } else if (data) {
-      // 1. PERBAIKAN ERROR MERAH: Mengubah (item: any) menjadi (item: Record<string, any>)
       // eslint-disable-next-line @typescript-eslint/no-explicit-any
       const formattedData: AssetItem[] = data.map((item: Record<string, any>) => ({
         id: item.id,
@@ -61,27 +60,48 @@ export default function InventarisAdminPage() {
         keterangan: item.keterangan || "-",
         foto: item.foto_url || null,
       }));
-
       setDataInventaris(formattedData);
     }
-
     setIsLoading(false);
   };
 
   useEffect(() => {
-    // 2. PERBAIKAN ERROR MERAH: Membungkus fungsi dengan setTimeout
     setTimeout(() => {
       fetchInventaris();
     }, 0);
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, []);
 
+  // PERBAIKAN: GANTI CONFIRM BROWSER DENGAN SWEETALERT2 UNTUK HAPUS (DELETE)
   const handleDelete = async (id: number, nama: string) => {
-    const confirmDelete = window.confirm(`Peringatan!\n\nApakah Anda yakin ingin menghapus "${nama}"?\nData yang dihapus tidak dapat dikembalikan.`);
-    if (confirmDelete) {
+    const swalResult = await Swal.fire({
+      title: "Apakah Anda yakin?",
+      text: `Menghapus "${nama}" tidak dapat dikembalikan!`,
+      icon: "warning",
+      showCancelButton: true,
+      confirmButtonColor: "#ba1a1a", // Merah
+      cancelButtonColor: "#cbd5e1", // Abu-abu
+      confirmButtonText: "Ya, Hapus!",
+      cancelButtonText: "Batal",
+    });
+
+    if (swalResult.isConfirmed) {
       const { error } = await supabase.from("inventaris_kib_b").delete().eq("id", id);
-      if (error) alert("Gagal menghapus data: " + error.message);
-      else setDataInventaris(dataInventaris.filter((item) => item.id !== id));
+
+      if (error) {
+        Swal.fire({ icon: "error", title: "Gagal Menghapus", text: error.message, confirmButtonColor: "#2563eb" });
+      } else {
+        const newData = dataInventaris.filter((item) => item.id !== id);
+        setDataInventaris(newData);
+        Swal.fire({
+          icon: "success",
+          title: "Terhapus!",
+          text: `Aset "${nama}" berhasil dihapus dari database.`,
+          confirmButtonColor: "#2563eb",
+          timer: 2000,
+          showConfirmButton: false,
+        });
+      }
     }
   };
 
@@ -136,7 +156,7 @@ export default function InventarisAdminPage() {
 
         <div className="flex flex-col sm:flex-row flex-wrap items-center gap-3 w-full xl:w-auto mt-2 xl:mt-0">
           <div className="relative w-full sm:flex-1 sm:min-w-50 xl:w-64">
-            <Search className="absolute inset-y-0 left-3 top-1/2 -translate-y-1/2 text-slate-400" size={18} />
+            <Search className="absolute inset-y-0 left-0 pl-3 flex items-center pointer-events-none text-slate-400" size={18} />
             <input
               type="text"
               placeholder="Cari aset..."
@@ -224,6 +244,7 @@ export default function InventarisAdminPage() {
         </div>
       )}
 
+      {/* SKELETON LOADER INTEGRASI */}
       <div className="bg-white rounded-xl border border-slate-200 shadow-sm overflow-hidden flex flex-col w-full min-h-100">
         <div className="overflow-x-auto w-full flex-1">
           <table className="min-w-full text-left border-collapse whitespace-nowrap">
@@ -239,14 +260,29 @@ export default function InventarisAdminPage() {
             </thead>
             <tbody className="divide-y divide-slate-200 text-sm text-slate-700">
               {isLoading ? (
-                <tr>
-                  <td colSpan={6} className="px-6 py-20 text-center">
-                    <div className="flex flex-col items-center justify-center text-slate-500 gap-3">
-                      <Loader2 size={32} className="animate-spin text-blue-600" />
-                      <p>Memuat data dari Database...</p>
-                    </div>
-                  </td>
-                </tr>
+                /* SKELETON LOADER UNTUK 5 BARIS TABEL */
+                Array.from({ length: 5 }).map((_, i) => (
+                  <tr key={i} className="animate-pulse border-b border-slate-100">
+                    <td className="px-6 py-5">
+                      <div className="h-4 w-6 bg-slate-200 rounded-md" />
+                    </td>
+                    <td className="px-6 py-5">
+                      <div className="h-4 w-28 bg-slate-200 rounded-md" />
+                    </td>
+                    <td className="px-6 py-5">
+                      <div className="h-4 w-48 bg-slate-200 rounded-md" />
+                    </td>
+                    <td className="px-6 py-5">
+                      <div className="h-4 w-24 bg-slate-200 rounded-md" />
+                    </td>
+                    <td className="px-6 py-5">
+                      <div className="h-4 w-20 bg-slate-200 rounded-md ml-auto" />
+                    </td>
+                    <td className="px-6 py-5 text-center">
+                      <div className="inline-block h-8 w-16 bg-slate-200 rounded-md" />
+                    </td>
+                  </tr>
+                ))
               ) : filteredData.length > 0 ? (
                 filteredData.map((item, index) => (
                   <tr key={item.id} className="hover:bg-slate-50/80 transition-colors">
@@ -281,6 +317,7 @@ export default function InventarisAdminPage() {
           </table>
         </div>
 
+        {/* PAGINATION */}
         <div className="px-6 py-4 border-t border-slate-200 bg-white flex flex-col sm:flex-row items-center justify-between gap-4 mt-auto">
           <div className="text-sm text-slate-500 text-center sm:text-left">
             Showing <span className="font-semibold text-slate-800">{filteredData.length > 0 ? 1 : 0}</span> to <span className="font-semibold text-slate-800">{filteredData.length}</span> of{" "}
@@ -293,14 +330,14 @@ export default function InventarisAdminPage() {
             <div className="hidden sm:flex items-center gap-1">
               <button className="w-8 h-8 rounded-lg flex items-center justify-center text-sm font-semibold bg-blue-50 text-blue-600">1</button>
             </div>
-            <button className="p-2 border border-slate-200 rounded-lg text-slate-700 hover:bg-slate-50 transition-colors disabled:opacity-50" disabled>
+            <button className="p-2 border border-slate-200 rounded-lg text-slate-400 disabled:opacity-50" disabled>
               <ChevronRight size={18} />
             </button>
           </div>
         </div>
       </div>
 
-      <AssetDetailModal isOpen={isDetailModalOpen} onClose={() => setIsDetailModalOpen(false)} asset={selectedAsset} />
+      <AssetDetailModal isOpen={selectedAsset !== null} onClose={() => setSelectedAsset(null)} asset={selectedAsset} />
       <AssetCreateModal
         isOpen={isCreateModalOpen}
         onClose={() => {

@@ -5,22 +5,33 @@ import { useRouter } from "next/navigation";
 import Navbar from "@/components/Navbar";
 import Footer from "@/components/Footer";
 import HeroCarousel from "@/components/HeroCarousel";
-import { Folder, CheckCircle, Wrench, Search, Building, Loader2 } from "lucide-react"; // HAPUS 'AlertTriangle'
-import { createClient } from "@/lib/supabase"; // Import Supabase
+import { Folder, CheckCircle, Wrench, Search, Building, Loader2 } from "lucide-react";
+import { createClient } from "@/lib/supabase";
+
+// 1. IMPORT AOS DAN CSS NYA
+import AOS from "aos";
+import "aos/dist/aos.css";
 
 export default function Home() {
   const router = useRouter();
   const [searchInput, setSearchInput] = useState("");
   const [isLoading, setIsLoading] = useState(true);
 
-  // State untuk menyimpan angka statistik asli dari Supabase
   const [stats, setStats] = useState({
     totalAset: 0,
     totalKir: 0,
     baik: 0,
     rusakRingan: 0,
-    rusakBerat: 0,
   });
+
+  // 2. INISIALISASI AOS SECARA AMAN DI SISI CLIENT (USEEFFECT)
+  useEffect(() => {
+    AOS.init({
+      duration: 800, // Durasi animasi (800ms)
+      once: true, // Animasi hanya jalan sekali saat di-scroll
+      easing: "ease-out-cubic", // Efek pergerakan melambat di akhir agar mulus
+    });
+  }, []);
 
   // AMBIL DATA STATISTIK SECARA PARALEL (Promise.all) DARI SUPABASE
   useEffect(() => {
@@ -29,13 +40,11 @@ export default function Home() {
       const supabase = createClient();
 
       try {
-        // Melakukan 5 panggilan query sekaligus secara bersamaan agar sangat cepat
-        const [resAset, resKir, resBaik, resRingan, resBerat] = await Promise.all([
+        const [resAset, resKir, resBaik, resRingan] = await Promise.all([
           supabase.from("inventaris_kib_b").select("*", { count: "exact", head: true }),
           supabase.from("master_kir").select("*", { count: "exact", head: true }),
           supabase.from("inventaris_kib_b").select("*", { count: "exact", head: true }).eq("kondisi", "Baik"),
           supabase.from("inventaris_kib_b").select("*", { count: "exact", head: true }).eq("kondisi", "Rusak Ringan"),
-          supabase.from("inventaris_kib_b").select("*", { count: "exact", head: true }).eq("kondisi", "Rusak Berat"),
         ]);
 
         setStats({
@@ -43,7 +52,6 @@ export default function Home() {
           totalKir: resKir.count || 0,
           baik: resBaik.count || 0,
           rusakRingan: resRingan.count || 0,
-          rusakBerat: resBerat.count || 0,
         });
       } catch (err) {
         console.error("Gagal memuat statistik:", err);
@@ -70,8 +78,8 @@ export default function Home() {
       <main className="grow flex flex-col items-center pb-16 md:pb-24">
         <HeroCarousel />
 
-        {/* SEARCH BAR */}
-        <div className="w-full max-w-4xl px-4 md:px-8 relative z-20 -mt-5 md:-mt-10">
+        {/* SEARCH BAR (Ditambahkan animasi fade-up) */}
+        <div data-aos="fade-up" data-aos-delay="100" className="w-full max-w-4xl px-4 md:px-8 relative z-20 -mt-5 md:-mt-10">
           <form onSubmit={handleSearch} className="bg-white rounded-xl shadow-lg border border-slate-100 p-2 md:p-3 flex items-center gap-2 md:gap-4 transition-transform hover:-translate-y-1 duration-300">
             <Search className="text-slate-400 ml-2 md:ml-4 shrink-0" size={24} />
 
@@ -89,10 +97,14 @@ export default function Home() {
           </form>
         </div>
 
-        {/* GRID STATISTIK RESPONSIVE (5 KOLOM SEJAJAR) */}
-        <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-5 gap-4 md:gap-6 max-w-7xl w-full px-4 md:px-6 mt-12 md:mt-20">
-          {/* Card 1: Total Aset */}
-          <div className="bg-white rounded-xl border border-slate-200 p-6 md:p-8 flex flex-col items-center text-center shadow-sm hover:shadow-md transition-shadow">
+        {/* 
+          REVISI GRID STATISTIK: 
+          - Diubah kembali ke 4 kolom (lg:grid-cols-4)
+          - Card Rusak Berat dihapus bersih dari kode
+        */}
+        <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-4 md:gap-6 max-w-7xl w-full px-4 md:px-6 mt-12 md:mt-20">
+          {/* Card 1: Total Aset (Muncul pertama, delay 200ms) */}
+          <div data-aos="fade-up" data-aos-delay="200" className="bg-white rounded-xl border border-slate-200 p-6 md:p-8 flex flex-col items-center text-center shadow-sm hover:shadow-md transition-shadow">
             <div className="w-14 h-14 md:w-16 md:h-16 rounded-full bg-blue-100 flex items-center justify-center mb-4 md:mb-6 text-blue-600">
               <Folder size={28} strokeWidth={2.5} />
             </div>
@@ -100,8 +112,8 @@ export default function Home() {
             <p className="text-3xl md:text-4xl font-bold text-blue-600 mt-2">{isLoading ? <Loader2 className="animate-spin text-slate-300" size={24} /> : stats.totalAset}</p>
           </div>
 
-          {/* Card 2: Total KIR */}
-          <div className="bg-white rounded-xl border border-slate-200 p-6 md:p-8 flex flex-col items-center text-center shadow-sm hover:shadow-md transition-shadow">
+          {/* Card 2: Total KIR (Muncul kedua, delay 300ms) */}
+          <div data-aos="fade-up" data-aos-delay="300" className="bg-white rounded-xl border border-slate-200 p-6 md:p-8 flex flex-col items-center text-center shadow-sm hover:shadow-md transition-shadow">
             <div className="w-14 h-14 md:w-16 md:h-16 rounded-full bg-purple-100 flex items-center justify-center mb-4 md:mb-6 text-purple-600">
               <Building size={28} strokeWidth={2.5} />
             </div>
@@ -109,8 +121,8 @@ export default function Home() {
             <p className="text-3xl md:text-4xl font-bold text-purple-600 mt-2">{isLoading ? <Loader2 className="animate-spin text-slate-300" size={24} /> : stats.totalKir}</p>
           </div>
 
-          {/* Card 3: Kondisi Baik */}
-          <div className="bg-white rounded-xl border border-slate-200 p-6 md:p-8 flex flex-col items-center text-center shadow-sm hover:shadow-md transition-shadow">
+          {/* Card 3: Kondisi Baik (Muncul ketiga, delay 400ms) */}
+          <div data-aos="fade-up" data-aos-delay="400" className="bg-white rounded-xl border border-slate-200 p-6 md:p-8 flex flex-col items-center text-center shadow-sm hover:shadow-md transition-shadow">
             <div className="w-14 h-14 md:w-16 md:h-16 rounded-full bg-green-100 flex items-center justify-center mb-4 md:mb-6 text-green-600">
               <CheckCircle size={28} strokeWidth={2.5} />
             </div>
@@ -118,23 +130,14 @@ export default function Home() {
             <p className="text-3xl md:text-4xl font-bold text-green-600 mt-2">{isLoading ? <Loader2 className="animate-spin text-slate-300" size={24} /> : stats.baik}</p>
           </div>
 
-          {/* Card 4: Rusak Ringan */}
-          <div className="bg-white rounded-xl border border-slate-200 p-6 md:p-8 flex flex-col items-center text-center shadow-sm hover:shadow-md transition-shadow">
+          {/* Card 4: Rusak Ringan (Muncul terakhir, delay 500ms) */}
+          <div data-aos="fade-up" data-aos-delay="500" className="bg-white rounded-xl border border-slate-200 p-6 md:p-8 flex flex-col items-center text-center shadow-sm hover:shadow-md transition-shadow">
             <div className="w-14 h-14 md:w-16 md:h-16 rounded-full bg-amber-100 flex items-center justify-center mb-4 md:mb-6 text-amber-600">
               <Wrench size={28} strokeWidth={2.5} />
             </div>
             <h3 className="text-lg md:text-xl font-semibold text-slate-700">Rusak Ringan</h3>
             <p className="text-3xl md:text-4xl font-bold text-amber-600 mt-2">{isLoading ? <Loader2 className="animate-spin text-slate-300" size={24} /> : stats.rusakRingan}</p>
           </div>
-
-          {/* Card 5: Rusak Berat
-          <div className="bg-white rounded-xl border border-slate-200 p-6 md:p-8 flex flex-col items-center text-center shadow-sm hover:shadow-md transition-shadow">
-            <div className="w-14 h-14 md:w-16 md:h-16 rounded-full bg-red-100 flex items-center justify-center mb-4 md:mb-6 text-red-600">
-              <AlertTriangle size={28} strokeWidth={2.5} />
-            </div>
-            <h3 className="text-lg md:text-xl font-semibold text-slate-700">Rusak Berat</h3>
-            <p className="text-3xl md:text-4xl font-bold text-red-600 mt-2">{isLoading ? <Loader2 className="animate-spin text-slate-300" size={24} /> : stats.rusakBerat}</p>
-          </div> */}
         </div>
       </main>
 

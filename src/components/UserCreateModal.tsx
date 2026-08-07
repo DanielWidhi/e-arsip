@@ -3,13 +3,13 @@
 import { useState } from "react";
 import { X, Save, UserPlus, Loader2 } from "lucide-react";
 import { UserType } from "@/app/admin/pengguna/page";
-// Import Fungsi Kekuatan Super tadi
 import { createNewUser } from "@/actions/userActions";
+import Swal from "sweetalert2"; // Import SweetAlert2
 
 type UserCreateModalProps = {
   isOpen: boolean;
   onClose: () => void;
-  onSave: () => void; // Hanya trigger refresh tabel
+  onSave: () => void;
 };
 
 export default function UserCreateModal({ isOpen, onClose, onSave }: UserCreateModalProps) {
@@ -32,18 +32,25 @@ export default function UserCreateModal({ isOpen, onClose, onSave }: UserCreateM
     setIsLoading(true);
     setErrorMsg("");
 
-    // Panggil Server Action ke Supabase
     const result = await createNewUser({ email, kataSandi, nip, nama, role });
 
     if (result.success) {
-      alert("Berhasil menambahkan pengguna baru!");
-      // Bersihkan form
+      // 1. GANTI KE SWEETALERT SUKSES
+      Swal.fire({
+        icon: "success",
+        title: "Pengguna Dibuat!",
+        text: "Akun admin baru berhasil didaftarkan.",
+        confirmButtonColor: "#2563eb",
+        timer: 2000,
+        showConfirmButton: false,
+      });
+
       setEmail("");
       setNip("");
       setNama("");
       setKataSandi("");
-      onSave(); // Refresh tabel di halaman utama
-      onClose(); // Tutup Modal
+      if (onSave) onSave();
+      onClose();
     } else {
       setErrorMsg(result.message);
     }

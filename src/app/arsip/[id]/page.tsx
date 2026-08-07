@@ -7,11 +7,12 @@ import Navbar from "@/components/Navbar";
 import Footer from "@/components/Footer";
 import { ArrowLeft, Download, CheckCircle, AlertTriangle, Wrench, ImageOff, Loader2 } from "lucide-react";
 import { QRCodeCanvas } from "qrcode.react";
-
-// 1. IMPORT SUPABASE CLIENT
 import { createClient } from "@/lib/supabase";
 
-// TIPE DATA STRUKTUR KIB B
+// 1. IMPORT AOS DAN CSS NYA
+import AOS from "aos";
+import "aos/dist/aos.css";
+
 type ArsipItem = {
   id: number;
   kode: string;
@@ -36,27 +37,31 @@ type ArsipItem = {
 
 export default function DetailArsipPage() {
   const params = useParams();
-  const idBarang = Number(params.id); // Dapatkan ID dari URL (misal: /arsip/12)
+  const idBarang = Number(params.id);
 
   const [asset, setAsset] = useState<ArsipItem | null>(null);
   const [currentUrl, setCurrentUrl] = useState("");
   const [isLoading, setIsLoading] = useState(true);
 
-  // ===================================================================
-  // FUNGSI UTAMA: AMBIL DATA DETAIL BARANG DARI SUPABASE
-  // ===================================================================
+  // 2. INISIALISASI AOS SECARA AMAN
+  useEffect(() => {
+    AOS.init({
+      duration: 800,
+      once: true,
+      easing: "ease-out-cubic",
+    });
+  }, []);
+
   useEffect(() => {
     const fetchAssetDetail = async () => {
       setIsLoading(true);
       const supabase = createClient();
 
-      // Tarik data spesifik berdasarkan ID, lengkap dengan JOIN KIR dan Asal Usul
-      const { data, error } = await supabase.from("inventaris_kib_b").select("*, kir:master_kir(nama_ruangan), asal_usul:master_asal_usul(nama_asal)").eq("id", idBarang).single(); // Ambil 1 baris data saja
+      const { data, error } = await supabase.from("inventaris_kib_b").select("*, kir:master_kir(nama_ruangan), asal_usul:master_asal_usul(nama_asal)").eq("id", idBarang).single();
 
       if (error) {
         console.error("Gagal memuat detail aset:", error.message);
       } else if (data) {
-        // Map data dari snake_case Supabase ke camelCase UI kita
         const formattedAsset: ArsipItem = {
           id: data.id,
           kode: data.kode_barang,
@@ -71,18 +76,17 @@ export default function DetailArsipPage() {
           mesin: data.no_mesin || "-",
           polisi: data.no_polisi || "-",
           bpkb: data.no_bpkb || "-",
-          asalUsul: data.asal_usul?.nama_asal || "-", // Hasil JOIN
+          asalUsul: data.asal_usul?.nama_asal || "-",
           harga: data.harga ? data.harga.toLocaleString("id-ID") : "0",
           kondisi: data.kondisi,
-          kir: data.kir?.nama_ruangan || "-", // Hasil JOIN
+          kir: data.kir?.nama_ruangan || "-",
           keterangan: data.keterangan || "-",
           foto: data.foto_url || null,
         };
 
-        // Gunakan setTimeout agar linter tidak protes "Calling setState synchronously"
         setTimeout(() => {
           setAsset(formattedAsset);
-          setCurrentUrl(window.location.href); // Otomatis deteksi domain aktif (localhost atau vercel)
+          setCurrentUrl(window.location.href);
           setIsLoading(false);
         }, 0);
       } else {
@@ -96,7 +100,6 @@ export default function DetailArsipPage() {
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [idBarang]);
 
-  // FUNGSI DOWNLOAD QR CODE
   const downloadQRCode = () => {
     const canvas = document.getElementById("qrCodeEl") as HTMLCanvasElement;
     if (canvas) {
@@ -135,22 +138,25 @@ export default function DetailArsipPage() {
       <Navbar />
 
       <main className="grow w-full max-w-6xl mx-auto px-4 sm:px-6 py-10 flex flex-col gap-6">
-        <Link href="/arsip" className="flex items-center gap-2 text-slate-500 hover:text-blue-600 transition font-medium w-fit">
-          <ArrowLeft size={18} /> Kembali ke Daftar Arsip
-        </Link>
+        {/* Tombol Kembali (Meluncur turun dari atas) */}
+        <div data-aos="fade-down" className="w-fit">
+          <Link href="/arsip" className="flex items-center gap-2 text-slate-500 hover:text-blue-600 transition font-medium">
+            <ArrowLeft size={18} /> Kembali ke Daftar Arsip
+          </Link>
+        </div>
 
         {/* JIKA SEDANG LOADING */}
         {isLoading ? (
           <div className="bg-white rounded-2xl border border-slate-200 p-20 flex flex-col items-center justify-center gap-3 shadow-sm">
-            <Loader2 className="animate-spin text-blue-600" size={32} />
+            <Loader2 className="animate-spin text-blue-600 mx-auto" size={32} />
             <p className="text-slate-500 text-sm font-medium">Menghubungi database Supabase...</p>
           </div>
         ) : asset ? (
           /* JIKA DATA BERHASIL DI-LOAD */
           <div className="bg-white rounded-2xl border border-slate-200 shadow-sm overflow-hidden flex flex-col lg:flex-row">
-            {/* KOLOM KIRI: FOTO ASET & QR CODE */}
-            <div className="w-full lg:w-1/3 bg-slate-50 border-r border-slate-200 p-6 md:p-8 flex flex-col items-center gap-8">
-              {/* Foto Aset (Rasio 1:1) */}
+            {/* KOLOM KIRI (Meluncur masuk dari kiri, delay 100ms) */}
+            <div data-aos="fade-right" data-aos-delay="100" className="w-full lg:w-1/3 bg-slate-50 border-r border-slate-200 p-6 md:p-8 flex flex-col items-center gap-8">
+              {/* Foto Aset */}
               <div className="w-full aspect-square rounded-xl overflow-hidden border border-slate-200 shadow-sm bg-white group cursor-pointer flex items-center justify-center">
                 {asset.foto ? (
                   // eslint-disable-next-line @next/next/no-img-element
@@ -163,7 +169,6 @@ export default function DetailArsipPage() {
                 )}
               </div>
 
-              {/* Garis Pemisah */}
               <div className="w-full border-t border-slate-200 border-dashed"></div>
 
               {/* QR Code */}
@@ -180,8 +185,8 @@ export default function DetailArsipPage() {
               </div>
             </div>
 
-            {/* KOLOM KANAN: SPESIFIKASI */}
-            <div className="w-full lg:w-2/3 p-6 md:p-8 flex flex-col">
+            {/* KOLOM KANAN (Meluncur masuk dari kanan, delay 200ms) */}
+            <div data-aos="fade-left" data-aos-delay="200" className="w-full lg:w-2/3 p-6 md:p-8 flex flex-col">
               <div className="flex justify-between items-start mb-6">
                 <div>
                   <h1 className="text-2xl md:text-3xl font-bold text-slate-900 mb-2">{asset.nama}</h1>
@@ -252,11 +257,11 @@ export default function DetailArsipPage() {
             </div>
           </div>
         ) : (
-          /* JIKA DATA GAGAL DIAMBIL ATAU ID TIDAK ADA */
+          /* JIKA DATA GAGAL DIAMBIL */
           <div className="bg-white rounded-2xl border border-slate-200 p-20 text-center shadow-sm">
             <AlertTriangle className="mx-auto text-red-500 mb-4" size={48} />
             <h3 className="text-xl font-bold text-slate-900 mb-2">Aset Tidak Ditemukan</h3>
-            <p className="text-slate-500 text-sm">Maaf, barang dengan ID tersebut tidak ada di database kami atau telah dihapus.</p>
+            <p className="text-slate-500 text-sm">Maaf, barang dengan ID tersebut tidak ada di database kami.</p>
           </div>
         )}
       </main>

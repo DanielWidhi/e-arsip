@@ -21,14 +21,9 @@ export default function PemeliharaanPage() {
 
   const fetchPemeliharaan = async () => {
     setIsLoading(true);
-    const { data, error } = await supabase
-      .from("inventaris_kib_b")
-      .select("*, kir:master_kir(nama_ruangan), asal_usul:master_asal_usul(nama_asal)")
-      .in("kondisi", ["Rusak Ringan", "Rusak Berat"]) // HANYA AMBIL YANG RUSAK
-      .order("id", { ascending: false });
+    const { data, error } = await supabase.from("inventaris_kib_b").select("*, kir:master_kir(nama_ruangan), asal_usul:master_asal_usul(nama_asal)").in("kondisi", ["Rusak Ringan", "Rusak Berat"]).order("id", { ascending: false });
 
     if (!error && data) {
-      // 1. PERBAIKAN: Mengganti any menjadi Record<string, any>
       // eslint-disable-next-line @typescript-eslint/no-explicit-any
       const formattedData: AssetItem[] = data.map((item: Record<string, any>) => ({
         id: item.id,
@@ -59,7 +54,6 @@ export default function PemeliharaanPage() {
   };
 
   useEffect(() => {
-    // 2. PERBAIKAN: Dibungkus dengan setTimeout
     setTimeout(() => {
       fetchPemeliharaan();
     }, 0);
@@ -90,7 +84,7 @@ export default function PemeliharaanPage() {
         </div>
       </div>
 
-      {/* 3. PERBAIKAN: Mengubah min-h-[400px] menjadi min-h-100 */}
+      {/* SKELETON LOADER INTEGRASI */}
       <div className="bg-white rounded-xl border border-slate-200 shadow-sm overflow-hidden flex flex-col w-full min-h-100">
         <div className="overflow-x-auto w-full flex-1">
           <table className="min-w-full text-left border-collapse whitespace-nowrap">
@@ -106,11 +100,29 @@ export default function PemeliharaanPage() {
             </thead>
             <tbody className="divide-y divide-slate-200 text-sm text-slate-700">
               {isLoading ? (
-                <tr>
-                  <td colSpan={6} className="px-6 py-16 text-center">
-                    <Loader2 className="animate-spin mx-auto text-blue-600" size={32} />
-                  </td>
-                </tr>
+                /* SKELETON LOADER UNTUK 3 BARIS TABEL */
+                Array.from({ length: 3 }).map((_, i) => (
+                  <tr key={i} className="animate-pulse border-b border-slate-100">
+                    <td className="px-6 py-5">
+                      <div className="h-4 w-6 bg-slate-200 rounded-md" />
+                    </td>
+                    <td className="px-6 py-5">
+                      <div className="h-4 w-28 bg-slate-200 rounded-md" />
+                    </td>
+                    <td className="px-6 py-5">
+                      <div className="h-4 w-48 bg-slate-200 rounded-md" />
+                    </td>
+                    <td className="px-6 py-5">
+                      <div className="h-4 w-24 bg-slate-200 rounded-md" />
+                    </td>
+                    <td className="px-6 py-5">
+                      <div className="h-4 w-32 bg-slate-200 rounded-md" />
+                    </td>
+                    <td className="px-6 py-5 text-center">
+                      <div className="inline-block h-8 w-16 bg-slate-200 rounded-md" />
+                    </td>
+                  </tr>
+                ))
               ) : filteredData.length > 0 ? (
                 filteredData.map((item, index) => (
                   <tr key={item.id} className="hover:bg-slate-50/80 transition-colors">

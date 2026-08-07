@@ -1,12 +1,12 @@
 "use client";
 
 import { useState, useEffect } from "react";
-// 1. MEMPERBAIKI WARNING KUNING: Menghapus ChevronLeft dan ChevronRight yang tidak terpakai
 import { Search, Plus, Edit, Key, Trash2, Loader2 } from "lucide-react";
 import UserCreateModal from "@/components/UserCreateModal";
 import UserEditModal from "@/components/UserEditModal";
 import { createClient } from "@/lib/supabase";
 import { deleteUserAccount, resetUserPassword } from "@/actions/userActions";
+import Swal from "sweetalert2"; // Import SweetAlert2
 
 export type UserType = {
   id: number;
@@ -30,14 +30,11 @@ export default function PenggunaAdminPage() {
   const fetchUsers = async () => {
     setIsLoading(true);
     const { data, error } = await supabase.from("users").select("*").order("id", { ascending: true });
-
     if (data && !error) setDataUsers(data);
     setIsLoading(false);
   };
 
   useEffect(() => {
-    // 2. MEMPERBAIKI ERROR MERAH: Membungkusnya dengan setTimeout
-    // agar React tidak protes "Calling setState synchronously"
     setTimeout(() => {
       fetchUsers();
     }, 0);
@@ -46,25 +43,64 @@ export default function PenggunaAdminPage() {
 
   const filteredUsers = dataUsers.filter((user) => user.nama.toLowerCase().includes(searchTerm.toLowerCase()) || user.nip.includes(searchTerm));
 
+  // PERBAIKAN: GANTI CONFIRM BROWSER DENGAN SWEETALERT2 UNTUK HAPUS USER
   const handleDelete = async (id: number, nama: string, email: string) => {
-    const confirmDelete = window.confirm(`Apakah Anda yakin ingin menghapus akses untuk pengguna "${nama}"?\nAksi ini tidak dapat dibatalkan.`);
-    if (confirmDelete) {
+    const swalResult = await Swal.fire({
+      title: "Hapus Pengguna?",
+      text: `Apakah Anda yakin ingin menghapus akses untuk "${nama}"?\nSemua log aktivitas terkait juga akan terputus.`,
+      icon: "warning",
+      showCancelButton: true,
+      confirmButtonColor: "#ba1a1a",
+      cancelButtonColor: "#cbd5e1",
+      confirmButtonText: "Ya, Hapus!",
+      cancelButtonText: "Batal",
+    });
+
+    if (swalResult.isConfirmed) {
       const res = await deleteUserAccount(id, email);
       if (res.success) {
-        alert("Pengguna berhasil dihapus.");
+        Swal.fire({
+          icon: "success",
+          title: "Selesai!",
+          text: `Akses pengguna "${nama}" berhasil dicabut.`,
+          confirmButtonColor: "#2563eb",
+          timer: 2000,
+          showConfirmButton: false,
+        });
         fetchUsers();
       } else {
-        alert("Gagal menghapus: " + res.message);
+        Swal.fire({ icon: "error", title: "Gagal Menghapus", text: res.message, confirmButtonColor: "#2563eb" });
       }
     }
   };
 
+  // PERBAIKAN: GANTI CONFIRM BROWSER DENGAN SWEETALERT2 UNTUK RESET PASSWORD
   const handleResetPassword = async (email: string, nama: string) => {
-    const confirmReset = window.confirm(`Reset kata sandi untuk "${nama}" menjadi default (CamatKuta2026!) ?`);
-    if (confirmReset) {
+    const swalResult = await Swal.fire({
+      title: "Reset Sandi?",
+      text: `Sandi untuk "${nama}" akan dikembalikan ke default: CamatKuta2026!`,
+      icon: "question",
+      showCancelButton: true,
+      confirmButtonColor: "#2563eb",
+      cancelButtonColor: "#cbd5e1",
+      confirmButtonText: "Ya, Reset!",
+      cancelButtonText: "Batal",
+    });
+
+    if (swalResult.isConfirmed) {
       const res = await resetUserPassword(email);
-      if (res.success) alert("Kata sandi berhasil direset ke default!");
-      else alert("Gagal mereset kata sandi: " + res.message);
+      if (res.success) {
+        Swal.fire({
+          icon: "success",
+          title: "Sandi Direset!",
+          text: `Sandi "${nama}" berhasil dikembalikan ke default.`,
+          confirmButtonColor: "#2563eb",
+          timer: 2500,
+          showConfirmButton: false,
+        });
+      } else {
+        Swal.fire({ icon: "error", title: "Gagal Reset", text: res.message, confirmButtonColor: "#2563eb" });
+      }
     }
   };
 
@@ -100,7 +136,7 @@ export default function PenggunaAdminPage() {
         </div>
       </div>
 
-      {/* 3. MEMPERBAIKI WARNING KUNING TAILWIND: Ubah min-h-[300px] menjadi min-h-75 */}
+      {/* SKELETON LOADER INTEGRASI */}
       <div className="bg-white rounded-xl border border-slate-200 shadow-sm overflow-hidden flex flex-col w-full min-h-75">
         <div className="overflow-x-auto w-full flex-1">
           <table className="min-w-full text-left border-collapse whitespace-nowrap">
@@ -116,11 +152,29 @@ export default function PenggunaAdminPage() {
             </thead>
             <tbody className="divide-y divide-slate-200 text-sm text-slate-700">
               {isLoading ? (
-                <tr>
-                  <td colSpan={6} className="px-6 py-16 text-center">
-                    <Loader2 className="animate-spin mx-auto text-blue-600" size={32} />
-                  </td>
-                </tr>
+                /* SKELETON LOADER UNTUK 3 BARIS TABEL */
+                Array.from({ length: 3 }).map((_, i) => (
+                  <tr key={i} className="animate-pulse border-b border-slate-100">
+                    <td className="px-6 py-5">
+                      <div className="h-4 w-6 bg-slate-200 rounded-md" />
+                    </td>
+                    <td className="px-6 py-5">
+                      <div className="h-4 w-28 bg-slate-200 rounded-md" />
+                    </td>
+                    <td className="px-6 py-5">
+                      <div className="h-4 w-48 bg-slate-200 rounded-md" />
+                    </td>
+                    <td className="px-6 py-5">
+                      <div className="h-4 w-40 bg-slate-200 rounded-md" />
+                    </td>
+                    <td className="px-6 py-5">
+                      <div className="h-4 w-16 bg-slate-200 rounded-md" />
+                    </td>
+                    <td className="px-6 py-5 text-center">
+                      <div className="inline-block h-8 w-24 bg-slate-200 rounded-md" />
+                    </td>
+                  </tr>
+                ))
               ) : filteredUsers.length > 0 ? (
                 filteredUsers.map((user, index) => (
                   <tr key={user.id} className="hover:bg-slate-50/80 transition-colors">

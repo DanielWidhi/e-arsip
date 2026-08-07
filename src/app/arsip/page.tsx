@@ -8,6 +8,10 @@ import { Search, ChevronDown, Eye, Loader2 } from "lucide-react";
 import Link from "next/link";
 import { createClient } from "@/lib/supabase";
 
+// 1. IMPORT AOS DAN CSS NYA
+import AOS from "aos";
+import "aos/dist/aos.css";
+
 export default function ArsipPage() {
   const searchParams = useSearchParams();
   const supabase = createClient();
@@ -20,6 +24,15 @@ export default function ArsipPage() {
   const [filterTahun, setFilterTahun] = useState("");
   const [filterKondisi, setFilterKondisi] = useState("");
   const [filterKir, setFilterKir] = useState("");
+
+  // 2. INISIALISASI AOS SECARA AMAN DI SISI CLIENT
+  useEffect(() => {
+    AOS.init({
+      duration: 800, // Durasi animasi (800ms)
+      once: true, // Animasi hanya jalan sekali saat di-scroll
+      easing: "ease-out-cubic",
+    });
+  }, []);
 
   const fetchArsipData = async () => {
     setIsLoading(true);
@@ -34,8 +47,6 @@ export default function ArsipPage() {
   };
 
   useEffect(() => {
-    // PERBAIKAN: Satukan semua proses pembaruan state ke dalam satu setTimeout
-    // agar terhindar dari error "setState synchronously"
     setTimeout(() => {
       fetchArsipData();
 
@@ -61,13 +72,14 @@ export default function ArsipPage() {
 
       <main className="grow flex flex-col items-center pb-16 md:pb-24">
         <div className="max-w-7xl mx-auto w-full px-6 py-10 flex flex-col gap-8">
-          <div className="flex flex-col gap-2">
+          {/* Header (Animasi Pertama) */}
+          <div data-aos="fade-up" className="flex flex-col gap-2">
             <h1 className="text-3xl md:text-4xl font-bold text-slate-900 tracking-tight">Daftar Inventaris Peralatan & Mesin (KIB B)</h1>
             <p className="text-lg text-slate-500">Transparansi data aset publik wilayah Kuta Selatan.</p>
           </div>
 
-          {/* Toolbar */}
-          <div className="flex flex-col lg:flex-row justify-between items-start lg:items-center gap-4 bg-white p-4 rounded-xl border border-slate-200 shadow-sm">
+          {/* Toolbar (Animasi Kedua, delay 100ms) */}
+          <div data-aos="fade-up" data-aos-delay="100" className="flex flex-col lg:flex-row justify-between items-start lg:items-center gap-4 bg-white p-4 rounded-xl border border-slate-200 shadow-sm">
             <div className="flex flex-wrap items-center gap-3 w-full lg:w-auto">
               {/* Filter Tahun */}
               <div className="relative w-full sm:w-auto">
@@ -128,38 +140,59 @@ export default function ArsipPage() {
             </div>
           </div>
 
-          {/* Data Table */}
-          <div className="bg-white rounded-xl border border-slate-200 overflow-hidden shadow-sm">
+          {/* Data Table (Animasi Ketiga, delay 200ms) */}
+          <div data-aos="fade-up" data-aos-delay="200" className="bg-white rounded-xl border border-slate-200 shadow-sm overflow-hidden">
             <div className="overflow-x-auto">
               <table className="min-w-full text-left border-collapse whitespace-nowrap">
                 <thead>
                   <tr className="bg-slate-50 border-b border-slate-200">
-                    <th className="px-6 py-4 w-16">No</th>
-                    <th className="px-6 py-4">Kode Barang</th>
-                    <th className="px-6 py-4">Nama/Jenis Barang</th>
+                    <th className="px-6 py-4 w-16 text-slate-500">No</th>
+                    <th className="px-6 py-4 text-slate-500">Kode Barang</th>
+                    <th className="px-6 py-4 font-semibold text-xs text-slate-500 uppercase tracking-wider">Nama/Jenis Barang</th>
                     <th className="px-6 py-4 text-sm text-slate-500">Merk</th>
                     <th className="px-6 py-4 text-sm text-slate-500">Tahun Beli</th>
                     <th className="px-6 py-4 text-sm text-slate-500">Ruangan (KIR)</th>
-                    <th className="px-6 py-4 text-right">Aksi</th>
+                    <th className="px-6 py-4 text-right text-slate-500">Aksi</th>
                   </tr>
                 </thead>
                 <tbody className="divide-y divide-slate-100">
                   {isLoading ? (
-                    <tr>
-                      <td colSpan={7} className="px-6 py-16 text-center">
-                        <Loader2 className="animate-spin text-blue-600 mx-auto" size={32} />
-                        <p className="text-sm text-slate-500 mt-2">Memuat data dari database...</p>
-                      </td>
-                    </tr>
+                    /* SHADCN SKELETON LOADER (5 BARIS DENYUT ABU-ABU) */
+                    Array.from({ length: 5 }).map((_, i) => (
+                      <tr key={i} className="animate-pulse border-b border-slate-100">
+                        <td className="px-6 py-5">
+                          <div className="h-4 w-6 bg-slate-200 rounded-md" />
+                        </td>
+                        <td className="px-6 py-5">
+                          <div className="h-4 w-28 bg-slate-200 rounded-md" />
+                        </td>
+                        <td className="px-6 py-5">
+                          <div className="h-4 w-48 bg-slate-200 rounded-md" />
+                        </td>
+                        <td className="px-6 py-5">
+                          <div className="h-4 w-24 bg-slate-200 rounded-md" />
+                        </td>
+                        <td className="px-6 py-5">
+                          <div className="h-4 w-12 bg-slate-200 rounded-md" />
+                        </td>
+                        <td className="px-6 py-5">
+                          <div className="h-4 w-32 bg-slate-200 rounded-md" />
+                        </td>
+                        <td className="px-6 py-5 text-right">
+                          <div className="inline-block h-8 w-8 bg-slate-200 rounded-md" />
+                        </td>
+                      </tr>
+                    ))
                   ) : filteredData.length > 0 ? (
+                    /* DATA ASLI MUNCUL */
                     filteredData.map((item, index) => (
                       <tr key={item.id} className="hover:bg-slate-50 transition-colors duration-150 group">
-                        <td className="px-6 py-4 text-sm text-slate-600">{index + 1}</td>
-                        <td className="px-6 py-4 text-sm text-slate-600 font-mono">{item.kode_barang}</td>
-                        <td className="px-6 py-4 text-sm font-medium text-slate-900">{item.nama_barang}</td>
-                        <td className="px-6 py-4 text-sm text-slate-500">{item.merk_type || "-"}</td>
-                        <td className="px-6 py-4 text-sm text-slate-500">{item.tahun_beli || "-"}</td>
-                        <td className="px-6 py-4 text-sm text-slate-500">{item.kir?.nama_ruangan || "-"}</td>
+                        <td className="px-6 py-4 text-sm text-slate-700">{index + 1}</td>
+                        <td className="px-6 py-4 text-sm text-slate-700 font-mono">{item.kode_barang}</td>
+                        <td className="px-6 py-4 text-sm font-semibold text-slate-900">{item.nama_barang}</td>
+                        <td className="px-6 py-4 text-sm text-slate-600">{item.merk_type || "-"}</td>
+                        <td className="px-6 py-4 text-sm text-slate-600">{item.tahun_beli || "-"}</td>
+                        <td className="px-6 py-4 text-sm text-slate-600">{item.kir?.nama_ruangan || "-"}</td>
                         <td className="px-6 py-4 text-right">
                           <Link
                             href={`/arsip/${item.id}`}
@@ -172,6 +205,7 @@ export default function ArsipPage() {
                       </tr>
                     ))
                   ) : (
+                    /* DATA KOSONG */
                     <tr>
                       <td colSpan={7} className="px-6 py-12 text-center text-slate-500">
                         Tidak ada data inventaris yang cocok dengan pencarian atau filter Anda.
@@ -182,6 +216,9 @@ export default function ArsipPage() {
               </table>
             </div>
 
+            {/* ======================================================== */}
+            {/* PERBAIKAN: PAGINATION TUNGGAL YANG RAPI DAN BERSIH       */}
+            {/* ======================================================== */}
             <div className="bg-white px-6 py-4 border-t border-slate-200 flex items-center justify-between sm:justify-center gap-2">
               <button className="px-3 py-1.5 text-sm font-medium text-slate-500 border border-slate-200 rounded-md hover:bg-slate-50 disabled:opacity-50 transition-colors" disabled>
                 Sebelumnya

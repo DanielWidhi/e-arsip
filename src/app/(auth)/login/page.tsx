@@ -1,15 +1,19 @@
 "use client";
 
-import { useState } from "react";
-import { LogIn, ArrowLeft, Eye, EyeOff, ShieldCheck } from "lucide-react";
+import { useState, useEffect } from "react";
+// 1. PERBAIKAN: Menghapus ShieldCheck dari import agar tidak menimbulkan warning
+import { LogIn, ArrowLeft, Eye, EyeOff } from "lucide-react";
 import Link from "next/link";
 import { useRouter } from "next/navigation";
 import { createClient } from "@/lib/supabase";
 
+// IMPORT AOS
+import AOS from "aos";
+import "aos/dist/aos.css";
+
 export default function LoginPage() {
   const router = useRouter();
 
-  // 1. UBAH STATE: Dari nip menjadi email
   const [email, setEmail] = useState("");
   const [password, setPassword] = useState("");
   const [isLoading, setIsLoading] = useState(false);
@@ -18,47 +22,64 @@ export default function LoginPage() {
 
   const supabase = createClient();
 
+  useEffect(() => {
+    AOS.init({
+      duration: 800,
+      once: true,
+      easing: "ease-out-cubic",
+    });
+  }, []);
+
   const handleLogin = async (e: React.FormEvent) => {
     e.preventDefault();
     setIsLoading(true);
     setErrorMsg("");
 
-    // 2. TEMBAK LANGSUNG MENGGUNAKAN EMAIL ASLI
     const { error } = await supabase.auth.signInWithPassword({
-      email: email, // Langsung pakai state email
+      email: email,
       password: password,
     });
 
     if (error) {
       setIsLoading(false);
-      // Ubah teks peringatan
       setErrorMsg("Email atau Kata Sandi salah. Silakan coba lagi.");
     } else {
       setIsLoading(false);
-      // Bersihkan cookie dummy jika ada
       document.cookie = "sb-access-token=; expires=Thu, 01 Jan 1970 00:00:00 UTC; path=/;";
-
       router.push("/admin/dashboard");
       router.refresh();
     }
   };
 
   return (
-    <div className="min-h-screen w-full flex font-sans bg-slate-50 lg:bg-white">
-      {/* --- KOLOM KIRI (GAMBAR) --- */}
-      <div className="hidden lg:flex lg:w-1/2 relative bg-cover bg-center" style={{ backgroundImage: "url('/images/hero/HeroBanner1.jpg')" }}>
+    <div className="min-h-screen w-full flex font-sans bg-slate-50 lg:bg-white overflow-hidden">
+      {/* ==================================================== */}
+      {/* KOLOM KIRI: BACKGROUND GAMBAR */}
+      {/* ==================================================== */}
+      <div data-aos="fade-right" className="hidden lg:flex lg:w-1/2 relative bg-cover bg-center shrink-0" style={{ backgroundImage: "url('/images/hero/HeroBanner1.jpg')" }}>
+        {/* Overlay Gelap */}
         <div className="absolute inset-0 bg-slate-900/70 backdrop-blur-[2px]" />
+
+        {/* Konten di Atas Gambar */}
         <div className="relative z-10 flex flex-col justify-between p-12 w-full h-full">
-          <Link href="/" className="flex items-center gap-2 text-white/80 hover:text-white transition w-fit text-sm font-medium">
-            <ArrowLeft size={18} /> Kembali ke Beranda
-          </Link>
-          <div className="mb-12">
-            <div className="w-16 h-16 bg-blue-600 text-white rounded-2xl flex items-center justify-center mb-6 shadow-lg">
-              <ShieldCheck size={32} />
+          {/* Tombol Kembali */}
+          <div data-aos="fade-down" data-aos-delay="200" className="w-fit">
+            <Link href="/" className="flex items-center gap-2 text-white/80 hover:text-white transition w-fit text-sm font-medium">
+              <ArrowLeft size={18} /> Kembali ke Beranda
+            </Link>
+          </div>
+
+          {/* Teks Branding */}
+          <div data-aos="fade-up" data-aos-delay="300" className="mb-12">
+            {/* 2. REVISI: Mengganti box biru ShieldCheck dengan logo Badung di dalam box putih bersih */}
+            <div className="w-16 h-16 bg-white rounded-2xl flex items-center justify-center mb-6 shadow-lg p-2.5">
+              {/* eslint-disable-next-line @next/next/no-img-element */}
+              <img src="/images/logo-badung.png" alt="Logo Badung" className="w-full h-full object-contain" />
             </div>
-            <h1 className="text-4xl font-extrabold text-white mb-2 tracking-tight">SI-ARSIP</h1>
+
+            <h1 className="text-4xl font-extrabold text-white mb-2 tracking-tight">SATE</h1>
             <p className="text-slate-300 text-lg font-medium max-w-md leading-relaxed">
-              Sistem Informasi Arsip Inventaris Barang Terpadu
+              SISTEM ASET TERINTEGRASI EFEKTIF AKUNTABEL TRANSPARAN
               <br />
               Kantor Camat Kuta Selatan.
             </p>
@@ -66,26 +87,29 @@ export default function LoginPage() {
         </div>
       </div>
 
-      {/* --- KOLOM KANAN (FORM LOGIN) --- */}
-      <div className="w-full lg:w-1/2 flex flex-col justify-center items-center p-6 sm:p-12 relative">
+      {/* ==================================================== */}
+      {/* KOLOM KANAN: FORMULIR LOGIN */}
+      {/* ==================================================== */}
+      <div data-aos="fade-up" data-aos-delay="100" className="w-full lg:w-1/2 flex flex-col justify-center items-center p-6 sm:p-12 relative">
+        {/* Tombol Kembali khusus HP */}
         <Link href="/" className="lg:hidden absolute top-6 left-6 flex items-center gap-2 text-slate-500 hover:text-blue-600 transition font-medium text-sm">
           <ArrowLeft size={18} /> Beranda
         </Link>
 
-        <div className="w-full max-w-[400px] bg-white p-8 sm:p-10 rounded-3xl shadow-xl border border-slate-100 lg:shadow-none lg:border-none lg:p-0">
+        {/* Kotak Form */}
+        <div className="w-full max-w-100 bg-white p-8 sm:p-10 rounded-3xl shadow-xl border border-slate-100 lg:shadow-none lg:border-none lg:p-0">
           <div className="text-center mb-10">
             <h2 className="text-3xl font-bold text-slate-900 mb-2 tracking-tight">Panel Admin</h2>
-            {/* Ubah teks instruksi */}
             <p className="text-slate-500 text-sm">Masuk menggunakan Email dan Kata Sandi.</p>
           </div>
 
           <form onSubmit={handleLogin} className="flex flex-col gap-6">
-            {/* 3. INPUT EMAIL */}
+            {/* Input Email */}
             <div className="space-y-2">
               <label className="text-xs font-bold text-slate-500 uppercase tracking-wider">Email Pegawai</label>
               <input
                 required
-                type="email" // Menggunakan type="email" agar keyboard HP memunculkan tombol '@'
+                type="email"
                 value={email}
                 onChange={(e) => setEmail(e.target.value)}
                 placeholder="Contoh: admin@gmail.com"
@@ -93,7 +117,7 @@ export default function LoginPage() {
               />
             </div>
 
-            {/* INPUT PASSWORD */}
+            {/* Input Password */}
             <div className="space-y-2 relative">
               <label className="text-xs font-bold text-slate-500 uppercase tracking-wider">Kata Sandi</label>
               <div className="relative">
@@ -111,10 +135,10 @@ export default function LoginPage() {
               </div>
             </div>
 
-            {/* PESAN ERROR */}
+            {/* Pesan Error */}
             {errorMsg && <div className="bg-red-50 text-red-600 text-sm p-3 rounded-lg border border-red-100 font-medium text-center">{errorMsg}</div>}
 
-            {/* TOMBOL SUBMIT */}
+            {/* Tombol Submit */}
             <button
               type="submit"
               disabled={isLoading}

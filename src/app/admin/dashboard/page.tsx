@@ -9,6 +9,30 @@ import AssetDetailModal, { AssetType } from "@/components/AssetDetailModal";
 import AssetEditModal from "@/components/AssetEditModal";
 import { AssetItem } from "@/utils/exportPdfKibB";
 
+interface SupabaseAsset {
+  id: number;
+  kode_barang: string;
+  nama_barang: string;
+  nomor_register?: string | null;
+  merk_type?: string | null;
+  ukuran_cc?: string | null;
+  bahan?: string | null;
+  tahun_beli?: string | null;
+  pabrik?: string | null;
+  no_rangka?: string | null;
+  no_mesin?: string | null;
+  no_polisi?: string | null;
+  no_bpkb?: string | null;
+  asal_usul_id?: number | null;
+  harga?: number | null;
+  kondisi: string;
+  kir_id?: number | null;
+  keterangan?: string | null;
+  foto_url?: string | null;
+  kir?: { nama_ruangan: string } | null;
+  asal_usul?: { nama_asal: string } | null;
+}
+
 export default function AdminDashboardPage() {
   const [currentDate, setCurrentDate] = useState("");
   const [isLoading, setIsLoading] = useState(true);
@@ -39,9 +63,9 @@ export default function AdminDashboardPage() {
     const { data, error } = await supabase.from("inventaris_kib_b").select("*, kir:master_kir(nama_ruangan), asal_usul:master_asal_usul(nama_asal)").order("id", { ascending: false });
 
     if (!error && data) {
-      // PERBAIKAN: Mengganti (item: any) menjadi (item: Record<string, any>)
-      // eslint-disable-next-line @typescript-eslint/no-explicit-any
-      const formattedData: AssetItem[] = data.map((item: Record<string, any>) => ({
+      const rawData = data as unknown as SupabaseAsset[];
+
+      const formattedData: AssetItem[] = rawData.map((item) => ({
         id: item.id,
         kode: item.kode_barang,
         nama: item.nama_barang,
@@ -79,11 +103,9 @@ export default function AdminDashboardPage() {
   };
 
   useEffect(() => {
-    // PERBAIKAN: Semua fungsi pemanggil dimasukkan ke dalam setTimeout
     setTimeout(() => {
       const options: Intl.DateTimeFormatOptions = { weekday: "long", year: "numeric", month: "short", day: "numeric" };
       setCurrentDate(new Date().toLocaleDateString("id-ID", options));
-
       fetchUserProfile();
       fetchDashboardData();
     }, 0);
@@ -109,6 +131,7 @@ export default function AdminDashboardPage() {
 
   return (
     <div className="max-w-7xl mx-auto space-y-6">
+      {/* 1. WELCOME SECTION */}
       <div className="flex flex-col md:flex-row md:items-end justify-between gap-4 bg-white p-6 md:p-8 rounded-2xl border border-slate-200 shadow-sm">
         <div>
           <h2 className="text-2xl md:text-3xl font-bold text-slate-900 mb-2 tracking-tight">
@@ -122,7 +145,9 @@ export default function AdminDashboardPage() {
         </div>
       </div>
 
+      {/* 2. STATISTIK KARTU (SKELETON DI-INTEGRASIKAN DI SINI) */}
       <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-6">
+        {/* Total Aset */}
         <div className="bg-white p-6 rounded-2xl border border-slate-200 shadow-sm hover:shadow-md transition-shadow">
           <div className="flex justify-between items-start mb-4">
             <div className="w-12 h-12 rounded-xl bg-blue-50 flex items-center justify-center text-blue-600">
@@ -131,9 +156,10 @@ export default function AdminDashboardPage() {
             <span className="text-xs font-semibold bg-slate-100 text-slate-500 px-2.5 py-1 rounded-md">Total</span>
           </div>
           <p className="text-sm font-medium text-slate-500 mb-1">Total Inventaris</p>
-          <h3 className="text-3xl font-bold text-slate-900">{isLoading ? <Loader2 size={28} className="animate-spin text-slate-300" /> : stats.totalAset}</h3>
+          {isLoading ? <div className="h-9 w-16 bg-slate-200 rounded animate-pulse mt-2" /> : <h3 className="text-3xl font-bold text-slate-900 mt-2">{stats.totalAset}</h3>}
         </div>
 
+        {/* Kondisi Baik */}
         <div className="bg-white p-6 rounded-2xl border border-slate-200 shadow-sm hover:shadow-md transition-shadow">
           <div className="flex justify-between items-start mb-4">
             <div className="w-12 h-12 rounded-xl bg-emerald-50 flex items-center justify-center text-emerald-600">
@@ -141,9 +167,10 @@ export default function AdminDashboardPage() {
             </div>
           </div>
           <p className="text-sm font-medium text-slate-500 mb-1">Kondisi Baik</p>
-          <h3 className="text-3xl font-bold text-slate-900">{isLoading ? <Loader2 size={28} className="animate-spin text-slate-300" /> : stats.kondisiBaik}</h3>
+          {isLoading ? <div className="h-9 w-16 bg-slate-200 rounded animate-pulse mt-2" /> : <h3 className="text-3xl font-bold text-slate-900 mt-2">{stats.kondisiBaik}</h3>}
         </div>
 
+        {/* Perlu Pemeliharaan */}
         <div className="bg-white p-6 rounded-2xl border border-slate-200 shadow-sm hover:shadow-md transition-shadow">
           <div className="flex justify-between items-start mb-4">
             <div className="w-12 h-12 rounded-xl bg-amber-50 flex items-center justify-center text-amber-600">
@@ -152,9 +179,10 @@ export default function AdminDashboardPage() {
             <span className="text-xs font-semibold bg-red-50 text-red-600 border border-red-200/50 px-2.5 py-1 rounded-md">Urgent</span>
           </div>
           <p className="text-sm font-medium text-slate-500 mb-1">Perlu Pemeliharaan</p>
-          <h3 className="text-3xl font-bold text-slate-900">{isLoading ? <Loader2 size={28} className="animate-spin text-slate-300" /> : stats.perluPemeliharaan}</h3>
+          {isLoading ? <div className="h-9 w-16 bg-slate-200 rounded animate-pulse mt-2" /> : <h3 className="text-3xl font-bold text-slate-900 mt-2">{stats.perluPemeliharaan}</h3>}
         </div>
 
+        {/* Total Nilai Aset */}
         <div className="bg-white p-6 rounded-2xl border border-slate-200 shadow-sm hover:shadow-md transition-shadow">
           <div className="flex justify-between items-start mb-4">
             <div className="w-12 h-12 rounded-xl bg-indigo-50 flex items-center justify-center text-indigo-600">
@@ -162,12 +190,13 @@ export default function AdminDashboardPage() {
             </div>
           </div>
           <p className="text-sm font-medium text-slate-500 mb-1">Total Nilai Aset</p>
-          <h3 className="text-3xl font-bold text-slate-900">{isLoading ? <Loader2 size={28} className="animate-spin text-slate-300" /> : formatRupiahSingkat(stats.totalNilai)}</h3>
+          {isLoading ? <div className="h-9 w-32 bg-slate-200 rounded animate-pulse mt-2" /> : <h3 className="text-3xl font-bold text-slate-900 mt-2">{formatRupiahSingkat(stats.totalNilai)}</h3>}
         </div>
       </div>
 
+      {/* 3. GRID GRAFIK DAN DAFTAR TINDAKAN */}
       <div className="grid grid-cols-1 lg:grid-cols-3 gap-6">
-        {/* PERBAIKAN: Ubah min-h-[400px] menjadi min-h-100 */}
+        {/* GRAFIK */}
         <div className="lg:col-span-2 bg-white p-6 md:p-8 rounded-2xl border border-slate-200 shadow-sm flex flex-col min-h-100">
           <div className="flex justify-between items-center mb-8">
             <h3 className="text-lg font-bold text-slate-900">Pertumbuhan Aset per Tahun</h3>
@@ -198,6 +227,7 @@ export default function AdminDashboardPage() {
           </div>
         </div>
 
+        {/* DAFTAR TINDAKAN (SKELETON DI-INTEGRASIKAN DI SINI) */}
         <div className="bg-white p-6 md:p-8 rounded-2xl border border-slate-200 shadow-sm flex flex-col">
           <div className="flex justify-between items-center mb-6">
             <h3 className="text-lg font-bold text-slate-900">Menunggu Tindakan</h3>
@@ -206,12 +236,20 @@ export default function AdminDashboardPage() {
 
           <div className="flex flex-col gap-4 flex-1">
             {isLoading ? (
-              <div className="flex justify-center items-center h-full">
-                <Loader2 className="animate-spin text-slate-300" />
-              </div>
+              /* SKELETON LOADER UNTUK 3 KARTU TINDAKAN */
+              Array.from({ length: 3 }).map((_, i) => (
+                <div key={i} className="p-4 border border-slate-200 rounded-xl bg-white animate-pulse space-y-3">
+                  <div className="flex justify-between items-center">
+                    <div className="h-4 w-28 bg-slate-200 rounded" />
+                    <div className="h-4 w-16 bg-slate-200 rounded" />
+                  </div>
+                  <div className="h-3 w-20 bg-slate-200 rounded" />
+                  <div className="h-8 w-full bg-slate-200 rounded" />
+                </div>
+              ))
             ) : actionItems.length > 0 ? (
               actionItems.map((item) => (
-                <div key={item.id} onClick={() => handleOpenDetail(item)} className="p-4 border border-slate-200 rounded-xl hover:border-blue-300 hover:shadow-md transition-all bg-white group cursor-pointer">
+                <div key={item.id} onClick={() => handleOpenDetail(item)} className="p-4 border border-slate-200 rounded-xl hover:border-blue-300 hover:shadow-md transition-all bg-white group cursor-pointer animate-in fade-in duration-300">
                   <div className="flex justify-between items-start mb-2 gap-2">
                     <h4 className="text-sm font-bold text-slate-800 group-hover:text-blue-600 transition-colors truncate">{item.nama}</h4>
                     <span className={`font-semibold text-[10px] px-2 py-0.5 rounded border whitespace-nowrap ${item.kondisi === "Rusak Berat" ? "bg-red-50 text-red-600 border-red-200" : "bg-amber-50 text-amber-600 border-amber-200"}`}>

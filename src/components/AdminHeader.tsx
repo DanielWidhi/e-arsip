@@ -12,6 +12,8 @@ export default function AdminHeader({ onMenuClick }: { onMenuClick: () => void }
 
   const [profile, setProfile] = useState({ nama: "Memuat...", role: "...", avatar_url: "" });
   const [notifCount, setNotifCount] = useState(0);
+
+  // STATE UNTUK BUKA/TUTUP DROPDOWN PROFIL
   const [isProfileOpen, setIsProfileOpen] = useState(false);
 
   const supabase = createClient();
@@ -40,7 +42,6 @@ export default function AdminHeader({ onMenuClick }: { onMenuClick: () => void }
   };
 
   useEffect(() => {
-    // PERBAIKAN: Dibungkus dengan setTimeout
     setTimeout(() => {
       fetchHeaderData();
     }, 0);
@@ -86,7 +87,6 @@ export default function AdminHeader({ onMenuClick }: { onMenuClick: () => void }
         <div className="flex items-center gap-2 text-slate-500 text-sm">
           <span className="hidden sm:inline">Dashboard</span>
           <span className="hidden sm:inline text-slate-300">/</span>
-          {/* PERBAIKAN: Mengubah max-w-[150px] menjadi max-w-37.5 */}
           <span className="font-semibold text-slate-800 truncate max-w-37.5 sm:max-w-none">{currentMenu}</span>
         </div>
       </div>
@@ -99,6 +99,9 @@ export default function AdminHeader({ onMenuClick }: { onMenuClick: () => void }
 
         <div className="h-8 w-px bg-slate-200 mx-1 hidden sm:block"></div>
 
+        {/* ========================================================== */}
+        {/* DROPDOWN PROFIL DENGAN ANIMASI TRANSISI SMOOTH */}
+        {/* ========================================================== */}
         <div className="relative">
           <button onClick={() => setIsProfileOpen(!isProfileOpen)} className="flex items-center gap-2 md:gap-3 hover:bg-slate-50 p-1.5 pr-2 md:pr-3 rounded-lg transition-colors text-left border border-transparent hover:border-slate-200">
             <div className="w-8 h-8 rounded-full overflow-hidden bg-slate-200 border border-slate-200 shrink-0">
@@ -106,32 +109,34 @@ export default function AdminHeader({ onMenuClick }: { onMenuClick: () => void }
               <img src={profile.avatar_url || `https://ui-avatars.com/api/?name=${profile.nama}&background=0D8ABC&color=fff&bold=true`} alt="Profile" className="w-full h-full object-cover" />
             </div>
             <div className="hidden lg:block text-left">
-              {/* PERBAIKAN: Mengubah max-w-[150px] menjadi max-w-37.5 */}
               <p className="text-sm font-bold text-slate-800 leading-tight truncate max-w-37.5">{profile.nama}</p>
               <p className="text-xs font-medium text-slate-500 leading-tight">{profile.role}</p>
             </div>
             <ChevronDown size={14} className="text-slate-400 hidden lg:block" />
           </button>
 
-          {isProfileOpen && (
-            <>
-              <div className="fixed inset-0 z-40" onClick={() => setIsProfileOpen(false)}></div>
-              <div className="absolute right-0 mt-2 w-56 bg-white border border-slate-200 rounded-xl shadow-lg py-2 z-50 animate-in slide-in-from-top-2 duration-200">
-                <div className="px-4 py-2 border-b border-slate-100 mb-1 lg:hidden">
-                  <p className="text-sm font-bold text-slate-800 truncate">{profile.nama}</p>
-                  <p className="text-xs font-medium text-slate-500">{profile.role}</p>
-                </div>
+          {/* BACKDROP TRANSPARAN */}
+          <div className={`fixed inset-0 z-40 transition-opacity duration-200 ${isProfileOpen ? "opacity-100 visible" : "opacity-0 invisible"}`} onClick={() => setIsProfileOpen(false)} />
 
-                <Link href="/" className="flex items-center gap-2 px-4 py-2.5 text-sm font-medium text-slate-700 hover:bg-slate-50 hover:text-blue-600 transition-colors">
-                  <Globe size={16} /> Ke Halaman Publik
-                </Link>
+          {/* BOX MENU DROPDOWN (Scale & Fade-in) */}
+          <div
+            className={`absolute right-0 mt-2 w-56 bg-white border border-slate-200 rounded-xl shadow-lg py-2 z-50 transform origin-top-right transition-all duration-200 ease-in-out ${
+              isProfileOpen ? "opacity-100 scale-100 translate-y-0 visible" : "opacity-0 scale-95 -translate-y-2 invisible"
+            }`}
+          >
+            <div className="px-4 py-2 border-b border-slate-100 mb-1 lg:hidden">
+              <p className="text-sm font-bold text-slate-800 truncate">{profile.nama}</p>
+              <p className="text-xs font-medium text-slate-500">{profile.role}</p>
+            </div>
 
-                <button onClick={handleLogout} className="w-full flex items-center gap-2 px-4 py-2.5 text-sm font-medium text-red-600 hover:bg-red-50 transition-colors mt-1 border-t border-slate-100 pt-3">
-                  <LogOut size={16} /> Keluar (Logout)
-                </button>
-              </div>
-            </>
-          )}
+            <Link href="/" className="flex items-center gap-2 px-4 py-2.5 text-sm font-medium text-slate-700 hover:bg-slate-50 hover:text-blue-600 transition-colors">
+              <Globe size={16} /> Ke Halaman Publik
+            </Link>
+
+            <button onClick={handleLogout} className="w-full flex items-center gap-2 px-4 py-2.5 text-sm font-medium text-red-600 hover:bg-red-50 transition-colors mt-1 border-t border-slate-100 pt-3">
+              <LogOut size={16} /> Keluar (Logout)
+            </button>
+          </div>
         </div>
       </div>
     </header>

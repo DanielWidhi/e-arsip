@@ -4,6 +4,7 @@ import { useState, useEffect, useRef, useCallback } from "react";
 import { Eye, EyeOff, Camera, Loader2, Save, X } from "lucide-react";
 import { createClient } from "@/lib/supabase";
 import Cropper, { Area } from "react-easy-crop";
+import Swal from "sweetalert2"; // Import SweetAlert2
 
 const createImage = (url: string): Promise<HTMLImageElement> =>
   new Promise((resolve, reject) => {
@@ -27,13 +28,17 @@ async function getCroppedImg(imageSrc: string, pixelCrop: Area, fileName: string
   ctx.drawImage(image, pixelCrop.x, pixelCrop.y, pixelCrop.width, pixelCrop.height, 0, 0, pixelCrop.width, pixelCrop.height);
 
   return new Promise((resolve, reject) => {
-    canvas.toBlob((blob) => {
-      if (!blob) {
-        reject(new Error("Canvas is empty"));
-        return;
-      }
-      resolve(new File([blob], fileName, { type: "image/jpeg" }));
-    }, "image/jpeg");
+    canvas.toBlob(
+      (blob) => {
+        if (!blob) {
+          reject(new Error("Canvas is empty"));
+          return;
+        }
+        resolve(new File([blob], fileName, { type: "image/jpeg" }));
+      },
+      "image/jpeg",
+      0.6,
+    );
   });
 }
 
@@ -108,26 +113,54 @@ export default function PengaturanAdminPage() {
       const { error: dbError } = await supabase.from("users").update({ avatar_url: publicUrl }).eq("id", profile.id);
       if (dbError) throw dbError;
 
-      alert("Foto profil berhasil diperbarui!");
+      // 1. SWEETALERT SUKSES UPLOAD FOTO
+      Swal.fire({
+        icon: "success",
+        title: "Foto Berhasil Diperbarui!",
+        text: "Foto profil Anda telah sukses di-upload ke server.",
+        confirmButtonColor: "#2563eb",
+        timer: 2000,
+        showConfirmButton: false,
+      });
+
       setProfile({ ...profile, avatar_url: publicUrl });
       setIsCropModalOpen(false);
       window.dispatchEvent(new Event("local-avatar-updated"));
     } catch (error: unknown) {
       const errorMessage = error instanceof Error ? error.message : "Terjadi kesalahan yang tidak diketahui";
-      alert("Gagal mengupload foto: " + errorMessage);
+      // 2. SWEETALERT GAGAL UPLOAD FOTO
+      Swal.fire({
+        icon: "error",
+        title: "Gagal Mengunggah",
+        text: errorMessage,
+        confirmButtonColor: "#ba1a1a",
+      });
     }
     setIsUploading(false);
   };
 
   const handleUpdatePassword = async () => {
-    if (newPassword.length < 6) return alert("Kata sandi minimal 6 karakter!");
-    if (newPassword !== confirmPassword) return alert("Konfirmasi kata sandi tidak cocok!");
+    if (newPassword.length < 6) {
+      return Swal.fire({ icon: "warning", title: "Sandi Terlalu Pendek", text: "Kata sandi minimal 6 karakter!", confirmButtonColor: "#2563eb" });
+    }
+    if (newPassword !== confirmPassword) {
+      return Swal.fire({ icon: "error", title: "Tidak Cocok", text: "Konfirmasi kata sandi baru tidak cocok!", confirmButtonColor: "#ba1a1a" });
+    }
 
     setIsSaving(true);
     const { error } = await supabase.auth.updateUser({ password: newPassword });
-    if (error) alert("Gagal mengubah kata sandi: " + error.message);
-    else {
-      alert("Kata sandi berhasil diperbarui!");
+    if (error) {
+      Swal.fire({ icon: "error", title: "Gagal Mengubah Sandi", text: error.message, confirmButtonColor: "#ba1a1a" });
+    } else {
+      // 3. SWEETALERT SUKSES UBAH PASSWORD
+      Swal.fire({
+        icon: "success",
+        title: "Sandi Diperbarui!",
+        text: "Kata sandi akun Anda telah berhasil diubah di database.",
+        confirmButtonColor: "#2563eb",
+        timer: 2500,
+        showConfirmButton: false,
+      });
       setNewPassword("");
       setConfirmPassword("");
     }
@@ -199,7 +232,6 @@ export default function PengaturanAdminPage() {
                     className="w-full px-4 py-2.5 pr-10 bg-white border border-slate-200 rounded-lg text-slate-800 text-sm focus:outline-none focus:ring-2 focus:ring-blue-600/20 focus:border-blue-600"
                   />
                   <button type="button" onClick={() => setShowNewPassword(!showNewPassword)} className="absolute inset-y-0 right-0 px-3 flex items-center text-slate-400 hover:text-slate-600">
-                    {/* PERBAIKAN: Mengganti salah satu EyeOff menjadi Eye */}
                     {showNewPassword ? <EyeOff size={18} /> : <Eye size={18} />}
                   </button>
                 </div>
@@ -215,7 +247,6 @@ export default function PengaturanAdminPage() {
                     className="w-full px-4 py-2.5 pr-10 bg-white border border-slate-200 rounded-lg text-slate-800 text-sm focus:outline-none focus:ring-2 focus:ring-blue-600/20 focus:border-blue-600"
                   />
                   <button type="button" onClick={() => setShowConfirmPassword(!showConfirmPassword)} className="absolute inset-y-0 right-0 px-3 flex items-center text-slate-400 hover:text-slate-600">
-                    {/* PERBAIKAN: Mengganti salah satu EyeOff menjadi Eye */}
                     {showConfirmPassword ? <EyeOff size={18} /> : <Eye size={18} />}
                   </button>
                 </div>

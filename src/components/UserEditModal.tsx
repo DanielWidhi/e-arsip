@@ -4,12 +4,13 @@ import { useState, useEffect } from "react";
 import { X, Save, Edit, Loader2 } from "lucide-react";
 import { UserType } from "@/app/admin/pengguna/page";
 import { editUser } from "@/actions/userActions";
+import Swal from "sweetalert2"; // Import SweetAlert2
 
 type UserEditModalProps = {
   isOpen: boolean;
   onClose: () => void;
   user: UserType | null;
-  onSave: () => void; // Trigger refresh
+  onSave: () => void;
 };
 
 export default function UserEditModal({ isOpen, onClose, user, onSave }: UserEditModalProps) {
@@ -17,7 +18,6 @@ export default function UserEditModal({ isOpen, onClose, user, onSave }: UserEdi
   const [role, setRole] = useState(user?.role || "Admin");
   const [isLoading, setIsLoading] = useState(false);
 
-  // PERBAIKAN: Dibungkus dengan setTimeout agar linter tidak protes
   useEffect(() => {
     setTimeout(() => {
       if (user) {
@@ -39,11 +39,19 @@ export default function UserEditModal({ isOpen, onClose, user, onSave }: UserEdi
     const result = await editUser({ id: user.id, nama, role });
 
     if (result.success) {
-      alert("Profil pengguna berhasil diperbarui!");
-      onSave(); // Refresh data tabel
+      // 1. GANTI KE SWEETALERT SUKSES
+      Swal.fire({
+        icon: "success",
+        title: "Selesai!",
+        text: "Profil pengguna berhasil diperbarui.",
+        confirmButtonColor: "#2563eb",
+        timer: 2000,
+        showConfirmButton: false,
+      });
+      onSave();
       onClose();
     } else {
-      alert("Gagal memperbarui: " + result.message);
+      Swal.fire({ icon: "error", title: "Gagal Update", text: result.message, confirmButtonColor: "#ba1a1a" });
     }
     setIsLoading(false);
   };

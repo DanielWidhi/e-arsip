@@ -3,6 +3,7 @@
 import { useState, useEffect } from "react";
 import { Search, Plus, Edit, Trash2, X, Save, Loader2 } from "lucide-react";
 import { createClient } from "@/lib/supabase";
+import Swal from "sweetalert2"; // Import SweetAlert2
 
 type KirType = {
   id: number;
@@ -26,7 +27,7 @@ export default function MasterKirPage() {
     const { data, error } = await supabase.from("master_kir").select("*").order("id", { ascending: true });
 
     if (error) {
-      alert("Gagal mengambil data KIR: " + error.message);
+      Swal.fire({ icon: "error", title: "Gagal Memuat Data", text: error.message, confirmButtonColor: "#ba1a1a" });
     } else if (data) {
       setDataKir(data);
     }
@@ -34,7 +35,6 @@ export default function MasterKirPage() {
   };
 
   useEffect(() => {
-    // 1. PERBAIKAN ERROR MERAH: Dibungkus setTimeout
     setTimeout(() => {
       fetchKir();
     }, 0);
@@ -63,28 +63,47 @@ export default function MasterKirPage() {
     if (editingId) {
       const { error } = await supabase.from("master_kir").update({ nama_ruangan: inputValue }).eq("id", editingId);
 
-      if (error) alert("Gagal mengubah data: " + error.message);
-      else fetchKir();
+      if (error) {
+        Swal.fire({ icon: "error", title: "Gagal Mengubah", text: error.message, confirmButtonColor: "#ba1a1a" });
+      } else {
+        Swal.fire({ icon: "success", title: "Berhasil!", text: "Nama ruangan berhasil diperbarui.", confirmButtonColor: "#2563eb", timer: 2000, showConfirmButton: false });
+        fetchKir();
+      }
     } else {
       const { error } = await supabase.from("master_kir").insert([{ nama_ruangan: inputValue }]);
 
-      if (error) alert("Gagal menambah data: " + error.message);
-      else fetchKir();
+      if (error) {
+        Swal.fire({ icon: "error", title: "Gagal Menambah", text: error.message, confirmButtonColor: "#ba1a1a" });
+      } else {
+        Swal.fire({ icon: "success", title: "Berhasil!", text: "Ruangan baru berhasil didaftarkan.", confirmButtonColor: "#2563eb", timer: 2000, showConfirmButton: false });
+        fetchKir();
+      }
     }
 
     setIsModalOpen(false);
     setIsSaving(false);
   };
 
+  // MENGGUNAKAN SWEETALERT2 UNTUK HAPUS (DELETE) RUANGAN
   const handleDelete = async (id: number, nama: string) => {
-    const confirmDelete = window.confirm(`Apakah Anda yakin ingin menghapus ruangan "${nama}"?\nPastikan tidak ada barang yang sedang berada di ruangan ini.`);
+    const swalResult = await Swal.fire({
+      title: "Hapus Ruangan?",
+      text: `Apakah Anda yakin ingin menghapus ruangan "${nama}"?\nPastikan tidak ada aset yang terdaftar di ruangan ini.`,
+      icon: "warning",
+      showCancelButton: true,
+      confirmButtonColor: "#ba1a1a",
+      cancelButtonColor: "#cbd5e1",
+      confirmButtonText: "Ya, Hapus!",
+      cancelButtonText: "Batal",
+    });
 
-    if (confirmDelete) {
+    if (swalResult.isConfirmed) {
       const { error } = await supabase.from("master_kir").delete().eq("id", id);
 
       if (error) {
-        alert("Gagal menghapus data: " + error.message);
+        Swal.fire({ icon: "error", title: "Gagal Menghapus", text: error.message, confirmButtonColor: "#ba1a1a" });
       } else {
+        Swal.fire({ icon: "success", title: "Terhapus!", text: `Ruangan "${nama}" telah dihapus.`, confirmButtonColor: "#2563eb", timer: 2000, showConfirmButton: false });
         fetchKir();
       }
     }
@@ -111,12 +130,11 @@ export default function MasterKirPage() {
             placeholder="Cari nama ruangan..."
             value={searchTerm}
             onChange={(e) => setSearchTerm(e.target.value)}
-            className="w-full bg-white border border-slate-200 rounded-lg pl-10 pr-4 py-2.5 text-sm text-slate-800 focus:outline-none focus:ring-2 focus:ring-blue-600 focus:border-blue-600 transition-shadow"
+            className="w-full bg-white border border-slate-200 rounded-lg pl-10 pr-4 py-2.5 text-sm text-slate-800 focus:outline-none focus:ring-2 focus:ring-blue-600"
           />
         </div>
       </div>
 
-      {/* 2. PERBAIKAN WARNING HIJAU: Ubah min-h-[300px] menjadi min-h-75 */}
       <div className="bg-white rounded-xl border border-slate-200 shadow-sm overflow-hidden w-full min-h-75 flex flex-col">
         <div className="overflow-x-auto w-full flex-1">
           <table className="min-w-full text-left border-collapse whitespace-nowrap">
@@ -163,7 +181,6 @@ export default function MasterKirPage() {
         </div>
       </div>
 
-      {/* --- INLINE MODAL --- */}
       {isModalOpen && (
         <div className="fixed inset-0 z-50 flex items-center justify-center bg-slate-900/40 backdrop-blur-sm p-4" onClick={() => setIsModalOpen(false)}>
           <div className="w-full max-w-md bg-white rounded-xl shadow-2xl animate-in fade-in zoom-in-95" onClick={(e) => e.stopPropagation()}>
