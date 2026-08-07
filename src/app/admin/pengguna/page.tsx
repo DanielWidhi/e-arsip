@@ -2,11 +2,12 @@
 
 import { useState, useEffect } from "react";
 import { Search, Plus, Edit, Key, Trash2, Loader2 } from "lucide-react";
+import { useRouter } from "next/navigation"; // Import router untuk redirect
 import UserCreateModal from "@/components/UserCreateModal";
 import UserEditModal from "@/components/UserEditModal";
 import { createClient } from "@/lib/supabase";
 import { deleteUserAccount, resetUserPassword } from "@/actions/userActions";
-import Swal from "sweetalert2"; // Import SweetAlert2
+import Swal from "sweetalert2";
 
 export type UserType = {
   id: number;
@@ -17,6 +18,7 @@ export type UserType = {
 };
 
 export default function PenggunaAdminPage() {
+  const router = useRouter();
   const [dataUsers, setDataUsers] = useState<UserType[]>([]);
   const [isLoading, setIsLoading] = useState(true);
   const [searchTerm, setSearchTerm] = useState("");
@@ -27,27 +29,54 @@ export default function PenggunaAdminPage() {
 
   const supabase = createClient();
 
-  const fetchUsers = async () => {
+  // FUNGSI PROTEKSI AKSES HALAMAN (HANYA SUPERADMIN YANG BOLEH MASUK)
+  const checkRoleAndFetchData = async () => {
     setIsLoading(true);
-    const { data, error } = await supabase.from("users").select("*").order("id", { ascending: true });
-    if (data && !error) setDataUsers(data);
+
+    const {
+      data: { user },
+    } = await supabase.auth.getUser();
+
+    if (user && user.email) {
+      // Tarik role user bersangkutan
+      const { data: profile } = await supabase.from("users").select("role").eq("email", user.email).single();
+
+      // JIKA BUKAN SUPERADMIN -> BLOKIR AKSES!
+      if (profile && profile.role !== "Superadmin") {
+        Swal.fire({
+          icon: "error",
+          title: "Akses Ditolak",
+          text: "Hanya akun dengan hak akses Superadmin yang diizinkan mengelola pengguna sistem.",
+          confirmButtonColor: "#ba1a1a",
+        }).then(() => {
+          // Tendang balik ke dashboard admin
+          router.push("/admin/dashboard");
+        });
+        return;
+      }
+
+      // Jika lolos (dia memang Superadmin), baru tarik data tabel
+      const { data, error } = await supabase.from("users").select("*").order("id", { ascending: true });
+      if (data && !error) setDataUsers(data);
+    } else {
+      router.push("/login");
+    }
     setIsLoading(false);
   };
 
   useEffect(() => {
     setTimeout(() => {
-      fetchUsers();
+      checkRoleAndFetchData();
     }, 0);
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, []);
 
   const filteredUsers = dataUsers.filter((user) => user.nama.toLowerCase().includes(searchTerm.toLowerCase()) || user.nip.includes(searchTerm));
 
-  // PERBAIKAN: GANTI CONFIRM BROWSER DENGAN SWEETALERT2 UNTUK HAPUS USER
   const handleDelete = async (id: number, nama: string, email: string) => {
     const swalResult = await Swal.fire({
       title: "Hapus Pengguna?",
-      text: `Apakah Anda yakin ingin menghapus akses untuk "${nama}"?\nSemua log aktivitas terkait juga akan terputus.`,
+      text: `Apakah Anda yakin ingin menghapus akses untuk "${nama}"?`,
       icon: "warning",
       showCancelButton: true,
       confirmButtonColor: "#ba1a1a",
@@ -59,22 +88,14 @@ export default function PenggunaAdminPage() {
     if (swalResult.isConfirmed) {
       const res = await deleteUserAccount(id, email);
       if (res.success) {
-        Swal.fire({
-          icon: "success",
-          title: "Selesai!",
-          text: `Akses pengguna "${nama}" berhasil dicabut.`,
-          confirmButtonColor: "#2563eb",
-          timer: 2000,
-          showConfirmButton: false,
-        });
-        fetchUsers();
+        Swal.fire({ icon: "success", title: "Selesai!", text: `Akses pengguna "${nama}" berhasil dicabut.`, confirmButtonColor: "#2563eb", timer: 2000, showConfirmButton: false });
+        checkRoleAndFetchData();
       } else {
         Swal.fire({ icon: "error", title: "Gagal Menghapus", text: res.message, confirmButtonColor: "#2563eb" });
       }
     }
   };
 
-  // PERBAIKAN: GANTI CONFIRM BROWSER DENGAN SWEETALERT2 UNTUK RESET PASSWORD
   const handleResetPassword = async (email: string, nama: string) => {
     const swalResult = await Swal.fire({
       title: "Reset Sandi?",
@@ -90,14 +111,7 @@ export default function PenggunaAdminPage() {
     if (swalResult.isConfirmed) {
       const res = await resetUserPassword(email);
       if (res.success) {
-        Swal.fire({
-          icon: "success",
-          title: "Sandi Direset!",
-          text: `Sandi "${nama}" berhasil dikembalikan ke default.`,
-          confirmButtonColor: "#2563eb",
-          timer: 2500,
-          showConfirmButton: false,
-        });
+        Swal.fire({ icon: "success", title: "Sandi Direset!", text: `Sandi "${nama}" berhasil dikembalikan ke default.`, confirmButtonColor: "#2563eb", timer: 2500, showConfirmButton: false });
       } else {
         Swal.fire({ icon: "error", title: "Gagal Reset", text: res.message, confirmButtonColor: "#2563eb" });
       }
@@ -136,7 +150,6 @@ export default function PenggunaAdminPage() {
         </div>
       </div>
 
-      {/* SKELETON LOADER INTEGRASI */}
       <div className="bg-white rounded-xl border border-slate-200 shadow-sm overflow-hidden flex flex-col w-full min-h-75">
         <div className="overflow-x-auto w-full flex-1">
           <table className="min-w-full text-left border-collapse whitespace-nowrap">
@@ -152,29 +165,11 @@ export default function PenggunaAdminPage() {
             </thead>
             <tbody className="divide-y divide-slate-200 text-sm text-slate-700">
               {isLoading ? (
-                /* SKELETON LOADER UNTUK 3 BARIS TABEL */
-                Array.from({ length: 3 }).map((_, i) => (
-                  <tr key={i} className="animate-pulse border-b border-slate-100">
-                    <td className="px-6 py-5">
-                      <div className="h-4 w-6 bg-slate-200 rounded-md" />
-                    </td>
-                    <td className="px-6 py-5">
-                      <div className="h-4 w-28 bg-slate-200 rounded-md" />
-                    </td>
-                    <td className="px-6 py-5">
-                      <div className="h-4 w-48 bg-slate-200 rounded-md" />
-                    </td>
-                    <td className="px-6 py-5">
-                      <div className="h-4 w-40 bg-slate-200 rounded-md" />
-                    </td>
-                    <td className="px-6 py-5">
-                      <div className="h-4 w-16 bg-slate-200 rounded-md" />
-                    </td>
-                    <td className="px-6 py-5 text-center">
-                      <div className="inline-block h-8 w-24 bg-slate-200 rounded-md" />
-                    </td>
-                  </tr>
-                ))
+                <tr>
+                  <td colSpan={6} className="px-6 py-16 text-center">
+                    <Loader2 className="animate-spin mx-auto text-blue-600" size={32} />
+                  </td>
+                </tr>
               ) : filteredUsers.length > 0 ? (
                 filteredUsers.map((user, index) => (
                   <tr key={user.id} className="hover:bg-slate-50/80 transition-colors">
@@ -216,8 +211,8 @@ export default function PenggunaAdminPage() {
         </div>
       </div>
 
-      <UserCreateModal isOpen={isCreateOpen} onClose={() => setIsCreateOpen(false)} onSave={() => fetchUsers()} />
-      <UserEditModal isOpen={isEditOpen} onClose={() => setIsEditOpen(false)} user={userToEdit} onSave={() => fetchUsers()} />
+      <UserCreateModal isOpen={isCreateOpen} onClose={() => setIsCreateOpen(false)} onSave={() => checkRoleAndFetchData()} />
+      <UserEditModal isOpen={isEditOpen} onClose={() => setIsEditOpen(false)} user={userToEdit} onSave={() => checkRoleAndFetchData()} />
     </div>
   );
 }

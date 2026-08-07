@@ -1,6 +1,6 @@
 "use client";
 
-import { useState } from "react";
+import { useState, useEffect } from "react";
 import Link from "next/link";
 import { usePathname, useRouter } from "next/navigation";
 import { Home, Package, Users, Settings, LogOut, X, Tags, ChevronDown, Wrench } from "lucide-react";
@@ -18,17 +18,35 @@ export default function AdminSidebar({ isOpen, setIsOpen }: AdminSidebarProps) {
 
   const [isKategoriOpen, setIsKategoriOpen] = useState(pathname.includes("/kategori"));
 
+  // STATE BARU: Menyimpan role user aktif untuk proteksi menu
+  const [userRole, setUserRole] = useState("Admin");
+
+  useEffect(() => {
+    const fetchUserRole = async () => {
+      const {
+        data: { user },
+      } = await supabase.auth.getUser();
+      if (user && user.email) {
+        const { data } = await supabase.from("users").select("role").eq("email", user.email).single();
+        if (data && data.role) {
+          setUserRole(data.role); // Simpan role asli ke state (Superadmin / Admin)
+        }
+      }
+    };
+    fetchUserRole();
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, []);
+
   const closeMenuMobile = () => {
     setIsOpen(false);
   };
 
-  // FUNGSI LOGOUT YANG BENAR
   const handleLogout = async () => {
     await supabase.auth.signOut();
     document.cookie = "sb-access-token=; expires=Thu, 01 Jan 1970 00:00:00 UTC; path=/;";
     closeMenuMobile();
     router.push("/login");
-    router.refresh(); // Memaksa browser menghapus cache halaman admin
+    router.refresh();
   };
 
   return (
@@ -42,6 +60,7 @@ export default function AdminSidebar({ isOpen, setIsOpen }: AdminSidebarProps) {
           <X size={24} />
         </button>
 
+        {/* HEADER SIDEBAR */}
         <div className="px-6 mb-8 flex items-start gap-3">
           {/* eslint-disable-next-line @next/next/no-img-element */}
           <img src="/images/logo-badung.png" alt="Logo Badung" className="w-10 h-10 object-contain drop-shadow-sm shrink-0 bg-white rounded-md p-0.5" />
@@ -57,6 +76,7 @@ export default function AdminSidebar({ isOpen, setIsOpen }: AdminSidebarProps) {
           </div>
         </div>
 
+        {/* DAFTAR MENU UTAMA */}
         <ul className="flex-1 px-4 space-y-1 overflow-y-auto custom-scrollbar">
           <li>
             <Link
@@ -126,16 +146,22 @@ export default function AdminSidebar({ isOpen, setIsOpen }: AdminSidebarProps) {
             </Link>
           </li>
 
-          <li>
-            <Link
-              onClick={closeMenuMobile}
-              href="/admin/pengguna"
-              className={`flex items-center gap-3 px-3 py-2.5 rounded-lg text-sm font-semibold transition-colors group ${pathname === "/admin/pengguna" ? "text-white bg-blue-600/20 border-l-4 border-blue-600" : "text-slate-300 hover:bg-slate-800 hover:text-white"}`}
-            >
-              <Users size={20} className={pathname === "/admin/pengguna" ? "text-blue-600" : "group-hover:text-white"} />
-              <span>Pengguna</span>
-            </Link>
-          </li>
+          {/* 
+            REVISI PROTEKSI: 
+            Menu "Pengguna" HANYA AKAN TAMPIL jika yang login adalah SUPERADMIN!
+          */}
+          {userRole === "Superadmin" && (
+            <li>
+              <Link
+                onClick={closeMenuMobile}
+                href="/admin/pengguna"
+                className={`flex items-center gap-3 px-3 py-2.5 rounded-lg text-sm font-semibold transition-colors group ${pathname === "/admin/pengguna" ? "text-white bg-blue-600/20 border-l-4 border-blue-600" : "text-slate-300 hover:bg-slate-800 hover:text-white"}`}
+              >
+                <Users size={20} className={pathname === "/admin/pengguna" ? "text-blue-600" : "group-hover:text-white"} />
+                <span>Pengguna</span>
+              </Link>
+            </li>
+          )}
 
           <li>
             <Link
@@ -149,8 +175,8 @@ export default function AdminSidebar({ isOpen, setIsOpen }: AdminSidebarProps) {
           </li>
         </ul>
 
+        {/* Footer Sidebar */}
         <div className="px-4 mt-auto">
-          {/* UBAH LINK MENJADI BUTTON AGAR FUNGSI LOGOUT BERJALAN */}
           <button onClick={handleLogout} className="w-full flex items-center gap-3 px-3 py-2.5 rounded-lg text-slate-400 text-sm font-semibold hover:bg-red-500/10 hover:text-red-500 transition-colors group">
             <LogOut size={20} className="group-hover:text-red-500 transition-colors" />
             <span>Keluar</span>

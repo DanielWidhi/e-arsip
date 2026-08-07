@@ -2,9 +2,8 @@
 
 import { useState } from "react";
 import { X, Save, UserPlus, Loader2 } from "lucide-react";
-import { UserType } from "@/app/admin/pengguna/page";
 import { createNewUser } from "@/actions/userActions";
-import Swal from "sweetalert2"; // Import SweetAlert2
+import Swal from "sweetalert2";
 
 type UserCreateModalProps = {
   isOpen: boolean;
@@ -32,30 +31,36 @@ export default function UserCreateModal({ isOpen, onClose, onSave }: UserCreateM
     setIsLoading(true);
     setErrorMsg("");
 
-    const result = await createNewUser({ email, kataSandi, nip, nama, role });
+    try {
+      // Panggil Server Action ke Supabase
+      const result = await createNewUser({ email, kataSandi, nip, nama, role });
 
-    if (result.success) {
-      // 1. GANTI KE SWEETALERT SUKSES
-      Swal.fire({
-        icon: "success",
-        title: "Pengguna Dibuat!",
-        text: "Akun admin baru berhasil didaftarkan.",
-        confirmButtonColor: "#2563eb",
-        timer: 2000,
-        showConfirmButton: false,
-      });
+      if (result.success) {
+        Swal.fire({
+          icon: "success",
+          title: "Pengguna Dibuat!",
+          text: "Akun admin baru berhasil didaftarkan.",
+          confirmButtonColor: "#2563eb",
+          timer: 2000,
+          showConfirmButton: false,
+        });
 
-      setEmail("");
-      setNip("");
-      setNama("");
-      setKataSandi("");
-      if (onSave) onSave();
-      onClose();
-    } else {
-      setErrorMsg(result.message);
+        setEmail("");
+        setNip("");
+        setNama("");
+        setKataSandi("");
+        if (onSave) onSave();
+        onClose();
+      } else {
+        setErrorMsg(result.message);
+      }
+      // PERBAIKAN: Menggunakan try-catch-finally agar tombol tidak 'stuck' jika terjadi crash server
+    } catch (err: unknown) {
+      const msg = err instanceof Error ? err.message : "Terjadi kesalahan internal.";
+      setErrorMsg("Gagal mendaftarkan: " + msg + "\n(Pastikan SERVICE_ROLE_KEY sudah dipasang di Vercel)");
+    } finally {
+      setIsLoading(false); // DIJAMIN SELALU DIEKSEKUSI APA PUN YANG TERJADI
     }
-
-    setIsLoading(false);
   };
 
   return (
@@ -77,7 +82,7 @@ export default function UserCreateModal({ isOpen, onClose, onSave }: UserCreateM
         </div>
 
         <form id="createUserForm" onSubmit={handleSubmit} className="p-6 space-y-4">
-          {errorMsg && <div className="bg-red-50 text-red-600 p-3 rounded-lg text-sm border border-red-200 font-medium">{errorMsg}</div>}
+          {errorMsg && <div className="bg-red-50 text-red-600 p-3 rounded-lg text-sm border border-red-200 font-medium whitespace-pre-line">{errorMsg}</div>}
 
           <div>
             <label className={labelClass}>NIP Pegawai</label>

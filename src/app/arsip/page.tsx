@@ -18,7 +18,6 @@ function ArsipContent() {
   const searchParams = useSearchParams();
   const supabase = createClient();
 
-  // State untuk menampung data asli dari Supabase
   // eslint-disable-next-line @typescript-eslint/no-explicit-any
   const [dataArsip, setDataArsip] = useState<any[]>([]);
   const [isLoading, setIsLoading] = useState(true);
@@ -30,10 +29,7 @@ function ArsipContent() {
 
   const fetchArsipData = async () => {
     setIsLoading(true);
-    const { data, error } = await supabase
-      .from("inventaris_kib_b")
-      .select("*, kir:master_kir(nama_ruangan)") // Join nama ruangan dari master_kir
-      .order("id", { ascending: false });
+    const { data, error } = await supabase.from("inventaris_kib_b").select("*, kir:master_kir(nama_ruangan)").order("id", { ascending: false });
 
     if (error) {
       console.error("Gagal memuat arsip:", error.message);
@@ -47,9 +43,16 @@ function ArsipContent() {
     setTimeout(() => {
       fetchArsipData();
 
+      // 1. Baca query pencarian (?q=...)
       const query = searchParams.get("q");
       if (query) {
         setSearchTerm(query);
+      }
+
+      // 2. Baca query kondisi (?cond=...)
+      const condQuery = searchParams.get("cond");
+      if (condQuery) {
+        setFilterKondisi(condQuery);
       }
     }, 0);
     // eslint-disable-next-line react-hooks/exhaustive-deps
@@ -218,7 +221,6 @@ function ArsipContent() {
             <div className="hidden sm:flex items-center gap-1">
               <button className="w-8 h-8 rounded-lg flex items-center justify-center text-sm font-semibold bg-blue-600 text-white shadow-sm">1</button>
             </div>
-            {/* PERBAIKAN: Mengubah mockData.length yang salah ketik menjadi dataArsip.length dari Supabase */}
             <div className="text-sm text-slate-500 hidden sm:block ml-4">
               Menampilkan{" "}
               <span className="font-semibold text-slate-800">

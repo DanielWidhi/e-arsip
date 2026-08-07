@@ -7,8 +7,9 @@ import Footer from "@/components/Footer";
 import HeroCarousel from "@/components/HeroCarousel";
 import { Folder, CheckCircle, Wrench, Search, Building, Loader2 } from "lucide-react";
 import { createClient } from "@/lib/supabase";
+import Link from "next/link"; // Import Link untuk navigasi cepat
 
-// 1. IMPORT AOS DAN CSS NYA
+// IMPORT AOS
 import AOS from "aos";
 import "aos/dist/aos.css";
 
@@ -22,14 +23,14 @@ export default function Home() {
     totalKir: 0,
     baik: 0,
     rusakRingan: 0,
+    rusakBerat: 0,
   });
 
-  // 2. INISIALISASI AOS SECARA AMAN DI SISI CLIENT (USEEFFECT)
   useEffect(() => {
     AOS.init({
-      duration: 800, // Durasi animasi (800ms)
-      once: true, // Animasi hanya jalan sekali saat di-scroll
-      easing: "ease-out-cubic", // Efek pergerakan melambat di akhir agar mulus
+      duration: 800,
+      once: true,
+      easing: "ease-out-cubic",
     });
   }, []);
 
@@ -52,6 +53,7 @@ export default function Home() {
           totalKir: resKir.count || 0,
           baik: resBaik.count || 0,
           rusakRingan: resRingan.count || 0,
+          rusakBerat: 0, // Tidak ditampilkan di depan
         });
       } catch (err) {
         console.error("Gagal memuat statistik:", err);
@@ -78,7 +80,7 @@ export default function Home() {
       <main className="grow flex flex-col items-center pb-16 md:pb-24">
         <HeroCarousel />
 
-        {/* SEARCH BAR (Ditambahkan animasi fade-up) */}
+        {/* SEARCH BAR */}
         <div data-aos="fade-up" data-aos-delay="100" className="w-full max-w-4xl px-4 md:px-8 relative z-20 -mt-5 md:-mt-10">
           <form onSubmit={handleSearch} className="bg-white rounded-xl shadow-lg border border-slate-100 p-2 md:p-3 flex items-center gap-2 md:gap-4 transition-transform hover:-translate-y-1 duration-300">
             <Search className="text-slate-400 ml-2 md:ml-4 shrink-0" size={24} />
@@ -98,46 +100,65 @@ export default function Home() {
         </div>
 
         {/* 
-          REVISI GRID STATISTIK: 
-          - Diubah kembali ke 4 kolom (lg:grid-cols-4)
-          - Card Rusak Berat dihapus bersih dari kode
+          GRID STATISTIK RESPONSIVE (4 KOLOM SEJAJAR)
+          Kini menggunakan komponen Link agar bisa diklik [1].
         */}
         <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-4 md:gap-6 max-w-7xl w-full px-4 md:px-6 mt-12 md:mt-20">
-          {/* Card 1: Total Aset (Muncul pertama, delay 200ms) */}
-          <div data-aos="fade-up" data-aos-delay="200" className="bg-white rounded-xl border border-slate-200 p-6 md:p-8 flex flex-col items-center text-center shadow-sm hover:shadow-md transition-shadow">
+          {/* Card 1: Total Aset -> Mengarah ke Arsip Umum */}
+          <Link
+            href="/arsip"
+            data-aos="fade-up"
+            data-aos-delay="200"
+            className="block bg-white rounded-xl border border-slate-200 p-6 md:p-8 flex flex-col items-center text-center shadow-sm hover:shadow-md hover:-translate-y-1 transition-all duration-300 cursor-pointer"
+          >
             <div className="w-14 h-14 md:w-16 md:h-16 rounded-full bg-blue-100 flex items-center justify-center mb-4 md:mb-6 text-blue-600">
               <Folder size={28} strokeWidth={2.5} />
             </div>
             <h3 className="text-lg md:text-xl font-semibold text-slate-700">Total Aset</h3>
             <p className="text-3xl md:text-4xl font-bold text-blue-600 mt-2">{isLoading ? <Loader2 className="animate-spin text-slate-300" size={24} /> : stats.totalAset}</p>
-          </div>
+          </Link>
 
-          {/* Card 2: Total KIR (Muncul kedua, delay 300ms) */}
-          <div data-aos="fade-up" data-aos-delay="300" className="bg-white rounded-xl border border-slate-200 p-6 md:p-8 flex flex-col items-center text-center shadow-sm hover:shadow-md transition-shadow">
+          {/* Card 2: Total KIR -> Mengarah ke Arsip Umum */}
+          <Link
+            href="/arsip"
+            data-aos="fade-up"
+            data-aos-delay="300"
+            className="block bg-white rounded-xl border border-slate-200 p-6 md:p-8 flex flex-col items-center text-center shadow-sm hover:shadow-md hover:-translate-y-1 transition-all duration-300 cursor-pointer"
+          >
             <div className="w-14 h-14 md:w-16 md:h-16 rounded-full bg-purple-100 flex items-center justify-center mb-4 md:mb-6 text-purple-600">
               <Building size={28} strokeWidth={2.5} />
             </div>
             <h3 className="text-lg md:text-xl font-semibold text-slate-700">Total KIR</h3>
             <p className="text-3xl md:text-4xl font-bold text-purple-600 mt-2">{isLoading ? <Loader2 className="animate-spin text-slate-300" size={24} /> : stats.totalKir}</p>
-          </div>
+          </Link>
 
-          {/* Card 3: Kondisi Baik (Muncul ketiga, delay 400ms) */}
-          <div data-aos="fade-up" data-aos-delay="400" className="bg-white rounded-xl border border-slate-200 p-6 md:p-8 flex flex-col items-center text-center shadow-sm hover:shadow-md transition-shadow">
+          {/* Card 3: Kondisi Baik -> Mengarah ke Arsip Terfilter "Baik" */}
+          <Link
+            href="/arsip?cond=Baik"
+            data-aos="fade-up"
+            data-aos-delay="400"
+            className="block bg-white rounded-xl border border-slate-200 p-6 md:p-8 flex flex-col items-center text-center shadow-sm hover:shadow-md hover:-translate-y-1 transition-all duration-300 cursor-pointer"
+          >
             <div className="w-14 h-14 md:w-16 md:h-16 rounded-full bg-green-100 flex items-center justify-center mb-4 md:mb-6 text-green-600">
               <CheckCircle size={28} strokeWidth={2.5} />
             </div>
             <h3 className="text-lg md:text-xl font-semibold text-slate-700">Baik</h3>
             <p className="text-3xl md:text-4xl font-bold text-green-600 mt-2">{isLoading ? <Loader2 className="animate-spin text-slate-300" size={24} /> : stats.baik}</p>
-          </div>
+          </Link>
 
-          {/* Card 4: Rusak Ringan (Muncul terakhir, delay 500ms) */}
-          <div data-aos="fade-up" data-aos-delay="500" className="bg-white rounded-xl border border-slate-200 p-6 md:p-8 flex flex-col items-center text-center shadow-sm hover:shadow-md transition-shadow">
+          {/* Card 4: Rusak Ringan -> Mengarah ke Arsip Terfilter "Rusak Ringan" */}
+          <Link
+            href="/arsip?cond=Rusak Ringan"
+            data-aos="fade-up"
+            data-aos-delay="500"
+            className="block bg-white rounded-xl border border-slate-200 p-6 md:p-8 flex flex-col items-center text-center shadow-sm hover:shadow-md hover:-translate-y-1 transition-all duration-300 cursor-pointer"
+          >
             <div className="w-14 h-14 md:w-16 md:h-16 rounded-full bg-amber-100 flex items-center justify-center mb-4 md:mb-6 text-amber-600">
               <Wrench size={28} strokeWidth={2.5} />
             </div>
             <h3 className="text-lg md:text-xl font-semibold text-slate-700">Rusak Ringan</h3>
             <p className="text-3xl md:text-4xl font-bold text-amber-600 mt-2">{isLoading ? <Loader2 className="animate-spin text-slate-300" size={24} /> : stats.rusakRingan}</p>
-          </div>
+          </Link>
         </div>
       </main>
 
