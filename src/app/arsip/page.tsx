@@ -95,12 +95,12 @@ function ArsipContent() {
   return (
     <main className="grow flex flex-col items-center pb-16 md:pb-24">
       <div className="max-w-7xl mx-auto w-full px-6 py-10 flex flex-col gap-8">
-        <div data-aos="fade-up" className="flex flex-col gap-2">
+        <div data-aos="fade-up" suppressHydrationWarning className="flex flex-col gap-2">
           <h1 className="text-3xl md:text-4xl font-bold text-slate-900 tracking-tight">Daftar Inventaris Peralatan & Mesin (KIB B)</h1>
           <p className="text-lg text-slate-500">Transparansi data aset publik wilayah Kuta Selatan.</p>
         </div>
 
-        <div data-aos="fade-up" data-aos-delay="100" className="flex flex-col lg:flex-row justify-between items-start lg:items-center gap-4 bg-white p-4 rounded-xl border border-slate-200 shadow-sm">
+        <div data-aos="fade-up" data-aos-delay="100" suppressHydrationWarning className="flex flex-col lg:flex-row justify-between items-start lg:items-center gap-4 bg-white p-4 rounded-xl border border-slate-200 shadow-sm">
           <div className="flex flex-wrap items-center gap-3 w-full lg:w-auto">
             <div className="relative w-full sm:w-auto">
               <select
@@ -161,7 +161,7 @@ function ArsipContent() {
           </div>
         </div>
 
-        <div data-aos="fade-up" data-aos-delay="200" className="bg-white rounded-xl border border-slate-200 shadow-sm overflow-hidden w-full">
+        <div data-aos="fade-up" data-aos-delay="200" suppressHydrationWarning className="bg-white rounded-xl border border-slate-200 shadow-sm overflow-hidden w-full">
           <div className="overflow-x-auto">
             <table className="min-w-full text-left border-collapse whitespace-nowrap">
               <thead>
