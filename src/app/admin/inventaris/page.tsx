@@ -35,7 +35,7 @@ function InventarisContent() {
   const [assetToEdit, setAssetToEdit] = useState<AssetItem | null>(null);
 
   const [currentPage, setCurrentPage] = useState(1);
-  const itemsPerPage = 10;
+  const [itemsPerPage, setItemsPerPage] = useState(10);
 
   const supabase = createClient();
 
@@ -364,42 +364,38 @@ function InventarisContent() {
         </div>
 
         {/* PAGINATION */}
-        <div className="px-6 py-4 border-t border-slate-200 bg-white flex flex-col sm:flex-row items-center justify-between gap-4 mt-auto">
-          <div className="text-sm text-slate-500 text-center sm:text-left">
-            Showing <span className="font-semibold text-slate-800">{filteredData.length > 0 ? (currentPage - 1) * itemsPerPage + 1 : 0}</span> to <span className="font-semibold text-slate-800">{Math.min(currentPage * itemsPerPage, filteredData.length)}</span> of{" "}
-            <span className="font-semibold text-slate-800">{filteredData.length}</span> entries
-          </div>
+        <div className="px-6 py-4 border-t border-slate-200 bg-white flex items-center justify-end gap-6 mt-auto">
           <div className="flex items-center gap-2">
+            <span className="text-sm font-medium text-slate-700">Rows per page</span>
+            <select
+              value={itemsPerPage}
+              onChange={(e) => {
+                setItemsPerPage(Number(e.target.value));
+                setCurrentPage(1);
+              }}
+              className="border border-slate-200 rounded-md px-2 py-1 text-sm text-slate-700 outline-none focus:ring-2 focus:ring-blue-600 focus:border-blue-600 bg-white"
+            >
+              <option value={10}>10</option>
+              <option value={20}>20</option>
+              <option value={50}>50</option>
+              <option value={100}>100</option>
+            </select>
+          </div>
+          <div className="flex items-center gap-4">
             <button
-              className="p-2 border border-slate-200 rounded-lg text-slate-700 hover:bg-slate-50 transition-colors disabled:opacity-50"
-              disabled={currentPage === 1}
               onClick={() => setCurrentPage(prev => Math.max(prev - 1, 1))}
+              disabled={currentPage === 1 || totalPages === 0}
+              className="flex items-center gap-1 text-sm font-medium text-slate-700 hover:text-blue-600 disabled:opacity-50 disabled:hover:text-slate-700 transition-colors"
             >
               <ChevronLeft size={18} />
+              Previous
             </button>
-            <div className="hidden sm:flex items-center gap-1">
-              {Array.from({ length: totalPages }, (_, i) => i + 1).map((page) => {
-                if (page === 1 || page === totalPages || (page >= currentPage - 1 && page <= currentPage + 1)) {
-                  return (
-                    <button
-                      key={page}
-                      onClick={() => setCurrentPage(page)}
-                      className={`w-8 h-8 rounded-lg flex items-center justify-center text-sm font-semibold shadow-sm ${page === currentPage ? 'bg-blue-600 text-white' : 'bg-white text-slate-700 border border-slate-200 hover:bg-slate-50'}`}
-                    >
-                      {page}
-                    </button>
-                  );
-                } else if (page === currentPage - 2 || page === currentPage + 2) {
-                  return <span key={page} className="px-1 text-slate-400">...</span>;
-                }
-                return null;
-              })}
-            </div>
             <button
-              className="p-2 border border-slate-200 rounded-lg text-slate-700 hover:bg-slate-50 transition-colors disabled:opacity-50"
-              disabled={currentPage === totalPages || totalPages === 0}
               onClick={() => setCurrentPage(prev => Math.min(prev + 1, totalPages))}
+              disabled={currentPage === totalPages || totalPages === 0}
+              className="flex items-center gap-1 text-sm font-medium text-slate-700 hover:text-blue-600 disabled:opacity-50 disabled:hover:text-slate-700 transition-colors"
             >
+              Next
               <ChevronRight size={18} />
             </button>
           </div>

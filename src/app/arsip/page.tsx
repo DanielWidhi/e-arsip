@@ -4,7 +4,7 @@ import { useState, useEffect, Suspense } from "react";
 import { useSearchParams } from "next/navigation";
 import Navbar from "@/components/Navbar";
 import Footer from "@/components/Footer";
-import { Search, ChevronDown, Eye, Loader2 } from "lucide-react";
+import { Search, ChevronDown, Eye, Loader2, ChevronLeft, ChevronRight } from "lucide-react";
 import Link from "next/link";
 import { createClient } from "@/lib/supabase";
 
@@ -28,7 +28,7 @@ function ArsipContent() {
   const [filterKir, setFilterKir] = useState("");
 
   const [currentPage, setCurrentPage] = useState(1);
-  const ITEMS_PER_PAGE = 20;
+  const [itemsPerPage, setItemsPerPage] = useState(20);
 
   const [listTahun, setListTahun] = useState<string[]>([]);
   const [listKir, setListKir] = useState<string[]>([]);
@@ -89,8 +89,8 @@ function ArsipContent() {
     return matchSearch && matchTahun && matchKondisi && matchKir;
   });
 
-  const totalPages = Math.ceil(filteredData.length / ITEMS_PER_PAGE);
-  const paginatedData = filteredData.slice((currentPage - 1) * ITEMS_PER_PAGE, currentPage * ITEMS_PER_PAGE);
+  const totalPages = Math.ceil(filteredData.length / itemsPerPage);
+  const paginatedData = filteredData.slice((currentPage - 1) * itemsPerPage, currentPage * itemsPerPage);
 
   return (
     <main className="grow flex flex-col items-center pb-16 md:pb-24">
@@ -205,7 +205,7 @@ function ArsipContent() {
                 ) : paginatedData.length > 0 ? (
                   paginatedData.map((item, index) => (
                     <tr key={item.id} className="hover:bg-slate-50 transition-colors duration-150 group">
-                      <td className="px-6 py-4 text-sm text-slate-700">{(currentPage - 1) * ITEMS_PER_PAGE + index + 1}</td>
+                      <td className="px-6 py-4 text-sm text-slate-700">{(currentPage - 1) * itemsPerPage + index + 1}</td>
                       <td className="px-6 py-4 text-sm text-slate-700 font-mono">{item.kode_barang}</td>
                       <td className="px-6 py-4 text-sm font-semibold text-slate-900">{item.nama_barang}</td>
                       <td className="px-6 py-4 text-sm text-slate-600">{item.merk_type || "-"}</td>
@@ -233,33 +233,41 @@ function ArsipContent() {
             </table>
           </div>
 
-          <div className="bg-white px-6 py-4 border-t border-slate-200 flex items-center justify-between sm:justify-center gap-2">
-            <button
-              onClick={() => setCurrentPage((p) => Math.max(1, p - 1))}
-              disabled={currentPage === 1 || totalPages === 0}
-              className="px-3 py-1.5 text-sm font-medium text-slate-500 border border-slate-200 rounded-md hover:bg-slate-50 disabled:opacity-50 transition-colors"
-            >
-              Sebelumnya
-            </button>
-            <div className="hidden sm:flex items-center gap-1">
-              <button className="w-8 h-8 rounded-lg flex items-center justify-center text-sm font-semibold bg-blue-600 text-white shadow-sm">
-                {currentPage}
+          <div className="bg-white px-6 py-4 border-t border-slate-200 flex items-center justify-end gap-6">
+            <div className="flex items-center gap-2">
+              <span className="text-sm font-medium text-slate-700">Rows per page</span>
+              <select
+                value={itemsPerPage}
+                onChange={(e) => {
+                  setItemsPerPage(Number(e.target.value));
+                  setCurrentPage(1);
+                }}
+                className="border border-slate-200 rounded-md px-2 py-1 text-sm text-slate-700 outline-none focus:ring-2 focus:ring-blue-600 focus:border-blue-600 bg-white"
+              >
+                <option value={10}>10</option>
+                <option value={20}>20</option>
+                <option value={50}>50</option>
+                <option value={100}>100</option>
+              </select>
+            </div>
+            <div className="flex items-center gap-4">
+              <button
+                onClick={() => setCurrentPage((p) => Math.max(1, p - 1))}
+                disabled={currentPage === 1 || totalPages === 0}
+                className="flex items-center gap-1 text-sm font-medium text-slate-700 hover:text-blue-600 disabled:opacity-50 disabled:hover:text-slate-700 transition-colors"
+              >
+                <ChevronLeft size={18} />
+                Previous
+              </button>
+              <button
+                onClick={() => setCurrentPage((p) => Math.min(totalPages, p + 1))}
+                disabled={currentPage === totalPages || totalPages === 0}
+                className="flex items-center gap-1 text-sm font-medium text-slate-700 hover:text-blue-600 disabled:opacity-50 disabled:hover:text-slate-700 transition-colors"
+              >
+                Next
+                <ChevronRight size={18} />
               </button>
             </div>
-            <div className="text-sm text-slate-500 hidden sm:block ml-4">
-              Menampilkan{" "}
-              <span className="font-semibold text-slate-800">
-                {filteredData.length > 0 ? (currentPage - 1) * ITEMS_PER_PAGE + 1 : 0}-{Math.min(currentPage * ITEMS_PER_PAGE, filteredData.length)}
-              </span>{" "}
-              dari <span className="font-semibold text-slate-800">{filteredData.length}</span> entries
-            </div>
-            <button
-              onClick={() => setCurrentPage((p) => Math.min(totalPages, p + 1))}
-              disabled={currentPage === totalPages || totalPages === 0}
-              className="px-3 py-1.5 text-sm font-medium text-slate-500 border border-slate-200 rounded-md hover:bg-slate-50 transition-colors ml-4"
-            >
-              Selanjutnya
-            </button>
           </div>
         </div>
       </div>
