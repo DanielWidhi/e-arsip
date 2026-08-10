@@ -6,26 +6,25 @@ import AdminHeader from "@/components/AdminHeader";
 import AdminFooter from "@/components/AdminFooter";
 
 export default function AdminLayout({ children }: { children: React.ReactNode }) {
-  // State untuk mengontrol buka/tutup sidebar di Mobile
   const [isMobileMenuOpen, setIsMobileMenuOpen] = useState(false);
 
   return (
     <div className="flex h-screen overflow-hidden bg-slate-50 font-sans">
-      {/* SIDEBAR (Di-passing state agar bisa ditutup/dibuka) */}
+      {/* SIDEBAR (NAVBAR KIRI) */}
       <AdminSidebar isOpen={isMobileMenuOpen} setIsOpen={setIsMobileMenuOpen} />
 
-      {/* AREA KANAN (Header + Konten Utama + Footer) */}
+      {/* AREA KANAN */}
       <div className="flex-1 flex flex-col h-full overflow-hidden w-full bg-slate-50 relative">
-        {/* HEADER (Di-passing fungsi untuk membuka menu) */}
+        {/* HEADER ATAS */}
         <AdminHeader onMenuClick={() => setIsMobileMenuOpen(true)} />
 
-        {/* KONTEN UTAMA HALAMAN */}
-        <main className="flex-1 overflow-y-auto p-4 md:p-8 flex flex-col">
-          <div className="grow">{children}</div>
+        {/* KONTEN UTAMA HALAMAN & FOOTER */}
+        <main className="flex-1 overflow-y-auto flex flex-col justify-between">
+          {/* PADDING P-4 MD:P-8 DIPINDAHKAN KHUSUS KE PEMBUNGKUS CHILDREN */}
+          <div className="p-4 md:p-8 grow">{children}</div>
 
-          <div className="mt-8">
-            <AdminFooter />
-          </div>
+          {/* FOOTER RATA BAWAH (MENEMPEL PRESISI PADA SIDEBAR DAN DASAR LAYAR) */}
+          <AdminFooter />
         </main>
       </div>
     </div>

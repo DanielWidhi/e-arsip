@@ -40,3 +40,7 @@ Install :
 ```bash
 npm install jspdf jspdf-autotable
 ```
+```
+npm install xlsx papaparse
+npm install -D @types/papaparse
+```

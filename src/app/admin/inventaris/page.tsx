@@ -1,16 +1,20 @@
 "use client";
 
-import { useState, useEffect } from "react";
+import { useState, useEffect, Suspense } from "react";
+import { useSearchParams } from "next/navigation";
 import { Search, Filter, Download, ChevronDown, Upload, Plus, Edit, Trash2, ChevronLeft, ChevronRight, Eye, Loader2 } from "lucide-react";
 
 import { generatePdfKibB, AssetItem } from "@/utils/exportPdfKibB";
+import { generateExcelKibB } from "@/utils/exportExcelKibB"; // Import Excel
 import AssetCreateModal from "@/components/AssetCreateModal";
 import AssetDetailModal, { AssetType } from "@/components/AssetDetailModal";
 import AssetEditModal from "@/components/AssetEditModal";
+import CsvImportModal from "@/components/CsvImportModal"; // Import Modal Import CSV
 import { createClient } from "@/lib/supabase";
-import Swal from "sweetalert2"; // Import SweetAlert2
+import Swal from "sweetalert2";
 
-export default function InventarisAdminPage() {
+function InventarisContent() {
+  const searchParams = useSearchParams();
   const [dataInventaris, setDataInventaris] = useState<AssetItem[]>([]);
   const [isLoading, setIsLoading] = useState(true);
 
@@ -23,6 +27,7 @@ export default function InventarisAdminPage() {
   const [isCreateModalOpen, setIsCreateModalOpen] = useState(false);
   const [isEditModalOpen, setIsEditModalOpen] = useState(false);
   const [isDetailModalOpen, setIsDetailModalOpen] = useState(false);
+  const [isImportModalOpen, setIsImportModalOpen] = useState(false); // State Modal Import CSV
   const [selectedAsset, setSelectedAsset] = useState<AssetType | null>(null);
   const [assetToEdit, setAssetToEdit] = useState<AssetItem | null>(null);
 
@@ -68,19 +73,24 @@ export default function InventarisAdminPage() {
   useEffect(() => {
     setTimeout(() => {
       fetchInventaris();
+
+      const tahunQuery = searchParams.get("tahun");
+      if (tahunQuery) {
+        setFilterTahun(tahunQuery);
+        setShowFilter(true);
+      }
     }, 0);
     // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, []);
+  }, [searchParams]);
 
-  // PERBAIKAN: GANTI CONFIRM BROWSER DENGAN SWEETALERT2 UNTUK HAPUS (DELETE)
   const handleDelete = async (id: number, nama: string) => {
     const swalResult = await Swal.fire({
       title: "Apakah Anda yakin?",
       text: `Menghapus "${nama}" tidak dapat dikembalikan!`,
       icon: "warning",
       showCancelButton: true,
-      confirmButtonColor: "#ba1a1a", // Merah
-      cancelButtonColor: "#cbd5e1", // Abu-abu
+      confirmButtonColor: "#ba1a1a",
+      cancelButtonColor: "#cbd5e1",
       confirmButtonText: "Ya, Hapus!",
       cancelButtonText: "Batal",
     });
@@ -123,8 +133,9 @@ export default function InventarisAdminPage() {
     setIsDetailModalOpen(true);
   };
 
+  // PEMANGGILAN EKSPOR ASLI
   const exportToPDF = () => generatePdfKibB(filteredData);
-  const exportToExcel = () => alert("Fitur Export Excel akan menggunakan library SheetJS (xlsx) nantinya.");
+  const exportToExcel = () => generateExcelKibB(filteredData); // Panggil fungsi Excel asli
 
   const getKondisiBadge = (kondisi: string) => {
     if (kondisi === "Baik")
@@ -174,14 +185,15 @@ export default function InventarisAdminPage() {
               <Filter size={16} />
               <span className="hidden sm:inline">Filter</span>
             </button>
+
             <div className="relative group w-full sm:w-auto">
               <button className="w-full flex justify-center items-center gap-2 bg-white border border-slate-200 text-slate-700 hover:bg-slate-50 hover:shadow-sm text-sm font-semibold py-2.5 sm:py-2 px-3 rounded-lg transition-all">
-                <Download size={16} />
+                <Download size={16} className="text-slate-500" />
                 <span className="hidden sm:inline">Export</span>
-                <ChevronDown size={14} className="hidden sm:block" />
+                <ChevronDown size={14} className="text-slate-400 hidden sm:block" />
               </button>
               <div className="absolute right-0 mt-1 w-full sm:w-32 bg-white border border-slate-200 rounded-lg shadow-lg py-1 opacity-0 invisible group-hover:opacity-100 group-hover:visible transition-all z-10">
-                <button onClick={exportToExcel} className="w-full text-left px-4 py-2 text-sm text-slate-700 hover:bg-slate-50 transition-colors">
+                <button onClick={exportToExcel} className="w-full text-left px-4 py-2 text-sm text-slate-700 hover:bg-slate-50 transition-colors font-semibold text-emerald-600">
                   Excel (.xlsx)
                 </button>
                 <button onClick={exportToPDF} className="w-full text-left px-4 py-2 text-sm text-slate-700 hover:bg-slate-50 transition-colors font-semibold text-red-600">
@@ -189,10 +201,16 @@ export default function InventarisAdminPage() {
                 </button>
               </div>
             </div>
-            <button className="flex justify-center items-center gap-2 bg-white border border-slate-200 text-slate-700 hover:bg-slate-50 hover:shadow-sm text-sm font-semibold py-2.5 sm:py-2 px-3 rounded-lg transition-all">
-              <Upload size={16} />
+
+            {/* BUKA MODAL IMPORT CSV SAAT DIKLIK */}
+            <button
+              onClick={() => setIsImportModalOpen(true)}
+              className="flex justify-center items-center gap-2 bg-white border border-slate-200 text-slate-700 hover:bg-slate-50 hover:shadow-sm text-sm font-semibold py-2.5 sm:py-2 px-3 rounded-lg transition-all"
+            >
+              <Upload size={16} className="text-slate-500" />
               <span className="hidden sm:inline">Import CSV</span>
             </button>
+
             <button onClick={() => setIsCreateModalOpen(true)} className="flex justify-center items-center gap-2 bg-blue-600 hover:bg-blue-700 text-white py-2.5 sm:py-2 px-4 rounded-lg text-sm font-semibold transition-colors shadow-sm">
               <Plus size={18} />
               <span className="hidden sm:inline">Tambah Aset</span>
@@ -244,7 +262,6 @@ export default function InventarisAdminPage() {
         </div>
       )}
 
-      {/* SKELETON LOADER INTEGRASI */}
       <div className="bg-white rounded-xl border border-slate-200 shadow-sm overflow-hidden flex flex-col w-full min-h-100">
         <div className="overflow-x-auto w-full flex-1">
           <table className="min-w-full text-left border-collapse whitespace-nowrap">
@@ -260,7 +277,6 @@ export default function InventarisAdminPage() {
             </thead>
             <tbody className="divide-y divide-slate-200 text-sm text-slate-700">
               {isLoading ? (
-                /* SKELETON LOADER UNTUK 5 BARIS TABEL */
                 Array.from({ length: 5 }).map((_, i) => (
                   <tr key={i} className="animate-pulse border-b border-slate-100">
                     <td className="px-6 py-5">
@@ -275,8 +291,8 @@ export default function InventarisAdminPage() {
                     <td className="px-6 py-5">
                       <div className="h-4 w-24 bg-slate-200 rounded-md" />
                     </td>
-                    <td className="px-6 py-5">
-                      <div className="h-4 w-20 bg-slate-200 rounded-md ml-auto" />
+                    <td className="px-6 py-5 text-right">
+                      <div className="inline-block h-8 w-16 bg-slate-200 rounded-md" />
                     </td>
                     <td className="px-6 py-5 text-center">
                       <div className="inline-block h-8 w-16 bg-slate-200 rounded-md" />
@@ -309,7 +325,7 @@ export default function InventarisAdminPage() {
               ) : (
                 <tr>
                   <td colSpan={6} className="px-6 py-12 text-center text-slate-500">
-                    Tidak ada data inventaris.
+                    Tidak ada data inventaris yang cocok dengan filter.
                   </td>
                 </tr>
               )}
@@ -328,15 +344,16 @@ export default function InventarisAdminPage() {
               <ChevronLeft size={18} />
             </button>
             <div className="hidden sm:flex items-center gap-1">
-              <button className="w-8 h-8 rounded-lg flex items-center justify-center text-sm font-semibold bg-blue-50 text-blue-600">1</button>
+              <button className="w-8 h-8 rounded-lg flex items-center justify-center text-sm font-semibold bg-blue-600 text-white shadow-sm">1</button>
             </div>
-            <button className="p-2 border border-slate-200 rounded-lg text-slate-400 disabled:opacity-50" disabled>
+            <button className="p-2 border border-slate-200 rounded-lg text-slate-700 hover:bg-slate-50 transition-colors disabled:opacity-50" disabled>
               <ChevronRight size={18} />
             </button>
           </div>
         </div>
       </div>
 
+      {/* MODALS */}
       <AssetDetailModal isOpen={selectedAsset !== null} onClose={() => setSelectedAsset(null)} asset={selectedAsset} />
       <AssetCreateModal
         isOpen={isCreateModalOpen}
@@ -353,6 +370,23 @@ export default function InventarisAdminPage() {
           fetchInventaris();
         }}
       />
+
+      {/* MODAL IMPORT CSV (PANGGIL DI SINI) */}
+      <CsvImportModal isOpen={isImportModalOpen} onClose={() => setIsImportModalOpen(false)} onSuccess={() => fetchInventaris()} />
     </div>
+  );
+}
+
+export default function InventarisAdminPage() {
+  return (
+    <Suspense
+      fallback={
+        <div className="flex h-64 w-full items-center justify-center">
+          <Loader2 className="animate-spin text-blue-600" size={32} />
+        </div>
+      }
+    >
+      <InventarisContent />
+    </Suspense>
   );
 }
