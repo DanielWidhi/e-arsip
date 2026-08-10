@@ -27,6 +27,25 @@ function ArsipContent() {
   const [filterKondisi, setFilterKondisi] = useState("");
   const [filterKir, setFilterKir] = useState("");
 
+  const [currentPage, setCurrentPage] = useState(1);
+  const ITEMS_PER_PAGE = 20;
+
+  const [listTahun, setListTahun] = useState<string[]>([]);
+  const [listKir, setListKir] = useState<string[]>([]);
+
+  const fetchDropdownData = async () => {
+    const { data: kirData } = await supabase.from("master_kir").select("nama_ruangan").order("nama_ruangan", { ascending: true });
+    if (kirData) {
+      setListKir(kirData.map((k) => k.nama_ruangan).filter(Boolean));
+    }
+
+    const { data: tahunData } = await supabase.from("inventaris_kib_b").select("tahun_beli");
+    if (tahunData) {
+      const uniqueTahun = Array.from(new Set(tahunData.map((t) => t.tahun_beli).filter(Boolean))).sort((a, b) => Number(b) - Number(a));
+      setListTahun(uniqueTahun as string[]);
+    }
+  };
+
   const fetchArsipData = async () => {
     setIsLoading(true);
     const { data, error } = await supabase.from("inventaris_kib_b").select("*, kir:master_kir(nama_ruangan)").order("id", { ascending: false });
@@ -47,6 +66,7 @@ function ArsipContent() {
   useEffect(() => {
     setTimeout(() => {
       fetchArsipData();
+      fetchDropdownData();
 
       const query = searchParams.get("q");
       if (query) setSearchTerm(query);
@@ -57,6 +77,10 @@ function ArsipContent() {
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [searchParams]);
 
+  useEffect(() => {
+    setCurrentPage(1);
+  }, [searchTerm, filterTahun, filterKondisi, filterKir]);
+
   const filteredData = dataArsip.filter((item) => {
     const matchSearch = item.nama_barang.toLowerCase().includes(searchTerm.toLowerCase()) || item.kode_barang.includes(searchTerm);
     const matchTahun = filterTahun === "" || item.tahun_beli === filterTahun;
@@ -64,6 +88,9 @@ function ArsipContent() {
     const matchKir = filterKir === "" || item.kir?.nama_ruangan === filterKir;
     return matchSearch && matchTahun && matchKondisi && matchKir;
   });
+
+  const totalPages = Math.ceil(filteredData.length / ITEMS_PER_PAGE);
+  const paginatedData = filteredData.slice((currentPage - 1) * ITEMS_PER_PAGE, currentPage * ITEMS_PER_PAGE);
 
   return (
     <main className="grow flex flex-col items-center pb-16 md:pb-24">
@@ -82,10 +109,11 @@ function ArsipContent() {
                 className="w-full sm:w-auto appearance-none bg-white border border-slate-300 text-slate-700 text-sm rounded-lg pl-4 pr-10 py-2.5 focus:outline-none focus:ring-2 focus:ring-blue-600 focus:border-blue-600 cursor-pointer"
               >
                 <option value="">Semua Tahun</option>
-                <option value="2026">2026</option>
-                <option value="2025">2025</option>
-                <option value="2024">2024</option>
-                <option value="2023">2023</option>
+                {listTahun.map((tahun, idx) => (
+                  <option key={idx} value={tahun}>
+                    {tahun}
+                  </option>
+                ))}
               </select>
               <ChevronDown className="absolute right-3 top-1/2 -translate-y-1/2 text-slate-400 pointer-events-none" size={18} />
             </div>
@@ -111,9 +139,11 @@ function ArsipContent() {
                 className="w-full sm:w-auto appearance-none bg-white border border-slate-300 text-slate-700 text-sm rounded-lg pl-4 pr-10 py-2.5 focus:outline-none focus:ring-2 focus:ring-blue-600 focus:border-blue-600 cursor-pointer"
               >
                 <option value="">Semua Ruangan</option>
-                <option value="Ruang Camat">Ruang Camat</option>
-                <option value="Ruang Pelayanan">Ruang Pelayanan</option>
-                <option value="Garasi">Garasi</option>
+                {listKir.map((ruangan, idx) => (
+                  <option key={idx} value={ruangan}>
+                    {ruangan}
+                  </option>
+                ))}
               </select>
               <ChevronDown className="absolute right-3 top-1/2 -translate-y-1/2 text-slate-400 pointer-events-none" size={18} />
             </div>
@@ -172,10 +202,10 @@ function ArsipContent() {
                       </td>
                     </tr>
                   ))
-                ) : filteredData.length > 0 ? (
-                  filteredData.map((item, index) => (
+                ) : paginatedData.length > 0 ? (
+                  paginatedData.map((item, index) => (
                     <tr key={item.id} className="hover:bg-slate-50 transition-colors duration-150 group">
-                      <td className="px-6 py-4 text-sm text-slate-700">{index + 1}</td>
+                      <td className="px-6 py-4 text-sm text-slate-700">{(currentPage - 1) * ITEMS_PER_PAGE + index + 1}</td>
                       <td className="px-6 py-4 text-sm text-slate-700 font-mono">{item.kode_barang}</td>
                       <td className="px-6 py-4 text-sm font-semibold text-slate-900">{item.nama_barang}</td>
                       <td className="px-6 py-4 text-sm text-slate-600">{item.merk_type || "-"}</td>
@@ -204,20 +234,30 @@ function ArsipContent() {
           </div>
 
           <div className="bg-white px-6 py-4 border-t border-slate-200 flex items-center justify-between sm:justify-center gap-2">
-            <button className="px-3 py-1.5 text-sm font-medium text-slate-500 border border-slate-200 rounded-md hover:bg-slate-50 disabled:opacity-50 transition-colors" disabled>
+            <button
+              onClick={() => setCurrentPage((p) => Math.max(1, p - 1))}
+              disabled={currentPage === 1 || totalPages === 0}
+              className="px-3 py-1.5 text-sm font-medium text-slate-500 border border-slate-200 rounded-md hover:bg-slate-50 disabled:opacity-50 transition-colors"
+            >
               Sebelumnya
             </button>
             <div className="hidden sm:flex items-center gap-1">
-              <button className="w-8 h-8 rounded-lg flex items-center justify-center text-sm font-semibold bg-blue-600 text-white shadow-sm">1</button>
+              <button className="w-8 h-8 rounded-lg flex items-center justify-center text-sm font-semibold bg-blue-600 text-white shadow-sm">
+                {currentPage}
+              </button>
             </div>
             <div className="text-sm text-slate-500 hidden sm:block ml-4">
               Menampilkan{" "}
               <span className="font-semibold text-slate-800">
-                {filteredData.length > 0 ? 1 : 0}-{filteredData.length}
+                {filteredData.length > 0 ? (currentPage - 1) * ITEMS_PER_PAGE + 1 : 0}-{Math.min(currentPage * ITEMS_PER_PAGE, filteredData.length)}
               </span>{" "}
-              dari <span className="font-semibold text-slate-800">{dataArsip.length}</span> entries
+              dari <span className="font-semibold text-slate-800">{filteredData.length}</span> entries
             </div>
-            <button className="px-3 py-1.5 text-sm font-medium text-slate-500 border border-slate-200 rounded-md hover:bg-slate-50 transition-colors ml-4" disabled>
+            <button
+              onClick={() => setCurrentPage((p) => Math.min(totalPages, p + 1))}
+              disabled={currentPage === totalPages || totalPages === 0}
+              className="px-3 py-1.5 text-sm font-medium text-slate-500 border border-slate-200 rounded-md hover:bg-slate-50 transition-colors ml-4"
+            >
               Selanjutnya
             </button>
           </div>

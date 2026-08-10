@@ -24,6 +24,9 @@ function InventarisContent() {
   const [filterKondisi, setFilterKondisi] = useState("");
   const [filterKir, setFilterKir] = useState("");
 
+  const [listTahun, setListTahun] = useState<string[]>([]);
+  const [listKir, setListKir] = useState<string[]>([]);
+
   const [isCreateModalOpen, setIsCreateModalOpen] = useState(false);
   const [isEditModalOpen, setIsEditModalOpen] = useState(false);
   const [isDetailModalOpen, setIsDetailModalOpen] = useState(false);
@@ -31,7 +34,23 @@ function InventarisContent() {
   const [selectedAsset, setSelectedAsset] = useState<AssetType | null>(null);
   const [assetToEdit, setAssetToEdit] = useState<AssetItem | null>(null);
 
+  const [currentPage, setCurrentPage] = useState(1);
+  const itemsPerPage = 10;
+
   const supabase = createClient();
+
+  const fetchDropdownData = async () => {
+    const { data: kirData } = await supabase.from("master_kir").select("nama_ruangan").order("nama_ruangan", { ascending: true });
+    if (kirData) {
+      setListKir(kirData.map((k) => k.nama_ruangan).filter(Boolean));
+    }
+
+    const { data: tahunData } = await supabase.from("inventaris_kib_b").select("tahun_beli");
+    if (tahunData) {
+      const uniqueTahun = Array.from(new Set(tahunData.map((t) => t.tahun_beli).filter(Boolean))).sort((a, b) => Number(b) - Number(a));
+      setListTahun(uniqueTahun as string[]);
+    }
+  };
 
   const fetchInventaris = async () => {
     setIsLoading(true);
@@ -73,6 +92,7 @@ function InventarisContent() {
   useEffect(() => {
     setTimeout(() => {
       fetchInventaris();
+      fetchDropdownData();
 
       const tahunQuery = searchParams.get("tahun");
       if (tahunQuery) {
@@ -123,6 +143,13 @@ function InventarisContent() {
     return matchSearch && matchTahun && matchKondisi && matchKir;
   });
 
+  useEffect(() => {
+    setCurrentPage(1);
+  }, [searchTerm, filterTahun, filterKondisi, filterKir]);
+
+  const totalPages = Math.ceil(filteredData.length / itemsPerPage);
+  const paginatedData = filteredData.slice((currentPage - 1) * itemsPerPage, currentPage * itemsPerPage);
+
   const handleEditClick = (item: AssetItem) => {
     setAssetToEdit(item);
     setIsEditModalOpen(true);
@@ -167,7 +194,7 @@ function InventarisContent() {
 
         <div className="flex flex-col sm:flex-row flex-wrap items-center gap-3 w-full xl:w-auto mt-2 xl:mt-0">
           <div className="relative w-full sm:flex-1 sm:min-w-50 xl:w-64">
-            <Search className="absolute inset-y-0 left-0 pl-3 flex items-center pointer-events-none text-slate-400" size={18} />
+            <Search className="absolute left-3 top-1/2 -translate-y-1/2 pointer-events-none text-slate-400" size={18} />
             <input
               type="text"
               placeholder="Cari aset..."
@@ -225,10 +252,11 @@ function InventarisContent() {
             <span className="text-sm font-semibold text-slate-700 w-16">Tahun:</span>
             <select value={filterTahun} onChange={(e) => setFilterTahun(e.target.value)} className="flex-1 sm:w-40 border border-slate-200 rounded-lg px-3 py-2 sm:py-1.5 text-sm text-slate-700 outline-none">
               <option value="">Semua</option>
-              <option value="2026">2026</option>
-              <option value="2025">2025</option>
-              <option value="2024">2024</option>
-              <option value="2023">2023</option>
+              {listTahun.map((tahun, idx) => (
+                <option key={idx} value={tahun}>
+                  {tahun}
+                </option>
+              ))}
             </select>
           </div>
           <div className="flex items-center gap-2 w-full sm:w-auto">
@@ -244,9 +272,11 @@ function InventarisContent() {
             <span className="text-sm font-semibold text-slate-700 w-16 sm:w-10">KIR:</span>
             <select value={filterKir} onChange={(e) => setFilterKir(e.target.value)} className="flex-1 sm:w-48 border border-slate-200 rounded-lg px-3 py-2 sm:py-1.5 text-sm text-slate-700 outline-none">
               <option value="">Semua Ruangan</option>
-              <option value="Ruang Camat">Ruang Camat</option>
-              <option value="Ruang Pelayanan">Ruang Pelayanan</option>
-              <option value="Garasi">Garasi</option>
+              {listKir.map((ruangan, idx) => (
+                <option key={idx} value={ruangan}>
+                  {ruangan}
+                </option>
+              ))}
             </select>
           </div>
           <button
@@ -299,10 +329,10 @@ function InventarisContent() {
                     </td>
                   </tr>
                 ))
-              ) : filteredData.length > 0 ? (
-                filteredData.map((item, index) => (
+              ) : paginatedData.length > 0 ? (
+                paginatedData.map((item, index) => (
                   <tr key={item.id} className="hover:bg-slate-50/80 transition-colors">
-                    <td className="px-6 py-4 text-slate-500">{index + 1}</td>
+                    <td className="px-6 py-4 text-slate-500">{(currentPage - 1) * itemsPerPage + index + 1}</td>
                     <td className="px-6 py-4 font-mono text-slate-600">{item.kode}</td>
                     <td className="px-6 py-4 font-medium text-slate-900">{item.nama}</td>
                     <td className="px-6 py-4">{getKondisiBadge(item.kondisi)}</td>
@@ -336,17 +366,40 @@ function InventarisContent() {
         {/* PAGINATION */}
         <div className="px-6 py-4 border-t border-slate-200 bg-white flex flex-col sm:flex-row items-center justify-between gap-4 mt-auto">
           <div className="text-sm text-slate-500 text-center sm:text-left">
-            Showing <span className="font-semibold text-slate-800">{filteredData.length > 0 ? 1 : 0}</span> to <span className="font-semibold text-slate-800">{filteredData.length}</span> of{" "}
-            <span className="font-semibold text-slate-800">{dataInventaris.length}</span> entries
+            Showing <span className="font-semibold text-slate-800">{filteredData.length > 0 ? (currentPage - 1) * itemsPerPage + 1 : 0}</span> to <span className="font-semibold text-slate-800">{Math.min(currentPage * itemsPerPage, filteredData.length)}</span> of{" "}
+            <span className="font-semibold text-slate-800">{filteredData.length}</span> entries
           </div>
           <div className="flex items-center gap-2">
-            <button className="p-2 border border-slate-200 rounded-lg text-slate-400 disabled:opacity-50" disabled>
+            <button
+              className="p-2 border border-slate-200 rounded-lg text-slate-700 hover:bg-slate-50 transition-colors disabled:opacity-50"
+              disabled={currentPage === 1}
+              onClick={() => setCurrentPage(prev => Math.max(prev - 1, 1))}
+            >
               <ChevronLeft size={18} />
             </button>
             <div className="hidden sm:flex items-center gap-1">
-              <button className="w-8 h-8 rounded-lg flex items-center justify-center text-sm font-semibold bg-blue-600 text-white shadow-sm">1</button>
+              {Array.from({ length: totalPages }, (_, i) => i + 1).map((page) => {
+                if (page === 1 || page === totalPages || (page >= currentPage - 1 && page <= currentPage + 1)) {
+                  return (
+                    <button
+                      key={page}
+                      onClick={() => setCurrentPage(page)}
+                      className={`w-8 h-8 rounded-lg flex items-center justify-center text-sm font-semibold shadow-sm ${page === currentPage ? 'bg-blue-600 text-white' : 'bg-white text-slate-700 border border-slate-200 hover:bg-slate-50'}`}
+                    >
+                      {page}
+                    </button>
+                  );
+                } else if (page === currentPage - 2 || page === currentPage + 2) {
+                  return <span key={page} className="px-1 text-slate-400">...</span>;
+                }
+                return null;
+              })}
             </div>
-            <button className="p-2 border border-slate-200 rounded-lg text-slate-700 hover:bg-slate-50 transition-colors disabled:opacity-50" disabled>
+            <button
+              className="p-2 border border-slate-200 rounded-lg text-slate-700 hover:bg-slate-50 transition-colors disabled:opacity-50"
+              disabled={currentPage === totalPages || totalPages === 0}
+              onClick={() => setCurrentPage(prev => Math.min(prev + 1, totalPages))}
+            >
               <ChevronRight size={18} />
             </button>
           </div>
