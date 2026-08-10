@@ -25,10 +25,10 @@ export async function createNewUser(formData: { email: string; kataSandi: string
   }
 }
 
-// 2. EDIT USER (Nama & Role)
-export async function editUser(formData: { id: number; nama: string; role: string }) {
+// 2. EDIT USER (NIP, Nama & Role)
+export async function editUser(formData: { id: number; nip: string; nama: string; role: string }) {
   try {
-    const { error } = await supabaseAdmin.from("users").update({ nama: formData.nama, role: formData.role }).eq("id", formData.id);
+    const { error } = await supabaseAdmin.from("users").update({ nip: formData.nip, nama: formData.nama, role: formData.role }).eq("id", formData.id);
 
     if (error) throw new Error(error.message);
     return { success: true };
@@ -76,6 +76,19 @@ export async function resetUserPassword(email: string) {
       return { success: true };
     }
     throw new Error("Email tidak ditemukan di sistem Auth.");
+    // eslint-disable-next-line @typescript-eslint/no-explicit-any
+  } catch (error: any) {
+    return { success: false, message: error.message };
+  }
+}
+
+// 5. EDIT PROFIL SENDIRI (NIP & Nama)
+export async function editMyProfile(formData: { id: number; nip: string; nama: string }) {
+  try {
+    const { error } = await supabaseAdmin.from("users").update({ nip: formData.nip, nama: formData.nama }).eq("id", formData.id);
+
+    if (error) throw new Error(error.message);
+    return { success: true };
     // eslint-disable-next-line @typescript-eslint/no-explicit-any
   } catch (error: any) {
     return { success: false, message: error.message };

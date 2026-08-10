@@ -5,6 +5,7 @@ import { Eye, EyeOff, Camera, Loader2, Save, X } from "lucide-react";
 import { createClient } from "@/lib/supabase";
 import Cropper, { Area } from "react-easy-crop";
 import Swal from "sweetalert2"; // Import SweetAlert2
+import { editMyProfile } from "@/actions/userActions";
 
 const createImage = (url: string): Promise<HTMLImageElement> =>
   new Promise((resolve, reject) => {
@@ -47,6 +48,7 @@ export default function PengaturanAdminPage() {
 
   const [isLoading, setIsLoading] = useState(true);
   const [isSaving, setIsSaving] = useState(false);
+  const [isSavingProfile, setIsSavingProfile] = useState(false);
   const [profile, setProfile] = useState({ id: 0, nip: "", nama: "", email: "", avatar_url: "" });
 
   const [newPassword, setNewPassword] = useState("");
@@ -139,6 +141,18 @@ export default function PengaturanAdminPage() {
     setIsUploading(false);
   };
 
+  const handleUpdateProfile = async () => {
+    setIsSavingProfile(true);
+    const res = await editMyProfile({ id: profile.id, nip: profile.nip, nama: profile.nama });
+    if (res.success) {
+      Swal.fire({ icon: "success", title: "Profil Diperbarui!", text: "Informasi profil Anda telah berhasil disimpan.", confirmButtonColor: "#2563eb", timer: 2500, showConfirmButton: false });
+      window.dispatchEvent(new Event("local-avatar-updated"));
+    } else {
+      Swal.fire({ icon: "error", title: "Gagal Update", text: res.message, confirmButtonColor: "#ba1a1a" });
+    }
+    setIsSavingProfile(false);
+  };
+
   const handleUpdatePassword = async () => {
     if (newPassword.length < 6) {
       return Swal.fire({ icon: "warning", title: "Sandi Terlalu Pendek", text: "Kata sandi minimal 6 karakter!", confirmButtonColor: "#2563eb" });
@@ -207,11 +221,20 @@ export default function PengaturanAdminPage() {
               </div>
               <div>
                 <label className="block text-sm font-semibold text-slate-700 mb-1.5">NIP Pegawai</label>
-                <input type="text" value={profile.nip} disabled className="w-full px-4 py-2.5 bg-slate-50 border border-slate-200 rounded-lg text-slate-500 text-sm cursor-not-allowed" />
+                <input type="text" value={profile.nip} onChange={(e) => setProfile({ ...profile, nip: e.target.value })} className="w-full px-4 py-2.5 bg-white border border-slate-200 rounded-lg text-slate-800 text-sm focus:outline-none focus:ring-2 focus:ring-blue-600/20 focus:border-blue-600" />
               </div>
               <div>
                 <label className="block text-sm font-semibold text-slate-700 mb-1.5">Nama Lengkap</label>
-                <input type="text" value={profile.nama} disabled className="w-full px-4 py-2.5 bg-slate-50 border border-slate-200 rounded-lg text-slate-500 text-sm cursor-not-allowed" />
+                <input type="text" value={profile.nama} onChange={(e) => setProfile({ ...profile, nama: e.target.value })} className="w-full px-4 py-2.5 bg-white border border-slate-200 rounded-lg text-slate-800 text-sm focus:outline-none focus:ring-2 focus:ring-blue-600/20 focus:border-blue-600" />
+              </div>
+              <div className="pt-2 flex justify-end">
+                <button
+                  onClick={handleUpdateProfile}
+                  disabled={isSavingProfile || !profile.nip || !profile.nama}
+                  className="px-5 py-2.5 bg-blue-600 text-white rounded-lg text-sm font-semibold hover:bg-blue-700 transition-colors shadow-sm flex items-center justify-center gap-2 disabled:opacity-50"
+                >
+                  {isSavingProfile ? <Loader2 size={18} className="animate-spin" /> : <Save size={18} />} Simpan Profil
+                </button>
               </div>
             </div>
           </div>

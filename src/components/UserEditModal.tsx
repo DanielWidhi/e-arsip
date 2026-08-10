@@ -14,6 +14,7 @@ type UserEditModalProps = {
 };
 
 export default function UserEditModal({ isOpen, onClose, user, onSave }: UserEditModalProps) {
+  const [nip, setNip] = useState(user?.nip || "");
   const [nama, setNama] = useState(user?.nama || "");
   const [role, setRole] = useState(user?.role || "Admin");
   const [isLoading, setIsLoading] = useState(false);
@@ -21,6 +22,7 @@ export default function UserEditModal({ isOpen, onClose, user, onSave }: UserEdi
   useEffect(() => {
     setTimeout(() => {
       if (user) {
+        setNip(user.nip);
         setNama(user.nama);
         setRole(user.role);
       }
@@ -36,7 +38,7 @@ export default function UserEditModal({ isOpen, onClose, user, onSave }: UserEdi
     e.preventDefault();
     setIsLoading(true);
 
-    const result = await editUser({ id: user.id, nama, role });
+    const result = await editUser({ id: user.id, nip, nama, role });
 
     if (result.success) {
       // 1. GANTI KE SWEETALERT SUKSES
@@ -77,7 +79,7 @@ export default function UserEditModal({ isOpen, onClose, user, onSave }: UserEdi
         <form id="editUserForm" onSubmit={handleSubmit} className="p-6 space-y-5">
           <div>
             <label className={labelClass}>NIP Pegawai</label>
-            <input value={user.nip} disabled className={`${inputClass} cursor-not-allowed opacity-70`} type="text" />
+            <input required value={nip} onChange={(e) => setNip(e.target.value)} className={inputClass} type="text" />
           </div>
           <div>
             <label className={labelClass}>Email Gmail</label>

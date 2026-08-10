@@ -117,6 +117,9 @@ export default function Navbar() {
                   isProfileOpen ? "opacity-100 scale-100 translate-y-0 visible" : "opacity-0 scale-95 -translate-y-2 invisible"
                 }`}
               >
+                <Link href="/admin/pengaturan" className="flex items-center gap-2 px-4 py-2.5 text-sm font-medium text-slate-700 hover:bg-slate-50 hover:text-blue-600 transition-colors">
+                  <User size={16} /> Profile
+                </Link>
                 <Link href="/admin/dashboard" className="flex items-center gap-2 px-4 py-2.5 text-sm font-medium text-slate-700 hover:bg-slate-50 hover:text-blue-600 transition-colors">
                   <LayoutDashboard size={16} /> Ke Dashboard
                 </Link>
@@ -173,6 +176,9 @@ export default function Navbar() {
 
           {userProfile ? (
             <div className="flex flex-col gap-3">
+              <Link href="/admin/pengaturan" onClick={closeMenu} className="flex items-center justify-center gap-2 bg-slate-100 text-slate-700 p-3 rounded-lg font-bold">
+                <User size={18} /> Profile
+              </Link>
               <Link href="/admin/dashboard" onClick={closeMenu} className="flex items-center justify-center gap-2 bg-blue-100 text-blue-700 p-3 rounded-lg font-bold">
                 <LayoutDashboard size={18} /> Ke Dashboard
               </Link>
