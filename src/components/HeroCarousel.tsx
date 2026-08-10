@@ -8,7 +8,7 @@ const slides = [
     id: 1,
     // Pastikan path gambar Anda sudah benar di dalam folder public
     image: "/images/hero/HeroBanner1.jpg",
-    title: "Sistem Informasi Arsip Inventaris Barang",
+    title: "Sistem Aset Terintegrasi Efektif Akuntabel Transparan",
     subtitle: "KANTOR CAMAT KUTA SELATAN",
   },
   {

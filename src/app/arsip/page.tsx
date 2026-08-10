@@ -12,7 +12,7 @@ import AOS from "aos";
 import "aos/dist/aos.css";
 
 // ===================================================================
-// KONTEN UTAMA: MEMBACA & MEMFILTER DATA ASLI DARI SUPABASE
+// KONTEN UTAMA
 // ===================================================================
 function ArsipContent() {
   const searchParams = useSearchParams();
@@ -37,23 +37,22 @@ function ArsipContent() {
       setDataArsip(data);
     }
     setIsLoading(false);
+
+    // Refresh AOS setelah data tabel selesai dimuat agar animasinya sinkron
+    setTimeout(() => {
+      AOS.refresh();
+    }, 100);
   };
 
   useEffect(() => {
     setTimeout(() => {
       fetchArsipData();
 
-      // 1. Baca query pencarian (?q=...)
       const query = searchParams.get("q");
-      if (query) {
-        setSearchTerm(query);
-      }
+      if (query) setSearchTerm(query);
 
-      // 2. Baca query kondisi (?cond=...)
       const condQuery = searchParams.get("cond");
-      if (condQuery) {
-        setFilterKondisi(condQuery);
-      }
+      if (condQuery) setFilterKondisi(condQuery);
     }, 0);
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [searchParams]);
@@ -69,16 +68,13 @@ function ArsipContent() {
   return (
     <main className="grow flex flex-col items-center pb-16 md:pb-24">
       <div className="max-w-7xl mx-auto w-full px-6 py-10 flex flex-col gap-8">
-        {/* Header (Animasi Pertama) */}
         <div data-aos="fade-up" className="flex flex-col gap-2">
           <h1 className="text-3xl md:text-4xl font-bold text-slate-900 tracking-tight">Daftar Inventaris Peralatan & Mesin (KIB B)</h1>
           <p className="text-lg text-slate-500">Transparansi data aset publik wilayah Kuta Selatan.</p>
         </div>
 
-        {/* Toolbar (Animasi Kedua, delay 100ms) */}
         <div data-aos="fade-up" data-aos-delay="100" className="flex flex-col lg:flex-row justify-between items-start lg:items-center gap-4 bg-white p-4 rounded-xl border border-slate-200 shadow-sm">
           <div className="flex flex-wrap items-center gap-3 w-full lg:w-auto">
-            {/* Filter Tahun */}
             <div className="relative w-full sm:w-auto">
               <select
                 value={filterTahun}
@@ -94,7 +90,6 @@ function ArsipContent() {
               <ChevronDown className="absolute right-3 top-1/2 -translate-y-1/2 text-slate-400 pointer-events-none" size={18} />
             </div>
 
-            {/* Filter Kondisi */}
             <div className="relative w-full sm:w-auto">
               <select
                 value={filterKondisi}
@@ -109,7 +104,6 @@ function ArsipContent() {
               <ChevronDown className="absolute right-3 top-1/2 -translate-y-1/2 text-slate-400 pointer-events-none" size={18} />
             </div>
 
-            {/* Filter KIR */}
             <div className="relative w-full sm:w-auto">
               <select
                 value={filterKir}
@@ -137,24 +131,22 @@ function ArsipContent() {
           </div>
         </div>
 
-        {/* Data Table (Animasi Ketiga, delay 200ms) */}
-        <div data-aos="fade-up" data-aos-delay="200" className="bg-white rounded-xl border border-slate-200 shadow-sm overflow-hidden">
+        <div data-aos="fade-up" data-aos-delay="200" className="bg-white rounded-xl border border-slate-200 shadow-sm overflow-hidden w-full">
           <div className="overflow-x-auto">
             <table className="min-w-full text-left border-collapse whitespace-nowrap">
               <thead>
                 <tr className="bg-slate-50 border-b border-slate-200">
-                  <th className="px-6 py-4 w-16">No</th>
-                  <th className="px-6 py-4">Kode Barang</th>
-                  <th className="px-6 py-4 font-semibold text-xs text-slate-500 uppercase tracking-wider">Nama/Jenis Barang</th>
+                  <th className="px-6 py-4 w-16 text-slate-500">No</th>
+                  <th className="px-6 py-4 text-slate-500">Kode Barang</th>
+                  <th className="px-6 py-4 text-sm text-slate-500 uppercase tracking-wider">Nama/Jenis Barang</th>
                   <th className="px-6 py-4 text-sm text-slate-500">Merk</th>
                   <th className="px-6 py-4 text-sm text-slate-500">Tahun Beli</th>
                   <th className="px-6 py-4 text-sm text-slate-500">Ruangan (KIR)</th>
-                  <th className="px-6 py-4 text-right">Aksi</th>
+                  <th className="px-6 py-4 text-right text-slate-500">Aksi</th>
                 </tr>
               </thead>
               <tbody className="divide-y divide-slate-100">
                 {isLoading ? (
-                  /* SHADCN SKELETON LOADER (5 BARIS DENYUT ABU-ABU) */
                   Array.from({ length: 5 }).map((_, i) => (
                     <tr key={i} className="animate-pulse border-b border-slate-100">
                       <td className="px-6 py-5">
@@ -176,12 +168,11 @@ function ArsipContent() {
                         <div className="h-4 w-32 bg-slate-200 rounded-md" />
                       </td>
                       <td className="px-6 py-5 text-right">
-                        <div className="inline-block h-8 w-8 bg-slate-200 rounded-md" />
+                        <div className="inline-block h-8 w-8 bg-slate-200 rounded-md ml-auto" />
                       </td>
                     </tr>
                   ))
                 ) : filteredData.length > 0 ? (
-                  /* DATA ASLI MUNCUL */
                   filteredData.map((item, index) => (
                     <tr key={item.id} className="hover:bg-slate-50 transition-colors duration-150 group">
                       <td className="px-6 py-4 text-sm text-slate-700">{index + 1}</td>
@@ -202,7 +193,6 @@ function ArsipContent() {
                     </tr>
                   ))
                 ) : (
-                  /* DATA KOSONG */
                   <tr>
                     <td colSpan={7} className="px-6 py-12 text-center text-slate-500">
                       Tidak ada data inventaris yang cocok dengan pencarian atau filter Anda.
@@ -213,7 +203,6 @@ function ArsipContent() {
             </table>
           </div>
 
-          {/* PAGINATION */}
           <div className="bg-white px-6 py-4 border-t border-slate-200 flex items-center justify-between sm:justify-center gap-2">
             <button className="px-3 py-1.5 text-sm font-medium text-slate-500 border border-slate-200 rounded-md hover:bg-slate-50 disabled:opacity-50 transition-colors" disabled>
               Sebelumnya
@@ -239,15 +228,21 @@ function ArsipContent() {
 }
 
 // ===================================================================
-// EXPORT DEFAULT UTAMA (Membungkus dalam Suspense)
+// EXPORT DEFAULT UTAMA
 // ===================================================================
 export default function ArsipPage() {
   useEffect(() => {
-    AOS.init({
-      duration: 800,
-      once: true,
-      easing: "ease-out-cubic",
-    });
+    // PERBAIKAN: Berikan jeda 100ms agar React Hydration selesai 100%
+    // sebelum AOS menyuntikkan class animasinya.
+    const initAOS = setTimeout(() => {
+      AOS.init({
+        duration: 800,
+        once: true,
+        easing: "ease-out-cubic",
+      });
+    }, 100);
+
+    return () => clearTimeout(initAOS);
   }, []);
 
   return (
