@@ -74,7 +74,7 @@ export default function Navbar() {
         <div className="flex items-center gap-4">
           <Link href="/" className="flex items-center gap-2.5 text-xl font-extrabold text-blue-700 tracking-tight" onClick={closeMenu}>
             {/* eslint-disable-next-line @next/next/no-img-element */}
-            <img src="/images/logo-badung.png" alt="Logo" className="w-8 h-8 md:w-10 md:h-10 object-contain drop-shadow-sm bg-white rounded-md p-0.5" />
+            <img src="/images/assets/logos-sate.png" alt="Logo" className="w-8 h-8 md:w-10 md:h-10 object-contain drop-shadow-sm bg-white rounded-md p-0.5" />
             <span>
               SATE <span className="text-slate-800 text-sm md:text-lg">Kuta Selatan</span>
             </span>
@@ -113,9 +113,8 @@ export default function Navbar() {
 
               {/* Box Menu Dropdown (Animasi Scale & Fade-in) */}
               <div
-                className={`absolute right-0 mt-2 w-48 bg-white border border-slate-200 rounded-xl shadow-lg py-2 z-50 transform origin-top-right transition-all duration-200 ease-in-out ${
-                  isProfileOpen ? "opacity-100 scale-100 translate-y-0 visible" : "opacity-0 scale-95 -translate-y-2 invisible"
-                }`}
+                className={`absolute right-0 mt-2 w-48 bg-white border border-slate-200 rounded-xl shadow-lg py-2 z-50 transform origin-top-right transition-all duration-200 ease-in-out ${isProfileOpen ? "opacity-100 scale-100 translate-y-0 visible" : "opacity-0 scale-95 -translate-y-2 invisible"
+                  }`}
               >
                 <Link href="/admin/pengaturan" className="flex items-center gap-2 px-4 py-2.5 text-sm font-medium text-slate-700 hover:bg-slate-50 hover:text-blue-600 transition-colors">
                   <User size={16} /> Profile
