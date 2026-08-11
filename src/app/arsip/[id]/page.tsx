@@ -187,7 +187,7 @@ export default function DetailArsipPage() {
 
             {/* KOLOM KANAN (Meluncur masuk dari kanan, delay 200ms) */}
             <div data-aos="fade-left" data-aos-delay="200" className="w-full lg:w-2/3 p-6 md:p-8 flex flex-col">
-              <div className="flex justify-between items-start mb-6">
+              <div className="flex flex-col sm:flex-row sm:justify-between items-start gap-4 mb-6">
                 <div>
                   <h1 className="text-2xl md:text-3xl font-bold text-slate-900 mb-2">{asset.nama}</h1>
                   <p className="font-mono text-slate-600 font-medium bg-slate-100 px-3 py-1 rounded border border-slate-200 w-fit">Kode: {asset.kode}</p>
