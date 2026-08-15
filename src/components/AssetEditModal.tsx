@@ -75,6 +75,7 @@ export default function AssetEditModal({ isOpen, onClose, asset, onSave }: Asset
   const [tahunBeli, setTahunBeli] = useState("");
   const [pabrik, setPabrik] = useState("");
   const [keterangan, setKeterangan] = useState("");
+  const [kategori, setKategori] = useState("lainnya");
   const [noRangka, setNoRangka] = useState("");
   const [noMesin, setNoMesin] = useState("");
   const [noPolisi, setNoPolisi] = useState("");
@@ -109,6 +110,7 @@ export default function AssetEditModal({ isOpen, onClose, asset, onSave }: Asset
         setTahunBeli(asset.tahun === "-" ? "" : asset.tahun);
         setPabrik(asset.pabrik === "-" ? "" : asset.pabrik);
         setKeterangan(asset.keterangan === "-" ? "" : asset.keterangan);
+        setKategori(asset.kategori || "lainnya");
         setNoRangka(asset.rangka === "-" ? "" : asset.rangka);
         setNoMesin(asset.mesin === "-" ? "" : asset.mesin);
         setNoPolisi(asset.polisi === "-" ? "" : asset.polisi);
@@ -225,6 +227,7 @@ export default function AssetEditModal({ isOpen, onClose, asset, onSave }: Asset
         kondisi: kondisi,
         kir_id: kirId ? Number(kirId) : null,
         keterangan: keterangan,
+        kategori: kategori,
         foto_url: finalFotoUrl,
       };
 
@@ -341,6 +344,15 @@ export default function AssetEditModal({ isOpen, onClose, asset, onSave }: Asset
                     ))}
                   </select>
                 </div>
+              </div>
+
+              <div>
+                <label className={labelClass}>Kategori</label>
+                <select value={kategori} onChange={(e) => setKategori(e.target.value)} className={`${inputClass} bg-white cursor-pointer`}>
+                  <option value="roda 2">Roda 2</option>
+                  <option value="roda 4">Roda 4</option>
+                  <option value="lainnya">Lainnya</option>
+                </select>
               </div>
 
               <div>

@@ -96,6 +96,7 @@ export default function AdminDashboardPage() {
         kir: item.kir?.nama_ruangan || "-",
         kir_id: item.kir_id,
         keterangan: item.keterangan || "-",
+        kategori: item.kategori || "lainnya",
         foto: item.foto_url || null,
       }));
 

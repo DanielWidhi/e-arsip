@@ -72,6 +72,7 @@ export default function AssetCreateModal({ isOpen, onClose, onSave }: AssetCreat
   const [tahunBeli, setTahunBeli] = useState("");
   const [pabrik, setPabrik] = useState("");
   const [keterangan, setKeterangan] = useState("");
+  const [kategori, setKategori] = useState("lainnya");
 
   const [noRangka, setNoRangka] = useState("");
   const [noMesin, setNoMesin] = useState("");
@@ -200,6 +201,7 @@ export default function AssetCreateModal({ isOpen, onClose, onSave }: AssetCreat
         kondisi: kondisi,
         kir_id: kirId ? Number(kirId) : null,
         keterangan: keterangan,
+        kategori: kategori,
         foto_url: finalFotoUrl,
       };
 
@@ -233,6 +235,7 @@ export default function AssetCreateModal({ isOpen, onClose, onSave }: AssetCreat
       setHarga("");
       setKondisi("Baik");
       setKirId("");
+      setKategori("lainnya");
       setSelectedFile(null);
       setImagePreview(null);
 
@@ -331,6 +334,15 @@ export default function AssetCreateModal({ isOpen, onClose, onSave }: AssetCreat
                     ))}
                   </select>
                 </div>
+              </div>
+
+              <div>
+                <label className={labelClass}>Kategori</label>
+                <select value={kategori} onChange={(e) => setKategori(e.target.value)} className={`${inputClass} bg-white cursor-pointer`}>
+                  <option value="roda 2">Roda 2</option>
+                  <option value="roda 4">Roda 4</option>
+                  <option value="lainnya">Lainnya</option>
+                </select>
               </div>
 
               <div>

@@ -23,6 +23,7 @@ export type AssetType = {
   kondisi: string;
   kir: string;
   keterangan: string;
+  kategori: string;
   foto?: string | null;
   kir_id?: number | null; // ID untuk Modal Edit
   asal_usul_id?: number | null; // ID untuk Modal Edit
@@ -149,6 +150,7 @@ export default function AssetDetailModal({ isOpen, onClose, asset }: AssetDetail
                   { label: "Asal Usul", value: asset.asalUsul },
                   { label: "Harga (Rp)", value: `Rp ${Number(asset.harga).toLocaleString("id-ID")}` },
                   { label: "Lokasi Ruangan (KIR)", value: asset.kir },
+                  { label: "Kategori", value: asset.kategori },
                 ].map((item, index) => (
                   <div key={index} className="flex flex-col border-b border-slate-100 pb-2">
                     <span className="text-xs font-medium text-slate-500 uppercase tracking-wider">{item.label}</span>

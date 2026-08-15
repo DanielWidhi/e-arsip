@@ -16,7 +16,9 @@ export default function AdminSidebar({ isOpen, setIsOpen }: AdminSidebarProps) {
   const router = useRouter();
   const supabase = createClient();
 
+  // STATE UNTUK DROPDOWN MENU
   const [isKategoriOpen, setIsKategoriOpen] = useState(pathname.includes("/kategori"));
+  const [isPemeliharaanOpen, setIsPemeliharaanOpen] = useState(pathname.includes("/pemeliharaan"));
 
   // STATE BARU: Menyimpan role user aktif untuk proteksi menu
   const [userRole, setUserRole] = useState("Admin");
@@ -89,6 +91,7 @@ export default function AdminSidebar({ isOpen, setIsOpen }: AdminSidebarProps) {
             </Link>
           </li>
 
+          {/* MENU KATEGORI (DROPDOWN) */}
           <li>
             <button
               onClick={() => setIsKategoriOpen(!isKategoriOpen)}
@@ -135,15 +138,40 @@ export default function AdminSidebar({ isOpen, setIsOpen }: AdminSidebarProps) {
             </Link>
           </li>
 
+          {/* MENU PEMELIHARAAN (SEKARANG DROPDOWN) */}
           <li>
-            <Link
-              onClick={closeMenuMobile}
-              href="/admin/pemeliharaan"
-              className={`flex items-center gap-3 px-3 py-2.5 rounded-lg text-sm font-semibold transition-colors group ${pathname === "/admin/pemeliharaan" ? "text-white bg-blue-600/20 border-l-4 border-blue-600" : "text-slate-300 hover:bg-slate-800 hover:text-white"}`}
+            <button
+              onClick={() => setIsPemeliharaanOpen(!isPemeliharaanOpen)}
+              className={`w-full flex items-center justify-between px-3 py-2.5 rounded-lg text-sm font-semibold transition-colors group ${pathname.includes("/pemeliharaan") ? "text-white bg-slate-800" : "text-slate-300 hover:bg-slate-800 hover:text-white"}`}
             >
-              <Wrench size={20} className={pathname === "/admin/pemeliharaan" ? "text-blue-600" : "group-hover:text-white"} />
-              <span>Pemeliharaan</span>
-            </Link>
+              <div className="flex items-center gap-3">
+                <Wrench size={20} className={pathname.includes("/pemeliharaan") ? "text-blue-500" : "group-hover:text-white"} />
+                <span>Pemeliharaan</span>
+              </div>
+              <ChevronDown size={16} className={`transition-transform duration-200 ${isPemeliharaanOpen ? "rotate-180" : ""}`} />
+            </button>
+            <div className={`overflow-hidden transition-all duration-300 ease-in-out ${isPemeliharaanOpen ? "max-h-40 opacity-100 mt-1" : "max-h-0 opacity-0"}`}>
+              <ul className="flex flex-col gap-1 pl-11 pr-2 border-l border-slate-700 ml-5">
+                <li>
+                  <Link
+                    onClick={closeMenuMobile}
+                    href="/admin/pemeliharaan"
+                    className={`block px-3 py-2 rounded-lg text-sm font-medium transition-colors ${pathname === "/admin/pemeliharaan" ? "text-blue-400 bg-slate-800" : "text-slate-400 hover:text-slate-200 hover:bg-slate-800/50"}`}
+                  >
+                    Semua Aset
+                  </Link>
+                </li>
+                <li>
+                  <Link
+                    onClick={closeMenuMobile}
+                    href="/admin/pemeliharaan/kendaraan"
+                    className={`block px-3 py-2 rounded-lg text-sm font-medium transition-colors ${pathname === "/admin/pemeliharaan/kendaraan" ? "text-blue-400 bg-slate-800" : "text-slate-400 hover:text-slate-200 hover:bg-slate-800/50"}`}
+                  >
+                    Kendaraan
+                  </Link>
+                </li>
+              </ul>
+            </div>
           </li>
 
           {/* 

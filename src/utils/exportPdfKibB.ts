@@ -21,6 +21,7 @@ export type AssetItem = {
   kondisi: string;
   kir: string;
   keterangan: string;
+  kategori?: string;
 };
 
 // 2. Fungsi Utama untuk Menggambar Template PDF
