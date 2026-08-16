@@ -4,11 +4,21 @@ import React, { useState, useEffect } from 'react';
 import { Search, Plus, Filter, Eye, SquarePen, Printer, Trash2, Calendar, DollarSign, TrendingDown, TrendingUp, Edit3, Wallet, CreditCard, Activity } from 'lucide-react';
 import Swal from 'sweetalert2';
 import VehicleRepairModal from '@/components/VehicleRepairModal';
+import VehicleRepairDetailModal from '@/components/VehicleRepairDetailModal';
+import VehicleRepairEditModal from '@/components/VehicleRepairEditModal';
 import { createClient } from "@/lib/supabase";
 
 export default function KendaraanPage() {
   const supabase = createClient();
   const [isModalOpen, setIsModalOpen] = useState(false);
+
+  // State untuk Detail Modal
+  const [isDetailModalOpen, setIsDetailModalOpen] = useState(false);
+  const [selectedDetailId, setSelectedDetailId] = useState<number | null>(null);
+
+  // State untuk Edit Modal
+  const [isEditModalOpen, setIsEditModalOpen] = useState(false);
+  const [selectedEditId, setSelectedEditId] = useState<number | null>(null);
 
   // Data states
   const [paguTahunan, setPaguTahunan] = useState(0);
@@ -337,6 +347,7 @@ export default function KendaraanPage() {
               ))}
             </select>
           </div>
+
           <button
             onClick={() => setIsAddYearModalOpen(true)}
             className="flex items-center justify-center p-2 bg-white border border-gray-300 rounded-lg shadow-sm hover:bg-gray-50 transition text-gray-600"
@@ -355,15 +366,22 @@ export default function KendaraanPage() {
             <h3 className="tracking-tight text-sm font-medium text-gray-500">Total PAGU Tahunan</h3>
             <DollarSign className="h-4 w-4 text-gray-400" />
           </div>
+
           <div>
             <div className="flex items-center justify-between">
               <div className="text-2xl font-bold text-gray-800">
                 Rp {paguTahunan.toLocaleString('id-ID')}
               </div>
-              <button onClick={openEditPaguModal} className="p-1.5 text-blue-600 hover:bg-blue-50 rounded-md transition tooltip" title="Sesuaikan PAGU">
+
+              <button
+                onClick={openEditPaguModal}
+                className="p-1.5 text-blue-600 hover:bg-blue-50 rounded-md transition tooltip"
+                title="Sesuaikan PAGU"
+              >
                 <Edit3 size={16} />
               </button>
             </div>
+
             <p className="text-xs text-gray-400 mt-1">Anggaran pemeliharaan tahun ini</p>
           </div>
         </div>
@@ -373,10 +391,14 @@ export default function KendaraanPage() {
             <h3 className="tracking-tight text-sm font-medium text-gray-500">Sisa PAGU Tahunan</h3>
             <Wallet className="h-4 w-4 text-gray-400" />
           </div>
+
           <div>
             <div className={`text-2xl font-bold ${sisaPaguTahunan < 0 ? 'text-red-600' : 'text-gray-800'}`}>
-              {sisaPaguTahunan < 0 ? `- Rp ${Math.abs(sisaPaguTahunan).toLocaleString('id-ID')}` : `Rp ${sisaPaguTahunan.toLocaleString('id-ID')}`}
+              {sisaPaguTahunan < 0
+                ? `- Rp ${Math.abs(sisaPaguTahunan).toLocaleString('id-ID')}`
+                : `Rp ${sisaPaguTahunan.toLocaleString('id-ID')}`}
             </div>
+
             <p className="text-xs text-gray-400 mt-1">Sisa anggaran untuk tahun {selectedYear}</p>
           </div>
         </div>
@@ -386,10 +408,12 @@ export default function KendaraanPage() {
             <h3 className="tracking-tight text-sm font-medium text-gray-500">Alokasi Jatah Bulanan</h3>
             <CreditCard className="h-4 w-4 text-gray-400" />
           </div>
+
           <div>
             <div className="text-2xl font-bold text-gray-800">
               Rp {paguBulanan.toLocaleString('id-ID')}
             </div>
+
             <p className="text-xs text-gray-400 mt-1">Sistem bagi rata 12 bulan</p>
           </div>
         </div>
@@ -399,14 +423,18 @@ export default function KendaraanPage() {
             <h3 className={`tracking-tight text-sm font-medium ${sisaPaguBulanIni < 0 ? 'text-red-600' : 'text-emerald-700'}`}>
               Status Bulan {selectedMonthName} {selectedYear}
             </h3>
+
             <Activity className={`h-4 w-4 ${sisaPaguBulanIni < 0 ? 'text-red-400' : 'text-emerald-400'}`} />
           </div>
+
           <div>
             <div className={`text-2xl font-bold ${sisaPaguBulanIni < 0 ? 'text-red-700' : 'text-emerald-800'}`}>
               Rp {realisasiBulanIni.toLocaleString('id-ID')}
             </div>
+
             <div className={`flex items-center gap-1.5 mt-1 text-xs font-bold uppercase tracking-wide ${sisaPaguBulanIni < 0 ? 'text-red-600' : 'text-emerald-600'}`}>
               {sisaPaguBulanIni < 0 ? <TrendingDown size={14} /> : <TrendingUp size={14} />}
+
               {sisaPaguBulanIni < 0
                 ? `Kekurangan Rp ${Math.abs(sisaPaguBulanIni).toLocaleString('id-ID')}`
                 : `Sisa Rp ${sisaPaguBulanIni.toLocaleString('id-ID')}`}
@@ -421,6 +449,7 @@ export default function KendaraanPage() {
           <div className="absolute inset-y-0 left-0 pl-3 flex items-center pointer-events-none">
             <Search className="h-4 w-4 text-gray-400" />
           </div>
+
           <input
             type="text"
             value={searchQuery}
@@ -434,6 +463,7 @@ export default function KendaraanPage() {
           <button className="flex items-center gap-2 px-4 py-2 border border-gray-300 bg-white text-gray-700 rounded-lg text-sm font-medium hover:bg-gray-50 shadow-sm transition">
             <Filter size={16} /> Filter
           </button>
+
           <button
             onClick={() => setIsModalOpen(true)}
             className="flex items-center gap-2 px-4 py-2 bg-blue-600 text-white rounded-lg text-sm font-medium hover:bg-blue-700 shadow-sm transition"
@@ -457,39 +487,94 @@ export default function KendaraanPage() {
                 <th className="px-6 py-4 text-center">AKSI</th>
               </tr>
             </thead>
+
             <tbody className="divide-y divide-gray-200">
               {isLoading ? (
                 <tr>
-                  <td colSpan={6} className="px-6 py-4 text-center text-gray-500 font-medium">Memuat data dari database...</td>
+                  <td colSpan={6} className="px-6 py-4 text-center text-gray-500 font-medium">
+                    Memuat data dari database...
+                  </td>
                 </tr>
               ) : filteredPemeliharaanList.length === 0 ? (
                 <tr>
                   <td colSpan={6} className="px-6 py-4 text-center text-gray-500">
-                    {searchQuery ? 'Data tidak ditemukan.' : `Belum ada pengajuan pemeliharaan untuk tahun ${selectedYear}.`}
+                    {searchQuery
+                      ? 'Data tidak ditemukan.'
+                      : `Belum ada pengajuan pemeliharaan untuk tahun ${selectedYear}.`}
                   </td>
                 </tr>
               ) : (
                 filteredPemeliharaanList.map((item, index) => (
                   <tr key={item.id} className="hover:bg-gray-50/50 transition">
                     <td className="px-6 py-4 text-gray-500">{index + 1}</td>
+
                     <td className="px-6 py-4 text-gray-600 font-medium">
-                      {item.inventaris_kib_b?.nama_barang} {item.inventaris_kib_b?.merk_type ? `- ${item.inventaris_kib_b?.merk_type}` : ''}
+                      {item.inventaris_kib_b?.nama_barang}
+                      {item.inventaris_kib_b?.merk_type
+                        ? ` - ${item.inventaris_kib_b?.merk_type}`
+                        : ''}
                     </td>
-                    <td className="px-6 py-4 font-bold text-gray-900">{item.inventaris_kib_b?.no_polisi || '-'}</td>
+
+                    <td className="px-6 py-4 font-bold text-gray-900">
+                      {item.inventaris_kib_b?.no_polisi || '-'}
+                    </td>
+
                     <td className="px-6 py-4">
                       <span className="inline-flex items-center px-2.5 py-1 rounded-full text-xs font-medium bg-blue-100 text-blue-700">
                         {item.kategori_pengeluaran || 'Pemeliharaan'}
                       </span>
                     </td>
+
                     <td className="px-6 py-4 font-semibold text-gray-800">
                       Rp {Number(item.total_biaya).toLocaleString('id-ID')}
                     </td>
+
                     <td className="px-6 py-4">
                       <div className="flex justify-center items-center gap-3 text-gray-400">
-                        <button className="hover:text-gray-700 transition" title="Lihat Detail"><Eye size={18} /></button>
-                        <button className="hover:text-blue-600 transition" title="Edit"><SquarePen size={18} /></button>
-                        <button className="hover:text-green-600 transition" title="Cetak SPK/Nota"><Printer size={18} /></button>
-                        <button onClick={() => handleDelete(item.id, item.inventaris_kib_b?.no_polisi || '-')} className="hover:text-red-600 transition" title="Hapus"><Trash2 size={18} /></button>
+
+                        {/* TOMBOL LIHAT DETAIL */}
+                        <button
+                          onClick={() => {
+                            setSelectedDetailId(item.id);
+                            setIsDetailModalOpen(true);
+                          }}
+                          className="hover:text-gray-700 transition"
+                          title="Lihat Detail"
+                        >
+                          <Eye size={18} />
+                        </button>
+
+                        <button
+                          onClick={() => {
+                            setSelectedEditId(item.id);
+                            setIsEditModalOpen(true);
+                          }}
+                          className="hover:text-blue-600 transition"
+                          title="Edit"
+                        >
+                          <SquarePen size={18} />
+                        </button>
+
+                        <button
+                          className="hover:text-green-600 transition"
+                          title="Cetak SPK/Nota"
+                        >
+                          <Printer size={18} />
+                        </button>
+
+                        <button
+                          onClick={() =>
+                            handleDelete(
+                              item.id,
+                              item.inventaris_kib_b?.no_polisi || '-'
+                            )
+                          }
+                          className="hover:text-red-600 transition"
+                          title="Hapus"
+                        >
+                          <Trash2 size={18} />
+                        </button>
+
                       </div>
                     </td>
                   </tr>
@@ -500,32 +585,52 @@ export default function KendaraanPage() {
         </div>
 
         <div className="bg-white px-6 py-4 border-t border-gray-200 flex items-center justify-between sm:flex-row flex-col gap-4">
-          <span className="text-sm text-gray-500">Menampilkan {filteredPemeliharaanList.length > 0 ? `1-${filteredPemeliharaanList.length} dari ${filteredPemeliharaanList.length}` : '0'} kendaraan</span>
+          <span className="text-sm text-gray-500">
+            Menampilkan{' '}
+            {filteredPemeliharaanList.length > 0
+              ? `1-${filteredPemeliharaanList.length} dari ${filteredPemeliharaanList.length}`
+              : '0'}{' '}
+            kendaraan
+          </span>
+
           <div className="flex items-center gap-2">
-            <button className="p-2 rounded hover:bg-gray-100 text-gray-500 disabled:opacity-50" disabled>&lt;</button>
-            <button className="w-8 h-8 flex items-center justify-center rounded bg-blue-600 text-white text-sm font-medium">1</button>
-            <button className="p-2 rounded hover:bg-gray-100 text-gray-500">&gt;</button>
+            <button
+              className="p-2 rounded hover:bg-gray-100 text-gray-500 disabled:opacity-50"
+              disabled
+            >
+              &lt;
+            </button>
+
+            <button className="w-8 h-8 flex items-center justify-center rounded bg-blue-600 text-white text-sm font-medium">
+              1
+            </button>
+
+            <button className="p-2 rounded hover:bg-gray-100 text-gray-500">
+              &gt;
+            </button>
           </div>
         </div>
       </div>
-
-      {/* Render Komponen Modal Pengajuan */}
-      <VehicleRepairModal
-        isOpen={isModalOpen}
-        onClose={() => setIsModalOpen(false)}
-      />
 
       {/* MODAL 1: Tambah Tahun */}
       {isAddYearModalOpen && (
         <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/50 backdrop-blur-sm">
           <div className="bg-white w-full max-w-md rounded-xl shadow-lg border overflow-hidden mx-4">
             <div className="p-6">
-              <h2 className="text-lg font-semibold tracking-tight text-gray-900">Tambah Tahun Anggaran</h2>
-              <p className="text-sm text-gray-500 mt-1.5">Masukkan tahun anggaran baru untuk ditambahkan ke dalam filter.</p>
+              <h2 className="text-lg font-semibold tracking-tight text-gray-900">
+                Tambah Tahun Anggaran
+              </h2>
+
+              <p className="text-sm text-gray-500 mt-1.5">
+                Masukkan tahun anggaran baru untuk ditambahkan ke dalam filter.
+              </p>
 
               <div className="mt-6 space-y-4">
                 <div>
-                  <label className="block text-sm font-medium text-gray-700 mb-2">Tahun</label>
+                  <label className="block text-sm font-medium text-gray-700 mb-2">
+                    Tahun
+                  </label>
+
                   <input
                     type="number"
                     value={newYearInput}
@@ -534,10 +639,17 @@ export default function KendaraanPage() {
                     placeholder="Contoh: 2027"
                   />
                 </div>
+
                 <div>
-                  <label className="block text-sm font-medium text-gray-700 mb-2">Nominal PAGU Tahunan</label>
+                  <label className="block text-sm font-medium text-gray-700 mb-2">
+                    Nominal PAGU Tahunan
+                  </label>
+
                   <div className="relative">
-                    <span className="absolute inset-y-0 left-0 flex items-center pl-3 text-gray-900 text-sm font-medium">Rp.</span>
+                    <span className="absolute inset-y-0 left-0 flex items-center pl-3 text-gray-900 text-sm font-medium">
+                      Rp.
+                    </span>
+
                     <input
                       type="number"
                       value={newPaguInput}
@@ -549,6 +661,7 @@ export default function KendaraanPage() {
                 </div>
               </div>
             </div>
+
             <div className="px-6 py-4 bg-gray-50 flex items-center justify-end gap-2 border-t">
               <button
                 onClick={() => setIsAddYearModalOpen(false)}
@@ -556,6 +669,7 @@ export default function KendaraanPage() {
               >
                 Batal
               </button>
+
               <button
                 onClick={handleAddYear}
                 disabled={isSubmittingYear}
@@ -573,13 +687,24 @@ export default function KendaraanPage() {
         <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/50 backdrop-blur-sm">
           <div className="bg-white w-full max-w-md rounded-xl shadow-lg border overflow-hidden mx-4">
             <div className="p-6">
-              <h2 className="text-lg font-semibold tracking-tight text-gray-900">Sesuaikan PAGU Tahunan</h2>
-              <p className="text-sm text-gray-500 mt-1.5">Ubah anggaran pemeliharaan untuk tahun berjalan ({selectedYear}).</p>
+              <h2 className="text-lg font-semibold tracking-tight text-gray-900">
+                Sesuaikan PAGU Tahunan
+              </h2>
+
+              <p className="text-sm text-gray-500 mt-1.5">
+                Ubah anggaran pemeliharaan untuk tahun berjalan ({selectedYear}).
+              </p>
 
               <div className="mt-6">
-                <label className="block text-sm font-medium text-gray-700 mb-2">Nominal PAGU Tahunan</label>
+                <label className="block text-sm font-medium text-gray-700 mb-2">
+                  Nominal PAGU Tahunan
+                </label>
+
                 <div className="relative">
-                  <span className="absolute inset-y-0 left-0 flex items-center pl-3 text-gray-900 text-sm font-medium">Rp.</span>
+                  <span className="absolute inset-y-0 left-0 flex items-center pl-3 text-gray-900 text-sm font-medium">
+                    Rp.
+                  </span>
+
                   <input
                     type="number"
                     value={editPaguInput}
@@ -590,6 +715,7 @@ export default function KendaraanPage() {
                 </div>
               </div>
             </div>
+
             <div className="px-6 py-4 bg-gray-50 flex items-center justify-end gap-2 border-t">
               <button
                 onClick={() => setIsEditPaguModalOpen(false)}
@@ -597,6 +723,7 @@ export default function KendaraanPage() {
               >
                 Batal
               </button>
+
               <button
                 onClick={handleSaveEditPagu}
                 disabled={isSubmittingEditPagu}
@@ -609,6 +736,41 @@ export default function KendaraanPage() {
         </div>
       )}
 
+      {/* Render Komponen Modal Pengajuan */}
+      <VehicleRepairModal
+        isOpen={isModalOpen}
+        onClose={() => setIsModalOpen(false)}
+      />
+
+      {/* Render Komponen Modal Lihat Detail */}
+      <VehicleRepairDetailModal
+        isOpen={isDetailModalOpen}
+        onClose={() => setIsDetailModalOpen(false)}
+        pemeliharaanId={selectedDetailId}
+      />
+      {/* Render Komponen Modal Edit */}
+      <VehicleRepairEditModal
+        isOpen={isEditModalOpen}
+        onClose={() => setIsEditModalOpen(false)}
+        pemeliharaanId={selectedEditId}
+        onSaved={(updatedData) => {
+          setPemeliharaanList((prev) =>
+            prev.map((item) =>
+              item.id === updatedData.id
+                ? {
+                    ...item,
+                    tanggal_pengajuan: updatedData.tanggal_pengajuan,
+                    bengkel_rekanan: updatedData.bengkel_rekanan,
+                    total_biaya: updatedData.total_biaya,
+                    kategori_pengeluaran:
+                      updatedData.kategori_pengeluaran,
+                    inventaris_kib_b: updatedData.inventaris_kib_b,
+                  }
+                : item
+            )
+          );
+        }}
+      />
     </div>
   );
 }
