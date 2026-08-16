@@ -18,13 +18,18 @@ export default function KendaraanPage() {
   // LOGIKA DINAMIS TAHUN & BULAN
   const currentYear = new Date().getFullYear();
   
-  // State Filter Tahun dan Modal
+  // State Filter Tahun dan Modal Tambah Tahun
   const [availableYears, setAvailableYears] = useState<number[]>([]);
   const [selectedYear, setSelectedYear] = useState('');
   const [isAddYearModalOpen, setIsAddYearModalOpen] = useState(false);
   const [newYearInput, setNewYearInput] = useState('');
   const [newPaguInput, setNewPaguInput] = useState('');
   const [isSubmittingYear, setIsSubmittingYear] = useState(false);
+
+  // STATE BARU: Modal Edit PAGU (Shadcn style)
+  const [isEditPaguModalOpen, setIsEditPaguModalOpen] = useState(false);
+  const [editPaguInput, setEditPaguInput] = useState('');
+  const [isSubmittingEditPagu, setIsSubmittingEditPagu] = useState(false);
 
   // Fetch Available Years dari Supabase Pagu
   useEffect(() => {
@@ -148,33 +153,35 @@ export default function KendaraanPage() {
     });
   };
 
-  // Fungsi Edit PAGU (Tambahan sesuai PDF)
-  const handleEditPagu = () => {
-    Swal.fire({
-      title: 'Sesuaikan PAGU Tahunan',
-      input: 'number',
-      inputLabel: `Tahun Anggaran ${selectedYear}`,
-      inputValue: paguTahunan,
-      showCancelButton: true,
-      confirmButtonText: 'Simpan',
-      cancelButtonText: 'Batal',
-      preConfirm: async (value) => {
-        try {
-          const { error } = await supabase
-            .from('pagu')
-            .upsert({ tahun: parseInt(selectedYear), nominal_tahunan: Number(value) }, { onConflict: 'tahun' });
-          if (error) throw error;
-          return Number(value);
-        } catch (error) {
-          Swal.showValidationMessage(`Gagal menyimpan: ${error}`);
-        }
-      }
-    }).then((result) => {
-      if (result.isConfirmed) {
-        setPaguTahunan(result.value);
-        Swal.fire('Tersimpan!', 'PAGU Tahunan berhasil diperbarui.', 'success');
-      }
-    });
+  // Fungsi Buka Modal Edit PAGU
+  const openEditPaguModal = () => {
+    setEditPaguInput(paguTahunan.toString()); // Set nilai saat ini ke dalam form
+    setIsEditPaguModalOpen(true);
+  };
+
+  // Fungsi Simpan Edit PAGU
+  const handleSaveEditPagu = async () => {
+    if (!editPaguInput || isNaN(Number(editPaguInput))) {
+      Swal.fire('Error', 'Harap masukkan nominal yang valid.', 'error');
+      return;
+    }
+
+    setIsSubmittingEditPagu(true);
+    try {
+      const { error } = await supabase
+        .from('pagu')
+        .upsert({ tahun: parseInt(selectedYear), nominal_tahunan: Number(editPaguInput) }, { onConflict: 'tahun' });
+        
+      if (error) throw error;
+      
+      setPaguTahunan(Number(editPaguInput));
+      setIsEditPaguModalOpen(false);
+      Swal.fire('Tersimpan!', 'PAGU Tahunan berhasil diperbarui.', 'success');
+    } catch (error: any) {
+      Swal.fire('Error', `Gagal menyimpan: ${error.message}`, 'error');
+    } finally {
+      setIsSubmittingEditPagu(false);
+    }
   };
 
   // Fungsi Tambah Tahun Anggaran Baru
@@ -184,9 +191,21 @@ export default function KendaraanPage() {
       return;
     }
     
+    const yearToInsert = parseInt(newYearInput);
+
+    // CEK VALIDASI: Apakah tahun sudah ada di database?
+    if (availableYears.includes(yearToInsert)) {
+      Swal.fire({
+        title: 'Tahun Sudah Ada!',
+        text: `Tahun anggaran ${yearToInsert} sudah ada di database. Silakan pilih di menu dropdown.`,
+        icon: 'warning',
+        confirmButtonColor: '#3b82f6'
+      });
+      return; // Hentikan eksekusi, jangan kirim ke server
+    }
+    
     setIsSubmittingYear(true);
     try {
-      const yearToInsert = parseInt(newYearInput);
       const paguToInsert = Number(newPaguInput) || 0;
       
       const { error } = await supabase
@@ -197,24 +216,18 @@ export default function KendaraanPage() {
         throw error;
       }
       
-      if (!availableYears.includes(yearToInsert)) {
-        const updatedYears = [...availableYears, yearToInsert].sort((a, b) => b - a);
-        setAvailableYears(updatedYears);
-      }
-      
+      const updatedYears = [...availableYears, yearToInsert].sort((a, b) => b - a);
+      setAvailableYears(updatedYears);
       setSelectedYear(yearToInsert.toString());
+      
       setIsAddYearModalOpen(false);
       setNewYearInput('');
       setNewPaguInput('');
       Swal.fire('Berhasil', 'Tahun anggaran berhasil ditambahkan.', 'success');
       
     } catch (err: any) {
-      // PERUBAHAN: Gunakan JSON.stringify agar isi error Supabase terbongkar
       console.error("Detail Error Supabase:", JSON.stringify(err, null, 2));
-      
-      // Biasanya pesan error Supabase ada di err.message, err.details, atau err.hint
       const errorMsg = err.message || err.details || err.hint || 'Terjadi kesalahan tidak dikenal';
-      
       Swal.fire('Error', 'Gagal menambahkan tahun: ' + errorMsg, 'error');
     } finally {
       setIsSubmittingYear(false);
@@ -236,13 +249,12 @@ export default function KendaraanPage() {
         {/* Dropdown Filter Tahun (Dinamis) dan Tombol Tambah */}
         <div className="flex items-center gap-2">
           <div className="flex items-center gap-2 bg-white text-black border border-gray-300 rounded-lg px-3 py-2 shadow-sm w-fit">
-            <Calendar size={18} className="text-gray-500" /> Tahun Anggaran 
+            <Calendar size={18} className="text-gray-500" /> 
             <select 
               value={selectedYear}
               onChange={(e) => setSelectedYear(e.target.value)}
               className="bg-transparent text-sm font-medium text-gray-800 focus:outline-none cursor-pointer"
             >
-              {/* Me-render tahun secara otomatis dari array */}
               {availableYears.map((year) => (
                 <option key={year} value={year}>
                   Tahun Anggaran {year}
@@ -274,7 +286,11 @@ export default function KendaraanPage() {
               <div className="text-2xl font-bold text-gray-800">
                 Rp {paguTahunan.toLocaleString('id-ID')}
               </div>
-              <button onClick={handleEditPagu} className="p-1.5 text-blue-600 hover:bg-blue-50 rounded-md transition tooltip" title="Sesuaikan PAGU">
+              <button 
+                onClick={openEditPaguModal} 
+                className="p-1.5 text-blue-600 hover:bg-blue-50 rounded-md transition tooltip" 
+                title="Sesuaikan PAGU"
+              >
                 <Edit3 size={16} />
               </button>
             </div>
@@ -330,10 +346,6 @@ export default function KendaraanPage() {
         </div>
       </div>
 
-      {/* =========================================================================
-          BAGIAN BAWAH INI ADALAH KODE ASLI ANDA (TIDAK ADA DESAIN YANG DIUBAH)
-          ========================================================================= */}
-          
       {/* Toolbar (Search & Buttons) */}
       <div className="flex flex-col sm:flex-row justify-between items-center gap-4 mb-6">
         <div className="relative w-full sm:w-96">
@@ -393,7 +405,7 @@ export default function KendaraanPage() {
                     <td className="px-6 py-4 font-bold text-gray-900">{item.inventaris_kib_b?.no_polisi || '-'}</td>
                     <td className="px-6 py-4">
                       <span className="inline-flex items-center px-2.5 py-1 rounded-full text-xs font-medium bg-blue-100 text-blue-700">
-                        {item.kategori_pengeluaran}
+                        {item.kategori_pengeluaran || 'Pemeliharaan'}
                       </span>
                     </td>
                     <td className="px-6 py-4 font-semibold text-gray-800">
@@ -414,7 +426,6 @@ export default function KendaraanPage() {
           </table>
         </div>
         
-        {/* Pagination Footer */}
         <div className="bg-white px-6 py-4 border-t border-gray-200 flex items-center justify-between sm:flex-row flex-col gap-4">
           <span className="text-sm text-gray-500">Menampilkan {pemeliharaanList.length > 0 ? `1-${pemeliharaanList.length} dari ${pemeliharaanList.length}` : '0'} kendaraan</span>
           <div className="flex items-center gap-2">
@@ -425,16 +436,16 @@ export default function KendaraanPage() {
         </div>
       </div>
 
-      {/* Render Komponen Modal */}
+      {/* Render Komponen Modal Pengajuan */}
       <VehicleRepairModal 
         isOpen={isModalOpen} 
         onClose={() => setIsModalOpen(false)} 
       />
 
-      {/* Modal Tambah Tahun (Shadcn Style) */}
+      {/* MODAL 1: Tambah Tahun (Shadcn Style) */}
       {isAddYearModalOpen && (
         <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/50 backdrop-blur-sm">
-          <div className="bg-white w-full max-w-md rounded-xl shadow-lg border overflow-hidden">
+          <div className="bg-white w-full max-w-md rounded-xl shadow-lg border overflow-hidden mx-4">
             <div className="p-6">
               <h2 className="text-lg font-semibold tracking-tight text-gray-900">Tambah Tahun Anggaran</h2>
               <p className="text-sm text-gray-500 mt-1.5">Masukkan tahun anggaran baru untuk ditambahkan ke dalam filter.</p>
@@ -446,7 +457,7 @@ export default function KendaraanPage() {
                     type="number" 
                     value={newYearInput}
                     onChange={(e) => setNewYearInput(e.target.value)}
-                    className="w-full px-3 py-2 border border-gray-300 rounded-md focus:outline-none focus:ring-2 focus:ring-blue-500 text-sm font-medium text-gray-900 placeholder:text-gray-400"
+                    className="w-full px-3 py-2 border border-gray-300 rounded-md focus:outline-none focus:ring-2 focus:ring-blue-500 text-sm font-medium text-gray-900 placeholder:text-gray-400 [appearance:textfield] [&::-webkit-outer-spin-button]:appearance-none [&::-webkit-inner-spin-button]:appearance-none"
                     placeholder="Contoh: 2027"
                   />
                 </div>
@@ -458,7 +469,7 @@ export default function KendaraanPage() {
                       type="number" 
                       value={newPaguInput}
                       onChange={(e) => setNewPaguInput(e.target.value)}
-                      className="w-full pl-10 pr-3 py-2 border border-gray-300 rounded-md focus:outline-none focus:ring-2 focus:ring-blue-500 text-sm font-medium text-gray-900 placeholder:text-gray-400"
+                      className="w-full pl-10 pr-3 py-2 border border-gray-300 rounded-md focus:outline-none focus:ring-2 focus:ring-blue-500 text-sm font-medium text-gray-900 placeholder:text-gray-400 [appearance:textfield] [&::-webkit-outer-spin-button]:appearance-none [&::-webkit-inner-spin-button]:appearance-none"
                       placeholder="0"
                     />
                   </div>
@@ -483,6 +494,48 @@ export default function KendaraanPage() {
           </div>
         </div>
       )}
+
+      {/* MODAL 2: Edit PAGU Tahunan (Shadcn Style) */}
+      {isEditPaguModalOpen && (
+        <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/50 backdrop-blur-sm">
+          <div className="bg-white w-full max-w-md rounded-xl shadow-lg border overflow-hidden mx-4">
+            <div className="p-6">
+              <h2 className="text-lg font-semibold tracking-tight text-gray-900">Sesuaikan PAGU Tahunan</h2>
+              <p className="text-sm text-gray-500 mt-1.5">Ubah anggaran pemeliharaan untuk tahun berjalan ({selectedYear}).</p>
+              
+              <div className="mt-6">
+                <label className="block text-sm font-medium text-gray-700 mb-2">Nominal PAGU Tahunan</label>
+                <div className="relative">
+                  <span className="absolute inset-y-0 left-0 flex items-center pl-3 text-gray-900 text-sm font-medium">Rp.</span>
+                  <input 
+                    type="number" 
+                    value={editPaguInput}
+                    onChange={(e) => setEditPaguInput(e.target.value)}
+                    className="w-full pl-10 pr-3 py-2 border border-gray-300 rounded-md focus:outline-none focus:ring-2 focus:ring-blue-500 text-sm font-medium text-gray-900 placeholder:text-gray-400 [appearance:textfield] [&::-webkit-outer-spin-button]:appearance-none [&::-webkit-inner-spin-button]:appearance-none"
+                    placeholder="0"
+                  />
+                </div>
+              </div>
+            </div>
+            <div className="px-6 py-4 bg-gray-50 flex items-center justify-end gap-2 border-t">
+              <button 
+                onClick={() => setIsEditPaguModalOpen(false)}
+                className="px-4 py-2 border border-gray-300 rounded-md text-gray-700 font-medium hover:bg-gray-100 transition text-sm"
+              >
+                Batal
+              </button>
+              <button 
+                onClick={handleSaveEditPagu}
+                disabled={isSubmittingEditPagu}
+                className="px-4 py-2 bg-blue-600 text-white rounded-md font-medium hover:bg-blue-700 transition shadow-sm text-sm disabled:opacity-50"
+              >
+                {isSubmittingEditPagu ? 'Menyimpan...' : 'Simpan Perubahan'}
+              </button>
+            </div>
+          </div>
+        </div>
+      )}
+      
     </div>
   );
 }
