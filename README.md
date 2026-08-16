@@ -43,4 +43,5 @@ npm install jspdf jspdf-autotable
 ```
 npm install xlsx papaparse
 npm install -D @types/papaparse
+npm i -g vercel
 ```
