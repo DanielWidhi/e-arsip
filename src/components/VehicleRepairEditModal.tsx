@@ -206,7 +206,6 @@ export default function VehicleRepairEditModal({
           })
         );
 
-        // Reset dropdown
         setSearchVehicle("");
         setIsVehicleDropdownOpen(false);
       } catch (error) {
@@ -381,8 +380,6 @@ export default function VehicleRepairEditModal({
       keterangan: "",
     };
 
-    // Sama seperti form tambah:
-    // item baru masuk paling atas
     setDetails((prev) => [
       newDetail,
       ...prev,
@@ -511,32 +508,104 @@ export default function VehicleRepairEditModal({
       }
     }
 
+    // ==========================================
+    // VALIDASI TAHUN ANGGARAN
+    // ==========================================
+    const submitYear = Number(
+      tanggalPengajuan.split("-")[0]
+    );
+
+    if (!submitYear || submitYear < 1900) {
+      Swal.fire(
+        "Tanggal Tidak Valid",
+        "Tanggal pengajuan tidak valid.",
+        "warning"
+      );
+      return;
+    }
+
     setIsSaving(true);
 
     try {
       // ==========================================
+      // CEK TAHUN DI TABEL PAGU
+      // ==========================================
+      const {
+        data: checkPagu,
+        error: paguError,
+      } = await supabase
+        .from("pagu")
+        .select("tahun")
+        .eq("tahun", submitYear)
+        .maybeSingle();
+
+      if (paguError) {
+        console.error(
+          "Gagal mengecek tahun PAGU:",
+          paguError
+        );
+
+        throw paguError;
+      }
+
+      // ==========================================
+      // TAHUN BELUM TERDAFTAR
+      // ==========================================
+      if (!checkPagu) {
+        await Swal.fire({
+          title: "Tahun Anggaran Belum Ada!",
+          html: `
+            <div style="text-align: left;">
+              <p style="margin-bottom: 10px;">
+                Tanggal pengajuan yang dipilih memiliki tahun
+                <b>${submitYear}</b>.
+              </p>
+
+              <p>
+                Tahun <b>${submitYear}</b> belum tersedia pada
+                daftar Tahun Anggaran.
+              </p>
+
+              <p style="margin-top: 10px;">
+                Silakan tambahkan tahun tersebut terlebih dahulu
+                melalui tombol <b>+</b> pada bagian Filter Tahun
+                di halaman kendaraan.
+              </p>
+            </div>
+          `,
+          icon: "warning",
+          confirmButtonColor: "#3b82f6",
+          confirmButtonText: "Mengerti",
+        });
+
+        setIsSaving(false);
+        return;
+      }
+
+      // ==========================================
       // 1. UPDATE DATA PEMELIHARAAN
       // ==========================================
-      const { error: updateHeaderError } =
-        await supabase
-          .from("pemeliharaan")
-          .update({
-            tanggal_pengajuan:
-              tanggalPengajuan,
+      const {
+        error: updateHeaderError,
+      } = await supabase
+        .from("pemeliharaan")
+        .update({
+          tanggal_pengajuan:
+            tanggalPengajuan,
 
-            bengkel_rekanan:
-              bengkelRekanan.trim(),
+          bengkel_rekanan:
+            bengkelRekanan.trim(),
 
-            inventaris_id:
-              Number(inventarisId),
+          inventaris_id:
+            Number(inventarisId),
 
-            total_biaya:
-              totalBiaya,
+          total_biaya:
+            totalBiaya,
 
-            kategori_pengeluaran:
-              kategoriPengeluaran,
-          })
-          .eq("id", pemeliharaanId);
+          kategori_pengeluaran:
+            kategoriPengeluaran,
+        })
+        .eq("id", pemeliharaanId);
 
       if (updateHeaderError) {
         throw updateHeaderError;
@@ -684,7 +753,6 @@ export default function VehicleRepairEditModal({
           selectedVehicle,
       };
 
-      // Update tabel parent
       onSaved?.(savedData);
 
       await Swal.fire({
@@ -723,13 +791,13 @@ export default function VehicleRepairEditModal({
 
   return (
     <div className="fixed inset-0 z-[60] flex items-center justify-center bg-black/50 backdrop-blur-sm">
+
       <div className="bg-white w-full max-w-7xl rounded-xl shadow-xl overflow-hidden max-h-[90vh] flex flex-col mx-4">
 
-        {/* ========================================== */}
         {/* HEADER */}
-        {/* ========================================== */}
 
         <div className="flex justify-between items-center p-6 border-b shrink-0">
+
           <div>
             <h2 className="text-xl font-bold text-gray-800">
               Edit Pemeliharaan Kendaraan
@@ -747,11 +815,10 @@ export default function VehicleRepairEditModal({
           >
             <X size={20} />
           </button>
+
         </div>
 
-        {/* ========================================== */}
         {/* BODY */}
-        {/* ========================================== */}
 
         <div className="overflow-y-auto flex-1 bg-slate-50/50 custom-scrollbar p-6">
 
@@ -761,13 +828,12 @@ export default function VehicleRepairEditModal({
               <div className="w-8 h-8 border-4 border-blue-500 border-t-transparent rounded-full animate-spin mb-3"></div>
 
               <p>Memuat data...</p>
+
             </div>
           ) : (
             <div className="space-y-6">
 
-              {/* ========================================== */}
-              {/* SECTION 1: INFORMASI PENGAJUAN */}
-              {/* ========================================== */}
+              {/* SECTION 1 */}
 
               <div className="bg-white p-5 rounded-lg border shadow-sm">
 
@@ -784,7 +850,9 @@ export default function VehicleRepairEditModal({
                 <div className="grid grid-cols-1 md:grid-cols-2 gap-4 relative">
 
                   {/* TANGGAL */}
+
                   <div>
+
                     <label className="block text-sm font-medium text-gray-700 mb-1">
                       Tanggal Pengajuan
                     </label>
@@ -800,10 +868,13 @@ export default function VehicleRepairEditModal({
                       disabled={isSaving}
                       className="w-full px-3 py-2 border border-gray-300 rounded-md focus:outline-none focus:ring-2 focus:ring-blue-500 text-sm text-black font-medium bg-white"
                     />
+
                   </div>
 
                   {/* BENGKEL */}
+
                   <div>
+
                     <label className="block text-sm font-medium text-gray-700 mb-1">
                       Bengkel Rekanan
                     </label>
@@ -820,26 +891,33 @@ export default function VehicleRepairEditModal({
                       disabled={isSaving}
                       className="w-full px-3 py-2 border border-gray-300 rounded-md focus:outline-none focus:ring-2 focus:ring-blue-500 text-sm text-black font-medium placeholder:text-gray-400 placeholder:font-normal"
                     />
+
                   </div>
 
-                  {/* KENDARAAN SEARCHABLE */}
+                  {/* KENDARAAN */}
+
                   <div
                     ref={vehicleDropdownRef}
                     className="relative"
                   >
+
                     <label className="block text-sm font-medium text-gray-700 mb-1">
                       Kendaraan
                     </label>
 
                     <div
                       onClick={() => {
+
                         if (
                           !isLoadingKendaraan
                         ) {
+
                           setIsVehicleDropdownOpen(
                             !isVehicleDropdownOpen
                           );
+
                         }
+
                       }}
                       className={`w-full px-3 py-2 border border-gray-300 rounded-md text-sm font-medium flex justify-between items-center ${
                         isLoadingKendaraan
@@ -847,6 +925,7 @@ export default function VehicleRepairEditModal({
                           : "bg-white cursor-pointer text-black"
                       }`}
                     >
+
                       <span className="truncate">
                         {displayVehicleName}
                       </span>
@@ -859,9 +938,11 @@ export default function VehicleRepairEditModal({
                             : ""
                         }`}
                       />
+
                     </div>
 
                     {isVehicleDropdownOpen && (
+
                       <div className="absolute z-50 w-full mt-1 bg-white border border-gray-200 rounded-md shadow-lg top-full left-0">
 
                         <div className="p-2 border-b flex items-center gap-2">
@@ -890,10 +971,14 @@ export default function VehicleRepairEditModal({
 
                           {filteredVehicles.map(
                             (vehicle) => (
+
                               <li
-                                key={vehicle.id}
+                                key={
+                                  vehicle.id
+                                }
                                 className="px-3 py-2 text-sm cursor-pointer hover:bg-blue-50 text-gray-800 font-medium border-b border-gray-50 last:border-0"
                                 onClick={() => {
+
                                   setInventarisId(
                                     vehicle.id
                                   );
@@ -905,35 +990,56 @@ export default function VehicleRepairEditModal({
                                   setSearchVehicle(
                                     ""
                                   );
+
                                 }}
                               >
+
                                 [
-                                {vehicle.no_polisi ||
-                                  "-"}
+                                {
+                                  vehicle.no_polisi ||
+                                  "-"
+                                }
                                 ]{" "}
-                                {vehicle.nama_barang ||
-                                  "-"}{" "}
-                                {vehicle.merk_type
-                                  ? `- ${vehicle.merk_type}`
-                                  : ""}
+
+                                {
+                                  vehicle.nama_barang ||
+                                  "-"
+                                }
+
+                                {" "}
+
+                                {
+                                  vehicle.merk_type
+                                    ? `- ${vehicle.merk_type}`
+                                    : ""
+                                }
+
                               </li>
+
                             )
                           )}
 
                           {filteredVehicles.length ===
                             0 && (
+
                             <li className="px-3 py-4 text-sm text-center text-gray-500">
                               Kendaraan tidak ditemukan
                             </li>
+
                           )}
 
                         </ul>
+
                       </div>
+
                     )}
+
                   </div>
 
                   {/* KATEGORI */}
+
                   <div>
+
                     <label className="block text-sm font-medium text-gray-700 mb-1">
                       Kategori Pengeluaran
                     </label>
@@ -950,6 +1056,7 @@ export default function VehicleRepairEditModal({
                       disabled={isSaving}
                       className="w-full px-3 py-2 border border-gray-300 rounded-md focus:outline-none focus:ring-2 focus:ring-blue-500 text-sm text-black font-medium bg-white"
                     >
+
                       <option
                         value=""
                         className="text-gray-400"
@@ -972,15 +1079,16 @@ export default function VehicleRepairEditModal({
                       <option value="Lainnya">
                         Lainnya
                       </option>
+
                     </select>
+
                   </div>
 
                 </div>
+
               </div>
 
-              {/* ========================================== */}
-              {/* SECTION 2: DETAIL PEMELIHARAAN */}
-              {/* ========================================== */}
+              {/* SECTION 2 */}
 
               <div className="bg-white rounded-lg border shadow-sm relative flex flex-col">
 
@@ -1002,8 +1110,11 @@ export default function VehicleRepairEditModal({
                     disabled={isSaving}
                     className="flex items-center gap-1 px-3 py-2 text-sm bg-white text-blue-600 font-bold rounded-md hover:bg-blue-50 transition border border-blue-200 shadow-sm w-fit"
                   >
+
                     <Plus size={16} />
+
                     item lain
+
                   </button>
 
                 </div>
@@ -1011,8 +1122,12 @@ export default function VehicleRepairEditModal({
                 <div className="p-5 space-y-4">
 
                   {details.length > 0 ? (
+
                     details.map(
-                      (item, index) => {
+                      (
+                        item,
+                        index
+                      ) => {
 
                         const hargaUnit =
                           item.jumlah > 0 &&
@@ -1022,6 +1137,7 @@ export default function VehicleRepairEditModal({
                             : 0;
 
                         return (
+
                           <div
                             key={
                               item.id ??
@@ -1030,10 +1146,10 @@ export default function VehicleRepairEditModal({
                             className="flex gap-2 items-start border-b pb-4 last:border-0 group animate-in fade-in slide-in-from-top-4 duration-300"
                           >
 
-                            {/* GRID INPUT */}
                             <div className="grid grid-cols-12 gap-3 flex-1">
 
-                              {/* NAMA BARANG */}
+                              {/* NAMA */}
+
                               <div className="col-span-12 md:col-span-3">
 
                                 <label className="block text-xs font-medium text-gray-500 mb-1">
@@ -1053,13 +1169,16 @@ export default function VehicleRepairEditModal({
                                       e.target.value
                                     )
                                   }
-                                  disabled={isSaving}
+                                  disabled={
+                                    isSaving
+                                  }
                                   className="w-full px-3 py-2 border border-gray-300 rounded-md text-sm text-black font-medium placeholder:text-gray-400 placeholder:font-normal focus:outline-none focus:ring-2 focus:ring-blue-500"
                                 />
 
                               </div>
 
                               {/* BANYAKNYA */}
+
                               <div className="col-span-4 md:col-span-1">
 
                                 <label className="block text-xs font-medium text-gray-500 mb-1">
@@ -1080,13 +1199,16 @@ export default function VehicleRepairEditModal({
                                       e.target.value
                                     )
                                   }
-                                  disabled={isSaving}
+                                  disabled={
+                                    isSaving
+                                  }
                                   className="w-full px-3 py-2 border border-gray-300 rounded-md text-sm text-black font-medium [appearance:textfield] [&::-webkit-outer-spin-button]:appearance-none [&::-webkit-inner-spin-button]:appearance-none focus:outline-none focus:ring-2 focus:ring-blue-500"
                                 />
 
                               </div>
 
                               {/* UNIT */}
+
                               <div className="col-span-4 md:col-span-1">
 
                                 <label className="block text-xs font-medium text-gray-500 mb-1">
@@ -1094,7 +1216,9 @@ export default function VehicleRepairEditModal({
                                 </label>
 
                                 <select
-                                  value={item.unit}
+                                  value={
+                                    item.unit
+                                  }
                                   onChange={(e) =>
                                     handleDetailChange(
                                       index,
@@ -1102,9 +1226,12 @@ export default function VehicleRepairEditModal({
                                       e.target.value
                                     )
                                   }
-                                  disabled={isSaving}
+                                  disabled={
+                                    isSaving
+                                  }
                                   className="w-full px-3 py-2 border border-gray-300 rounded-md text-sm text-black font-medium bg-white focus:outline-none focus:ring-2 focus:ring-blue-500"
                                 >
+
                                   <option value="PCS">
                                     PCS
                                   </option>
@@ -1124,11 +1251,13 @@ export default function VehicleRepairEditModal({
                                   <option value="Jasa">
                                     Jasa
                                   </option>
+
                                 </select>
 
                               </div>
 
                               {/* HARGA / UNIT */}
+
                               <div className="col-span-4 md:col-span-2">
 
                                 <label className="block text-xs font-medium text-gray-500 mb-1">
@@ -1144,9 +1273,11 @@ export default function VehicleRepairEditModal({
                                   <input
                                     type="text"
                                     disabled
-                                    value={hargaUnit.toLocaleString(
-                                      "id-ID"
-                                    )}
+                                    value={
+                                      hargaUnit.toLocaleString(
+                                        "id-ID"
+                                      )
+                                    }
                                     className="w-full pl-8 pr-3 py-2 border border-gray-200 bg-gray-100 rounded-md text-sm font-semibold text-black"
                                   />
 
@@ -1154,7 +1285,8 @@ export default function VehicleRepairEditModal({
 
                               </div>
 
-                              {/* JUMLAH BIAYA */}
+                              {/* JUMLAH */}
+
                               <div className="col-span-12 md:col-span-2">
 
                                 <label className="block text-xs font-medium text-gray-500 mb-1">
@@ -1181,7 +1313,9 @@ export default function VehicleRepairEditModal({
                                         e.target.value
                                       )
                                     }
-                                    disabled={isSaving}
+                                    disabled={
+                                      isSaving
+                                    }
                                     className="w-full pl-8 pr-3 py-2 border border-gray-300 rounded-md text-sm text-black font-medium placeholder:text-gray-400 placeholder:font-normal focus:ring-2 focus:ring-blue-500 [appearance:textfield] [&::-webkit-outer-spin-button]:appearance-none [&::-webkit-inner-spin-button]:appearance-none"
                                   />
 
@@ -1190,6 +1324,7 @@ export default function VehicleRepairEditModal({
                               </div>
 
                               {/* KETERANGAN */}
+
                               <div className="col-span-12 md:col-span-3">
 
                                 <label className="block text-xs font-medium text-gray-500 mb-1">
@@ -1209,7 +1344,9 @@ export default function VehicleRepairEditModal({
                                       e.target.value
                                     )
                                   }
-                                  disabled={isSaving}
+                                  disabled={
+                                    isSaving
+                                  }
                                   className="w-full px-3 py-2 border border-gray-300 rounded-md text-sm text-black font-medium placeholder:text-gray-400 placeholder:font-normal focus:outline-none focus:ring-2 focus:ring-blue-500"
                                 />
 
@@ -1218,9 +1355,11 @@ export default function VehicleRepairEditModal({
                             </div>
 
                             {/* HAPUS */}
+
                             <div className="w-10 pt-6 flex justify-end shrink-0">
 
                               {details.length > 1 ? (
+
                                 <button
                                   type="button"
                                   onClick={() =>
@@ -1228,16 +1367,25 @@ export default function VehicleRepairEditModal({
                                       index
                                     )
                                   }
-                                  disabled={isSaving}
+                                  disabled={
+                                    isSaving
+                                  }
                                   className="text-red-500 hover:text-red-700 p-2 hover:bg-red-50 rounded-md transition-colors"
                                   title="Hapus Item"
                                 >
+
                                   <Trash2
-                                    size={18}
+                                    size={
+                                      18
+                                    }
                                   />
+
                                 </button>
+
                               ) : (
+
                                 <div className="w-9" />
+
                               )}
 
                             </div>
@@ -1246,22 +1394,25 @@ export default function VehicleRepairEditModal({
                         );
                       }
                     )
+
                   ) : (
+
                     <div className="text-center py-8 text-gray-500 text-sm">
                       Tidak ada detail barang.
                     </div>
+
                   )}
 
                 </div>
+
               </div>
 
             </div>
           )}
+
         </div>
 
-        {/* ========================================== */}
         {/* FOOTER */}
-        {/* ========================================== */}
 
         <div className="p-4 border-t bg-gray-50 flex items-center justify-between shrink-0">
 
