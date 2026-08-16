@@ -26,6 +26,9 @@ export default function VehicleRepairModal({ isOpen, onClose }: ModalProps) {
   const [tanggal, setTanggal] = useState('');
   const [bengkel, setBengkel] = useState('');
   const [kendaraanId, setKendaraanId] = useState('');
+  
+  // STATE BARU: Untuk Kategori Pengeluaran
+  const [kategoriPengeluaran, setKategoriPengeluaran] = useState('');
 
   // State untuk menyimpan data dropdown kendaraan dari Supabase
   const [kendaraanList, setKendaraanList] = useState<any[]>([]);
@@ -36,18 +39,18 @@ export default function VehicleRepairModal({ isOpen, onClose }: ModalProps) {
     { id: Date.now(), namaBarang: '', banyaknya: 1, unit: 'PCS', jumlah: 0, keterangan: '' }
   ]);
   const [totalBiaya, setTotalBiaya] = useState(0);
+  const [isSubmitting, setIsSubmitting] = useState(false);
 
-  // FASE 1 UPDATE: Fetch Data dengan Kategori yang lebih rapi
+  // FASE 1 UPDATE: Fetch Data dengan Kategori Kendaraan
   useEffect(() => {
     if (isOpen) {
       const fetchKendaraan = async () => {
         setIsLoadingKendaraan(true);
         try {
-          // Query baru menggunakan filter kategori sesuai arahan gambar
           const { data, error } = await supabase
             .from('inventaris_kib_b')
             .select('id, nama_barang, merk_type, no_polisi')
-            .in('kategori', ['roda 2', 'roda 4']); // <-- Diubah agar mengambil Roda 2 & Roda 4
+            .in('kategori', ['roda 2', 'roda 4']); 
 
           if (error) throw error;
           
@@ -91,16 +94,71 @@ export default function VehicleRepairModal({ isOpen, onClose }: ModalProps) {
   };
 
   // Fungsi Submit
-  const handleSubmit = (e: React.FormEvent) => {
+  const handleSubmit = async (e: React.FormEvent) => {
     e.preventDefault();
-    Swal.fire({
-      title: 'Berhasil!',
-      text: 'Pengajuan pemeliharaan kendaraan berhasil disimpan.',
-      icon: 'success',
-      confirmButtonColor: '#3b82f6',
-    }).then(() => {
-      onClose();
-    });
+    if (!tanggal || !bengkel || !kendaraanId || !kategoriPengeluaran) {
+      Swal.fire('Error', 'Harap lengkapi semua field informasi pengajuan.', 'error');
+      return;
+    }
+
+    setIsSubmitting(true);
+    try {
+      const { data: pemeliharaan, error: pemeliharaanError } = await supabase
+        .from('pemeliharaan')
+        .insert([{
+          tanggal_pengajuan: tanggal,
+          bengkel_rekanan: bengkel,
+          inventaris_id: parseInt(kendaraanId),
+          kategori_pengeluaran: kategoriPengeluaran,
+          total_biaya: totalBiaya
+        }])
+        .select()
+        .single();
+
+      if (pemeliharaanError) throw pemeliharaanError;
+
+      // Insert detail items (if valid)
+      if (items.length > 0 && items[0].namaBarang.trim() !== '') {
+        const detailItems = items.map(item => ({
+          pemeliharaan_id: pemeliharaan.id,
+          nama_barang: item.namaBarang,
+          banyaknya: Number(item.banyaknya),
+          unit: item.unit,
+          harga_unit: (Number(item.jumlah) / (Number(item.banyaknya) || 1)),
+          jumlah: Number(item.jumlah),
+        }));
+
+        const { error: detailError } = await supabase
+          .from('pemeliharaan_detail')
+          .insert(detailItems);
+
+        if (detailError) throw detailError;
+      }
+
+      Swal.fire({
+        title: 'Berhasil!',
+        text: 'Pengajuan pemeliharaan kendaraan berhasil disimpan.',
+        icon: 'success',
+        confirmButtonColor: '#3b82f6',
+      }).then(() => {
+        // Reset form state
+        setTanggal('');
+        setBengkel('');
+        setKendaraanId('');
+        setKategoriPengeluaran('');
+        setItems([{ id: Date.now(), namaBarang: '', banyaknya: 1, unit: 'PCS', jumlah: 0, keterangan: '' }]);
+        onClose();
+        
+        // Reload parent component page to update dashboard cards & table
+        window.location.reload();
+      });
+
+    } catch (error: any) {
+      console.error('Error submitting data:', error);
+      Swal.fire('Error', 'Gagal menyimpan pengajuan: ' + (error.message || 'Unknown error'), 'error');
+    } finally {
+      setIsSubmitting(false);
+    }
   };
 
   return (
@@ -128,7 +186,11 @@ export default function VehicleRepairModal({ isOpen, onClose }: ModalProps) {
                 <Info size={18} />
                 <h3>INFORMASI PENGAJUAN</h3>
               </div>
+              
+              {/* PERUBAHAN: Layout Grid tetap 2 kolom, tapi sekarang terisi 4 field */}
               <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
+                
+                {/* Baris 1 */}
                 <div>
                   <label className="block text-sm font-medium text-gray-700 mb-1">Tanggal Pengajuan</label>
                   <input 
@@ -150,7 +212,9 @@ export default function VehicleRepairModal({ isOpen, onClose }: ModalProps) {
                     className="w-full px-3 py-2 border border-gray-300 rounded-md focus:outline-none focus:ring-2 focus:ring-blue-500 text-sm text-black font-medium placeholder:text-gray-400 placeholder:font-normal" 
                   />
                 </div>
-                <div className="md:col-span-2">
+                
+                {/* Baris 2 */}
+                <div>
                   <label className="block text-sm font-medium text-gray-700 mb-1">Kendaraan</label>
                   <select 
                     value={kendaraanId}
@@ -162,16 +226,30 @@ export default function VehicleRepairModal({ isOpen, onClose }: ModalProps) {
                     <option value="" className="text-gray-400">
                       {isLoadingKendaraan ? 'Memuat data kendaraan...' : 'Pilih kendaraan...'}
                     </option>
-                    
-                    {/* Render Data Kendaraan dari Database dengan format PDF */}
                     {kendaraanList.map((k) => (
                       <option key={k.id} value={k.id}>
                         [{k.no_polisi}] {k.nama_barang} {k.merk_type ? `- ${k.merk_type}` : ''}
                       </option>
                     ))}
-
                   </select>
                 </div>
+
+                {/* PENAMBAHAN FIELD BARU: Kategori Pengeluaran */}
+                <div>
+                  <label className="block text-sm font-medium text-gray-700 mb-1">Kategori Pengeluaran</label>
+                  <select 
+                    value={kategoriPengeluaran}
+                    onChange={(e) => setKategoriPengeluaran(e.target.value)}
+                    required 
+                    className="w-full px-3 py-2 border border-gray-300 rounded-md focus:outline-none focus:ring-2 focus:ring-blue-500 text-sm text-black font-medium bg-white"
+                  >
+                    <option value="" className="text-gray-400">Pilih kategori...</option>
+                    <option value="Bensin">Bensin</option>
+                    <option value="Bensin + Pemeliharaan">Bensin + Pemeliharaan</option>
+                    <option value="Lainnya">Lainnya</option>
+                  </select>
+                </div>
+
               </div>
             </div>
 
@@ -305,8 +383,8 @@ export default function VehicleRepairModal({ isOpen, onClose }: ModalProps) {
             <button onClick={onClose} className="px-4 py-2 border border-gray-300 rounded-md text-gray-700 font-medium hover:bg-gray-100 transition text-sm">
               Batal
             </button>
-            <button type="submit" form="repair-form" className="px-4 py-2 bg-blue-600 rounded-md text-white font-medium hover:bg-blue-700 transition shadow-sm text-sm flex items-center gap-2">
-              <Wrench size={16} /> Ajukan Pemeliharaan
+            <button type="submit" disabled={isSubmitting} form="repair-form" className="px-4 py-2 bg-blue-600 rounded-md text-white font-medium hover:bg-blue-700 transition shadow-sm text-sm flex items-center gap-2 disabled:bg-blue-400">
+              <Wrench size={16} /> {isSubmitting ? 'Menyimpan...' : 'Ajukan Pemeliharaan'}
             </button>
           </div>
         </div>

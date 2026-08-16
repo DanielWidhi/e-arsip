@@ -1,37 +1,129 @@
 "use client";
 
-import React, { useState } from 'react';
-import { Search, Plus, Filter, Eye, SquarePen, Printer, Trash2, Calendar, DollarSign, TrendingDown, Edit3 } from 'lucide-react';
+import React, { useState, useEffect } from 'react';
+import { Search, Plus, Filter, Eye, SquarePen, Printer, Trash2, Calendar, DollarSign, TrendingDown, TrendingUp, Edit3, Wallet, CreditCard, Activity } from 'lucide-react';
 import Swal from 'sweetalert2';
 import VehicleRepairModal from '@/components/VehicleRepairModal';
+import { createClient } from "@/lib/supabase";
 
 export default function KendaraanPage() {
+  const supabase = createClient();
   const [isModalOpen, setIsModalOpen] = useState(false);
+  
+  // Data states
+  const [paguTahunan, setPaguTahunan] = useState(0);
+  const [pemeliharaanList, setPemeliharaanList] = useState<any[]>([]);
+  const [isLoading, setIsLoading] = useState(true);
   
   // LOGIKA DINAMIS TAHUN & BULAN
   const currentYear = new Date().getFullYear();
-  const startYear = 2026; // Tahun pertama aplikasi digunakan
   
-  // Membuat array tahun dari tahun saat ini (atau +1 untuk persiapan tahun depan) mundur ke tahun awal
-  const availableYears = [];
-  for (let year = currentYear + 1; year >= startYear; year--) {
-    availableYears.push(year);
-  }
+  // State Filter Tahun dan Modal
+  const [availableYears, setAvailableYears] = useState<number[]>([]);
+  const [selectedYear, setSelectedYear] = useState('');
+  const [isAddYearModalOpen, setIsAddYearModalOpen] = useState(false);
+  const [newYearInput, setNewYearInput] = useState('');
+  const [newPaguInput, setNewPaguInput] = useState('');
+  const [isSubmittingYear, setIsSubmittingYear] = useState(false);
 
-  // State Filter Tahun (Default otomatis ke tahun saat ini)
-  const [selectedYear, setSelectedYear] = useState(currentYear.toString());
+  // Fetch Available Years dari Supabase Pagu
+  useEffect(() => {
+    const fetchYears = async () => {
+      try {
+        const { data, error } = await supabase
+          .from('pagu')
+          .select('tahun')
+          .order('tahun', { ascending: false });
+        
+        if (error) throw error;
+        
+        if (data && data.length > 0) {
+          const years = data.map((d: any) => d.tahun);
+          years.sort((a, b) => b - a); // Urutkan descending
+          setAvailableYears(years);
+          
+          // Jika selectedYear saat ini kosong atau tidak valid, set ke yang terbaru
+          if (!selectedYear || !years.includes(parseInt(selectedYear))) {
+            setSelectedYear(years[0].toString());
+          }
+        } else {
+          setAvailableYears([]);
+          setSelectedYear('');
+        }
+      } catch (error) {
+        console.error("Gagal mengambil daftar tahun:", error);
+        setAvailableYears([]);
+        setSelectedYear('');
+      }
+    };
+    fetchYears();
+  }, [selectedYear]);
   
   // Mendapatkan nama bulan saat ini otomatis (contoh: "Agustus")
   const currentMonthName = new Date().toLocaleString('id-ID', { month: 'long' });
+  const currentMonthNum = new Date().getMonth() + 1;
 
-  // Dummy Data PAGU (Sesuai PDF)
-  const paguTahunan = 120000000;
-  const paguBulanan = paguTahunan / 12; // Rp 10.000.000
-  const realisasiBulanIni = 12000000; // Contoh Over Budget
-  const sisaPaguBulanIni = paguBulanan - realisasiBulanIni; // -Rp 2.000.000
+  // Fetch Data dari Supabase
+  useEffect(() => {
+    const fetchData = async () => {
+      if (!selectedYear) {
+        setIsLoading(false);
+        setPaguTahunan(0);
+        setPemeliharaanList([]);
+        return;
+      }
+      
+      setIsLoading(true);
+      try {
+        // Fetch Pagu
+        const { data: paguData, error: paguErr } = await supabase
+          .from('pagu')
+          .select('nominal_tahunan')
+          .eq('tahun', parseInt(selectedYear))
+          .single();
+          
+        if (paguData) {
+          setPaguTahunan(paguData.nominal_tahunan);
+        } else {
+          setPaguTahunan(0);
+        }
+
+        // Fetch Pemeliharaan
+        const { data: pemeliharaanData, error } = await supabase
+          .from('pemeliharaan')
+          .select('*, inventaris_kib_b(nama_barang, merk_type, no_polisi)')
+          .order('tanggal_pengajuan', { ascending: false });
+          
+        if (error) throw error;
+        
+        setPemeliharaanList(pemeliharaanData || []);
+      } catch (err) {
+        console.error("Gagal mengambil data:", err);
+      } finally {
+        setIsLoading(false);
+      }
+    };
+    
+    fetchData();
+  }, [selectedYear]);
+
+  // Kalkulasi Anggaran
+  const paguBulanan = paguTahunan / 12; 
+  
+  const pemeliharaanTahunIni = pemeliharaanList.filter(p => new Date(p.tanggal_pengajuan).getFullYear() === parseInt(selectedYear));
+  const pemeliharaanBulanIni = pemeliharaanList.filter(p => {
+    const d = new Date(p.tanggal_pengajuan);
+    return d.getFullYear() === parseInt(selectedYear) && (d.getMonth() + 1) === currentMonthNum;
+  });
+
+  const realisasiTahunan = pemeliharaanTahunIni.reduce((sum, item) => sum + Number(item.total_biaya), 0);
+  const realisasiBulanIni = pemeliharaanBulanIni.reduce((sum, item) => sum + Number(item.total_biaya), 0);
+  
+  const sisaPaguTahunan = paguTahunan - realisasiTahunan;
+  const sisaPaguBulanIni = paguBulanan - realisasiBulanIni;
 
   // Fungsi Hapus (SweetAlert Konfirmasi)
-  const handleDelete = (platNomor: string) => {
+  const handleDelete = (id: number, platNomor: string) => {
     Swal.fire({
       title: 'Apakah Anda yakin?',
       text: `Data pemeliharaan untuk kendaraan ${platNomor} akan dihapus!`,
@@ -41,9 +133,17 @@ export default function KendaraanPage() {
       cancelButtonColor: '#3085d6',
       confirmButtonText: 'Ya, Hapus!',
       cancelButtonText: 'Batal'
-    }).then((result) => {
+    }).then(async (result) => {
       if (result.isConfirmed) {
-        Swal.fire('Terhapus!', 'Data berhasil dihapus.', 'success');
+        try {
+          const { error } = await supabase.from('pemeliharaan').delete().eq('id', id);
+          if (error) throw error;
+          
+          setPemeliharaanList(prev => prev.filter(item => item.id !== id));
+          Swal.fire('Terhapus!', 'Data berhasil dihapus.', 'success');
+        } catch (err) {
+          Swal.fire('Error', 'Gagal menghapus data.', 'error');
+        }
       }
     });
   };
@@ -58,7 +158,67 @@ export default function KendaraanPage() {
       showCancelButton: true,
       confirmButtonText: 'Simpan',
       cancelButtonText: 'Batal',
+      preConfirm: async (value) => {
+        try {
+          const { error } = await supabase
+            .from('pagu')
+            .upsert({ tahun: parseInt(selectedYear), nominal_tahunan: Number(value) }, { onConflict: 'tahun' });
+          if (error) throw error;
+          return Number(value);
+        } catch (error) {
+          Swal.showValidationMessage(`Gagal menyimpan: ${error}`);
+        }
+      }
+    }).then((result) => {
+      if (result.isConfirmed) {
+        setPaguTahunan(result.value);
+        Swal.fire('Tersimpan!', 'PAGU Tahunan berhasil diperbarui.', 'success');
+      }
     });
+  };
+
+  // Fungsi Tambah Tahun Anggaran Baru
+  const handleAddYear = async () => {
+    if (!newYearInput || isNaN(Number(newYearInput))) {
+      Swal.fire('Error', 'Harap masukkan tahun yang valid.', 'error');
+      return;
+    }
+    
+    setIsSubmittingYear(true);
+    try {
+      const yearToInsert = parseInt(newYearInput);
+      const paguToInsert = Number(newPaguInput) || 0;
+      
+      const { error } = await supabase
+        .from('pagu')
+        .insert([{ tahun: yearToInsert, nominal_tahunan: paguToInsert }]);
+        
+      if (error && error.code !== '23505') { 
+        throw error;
+      }
+      
+      if (!availableYears.includes(yearToInsert)) {
+        const updatedYears = [...availableYears, yearToInsert].sort((a, b) => b - a);
+        setAvailableYears(updatedYears);
+      }
+      
+      setSelectedYear(yearToInsert.toString());
+      setIsAddYearModalOpen(false);
+      setNewYearInput('');
+      setNewPaguInput('');
+      Swal.fire('Berhasil', 'Tahun anggaran berhasil ditambahkan.', 'success');
+      
+    } catch (err: any) {
+      // PERUBAHAN: Gunakan JSON.stringify agar isi error Supabase terbongkar
+      console.error("Detail Error Supabase:", JSON.stringify(err, null, 2));
+      
+      // Biasanya pesan error Supabase ada di err.message, err.details, atau err.hint
+      const errorMsg = err.message || err.details || err.hint || 'Terjadi kesalahan tidak dikenal';
+      
+      Swal.fire('Error', 'Gagal menambahkan tahun: ' + errorMsg, 'error');
+    } finally {
+      setIsSubmittingYear(false);
+    }
   };
 
   return (
@@ -73,65 +233,99 @@ export default function KendaraanPage() {
           </p>
         </div>
         
-        {/* Dropdown Filter Tahun (Dinamis) */}
-        <div className="flex items-center gap-2 bg-white border border-gray-300 rounded-lg px-3 py-2 shadow-sm w-fit">
-          <Calendar size={18} className="text-gray-500" />
-          <select 
-            value={selectedYear}
-            onChange={(e) => setSelectedYear(e.target.value)}
-            className="bg-transparent text-sm font-medium text-gray-800 focus:outline-none cursor-pointer"
+        {/* Dropdown Filter Tahun (Dinamis) dan Tombol Tambah */}
+        <div className="flex items-center gap-2">
+          <div className="flex items-center gap-2 bg-white text-black border border-gray-300 rounded-lg px-3 py-2 shadow-sm w-fit">
+            <Calendar size={18} className="text-gray-500" /> Tahun Anggaran 
+            <select 
+              value={selectedYear}
+              onChange={(e) => setSelectedYear(e.target.value)}
+              className="bg-transparent text-sm font-medium text-gray-800 focus:outline-none cursor-pointer"
+            >
+              {/* Me-render tahun secara otomatis dari array */}
+              {availableYears.map((year) => (
+                <option key={year} value={year}>
+                  Tahun Anggaran {year}
+                </option>
+              ))}
+            </select>
+          </div>
+          <button 
+            onClick={() => setIsAddYearModalOpen(true)}
+            className="flex items-center justify-center p-2 bg-white border border-gray-300 rounded-lg shadow-sm hover:bg-gray-50 transition text-gray-600"
+            title="Tambah Tahun Anggaran"
           >
-            {/* Me-render tahun secara otomatis dari array */}
-            {availableYears.map((year) => (
-              <option key={year} value={year}>
-                Tahun Anggaran {year}
-              </option>
-            ))}
-          </select>
+            <Plus size={18} />
+          </button>
         </div>
       </div>
 
-      {/* RINGKASAN PAGU (CARD VIEW - Sesuai PDF) */}
-      <div className="grid grid-cols-1 md:grid-cols-3 gap-4 mb-8">
+      {/* RINGKASAN PAGU (CARD VIEW - Shadcn UI Style) */}
+      <div className="grid grid-cols-1 md:grid-cols-2 xl:grid-cols-4 gap-4 mb-8">
+        
         {/* Card 1: PAGU Tahunan */}
-        <div className="bg-white p-5 rounded-xl border border-gray-200 shadow-sm relative overflow-hidden group">
-          <div className="absolute top-0 right-0 p-4 opacity-10 group-hover:opacity-20 transition-opacity">
-            <DollarSign size={64} />
+        <div className="bg-white p-5 rounded-xl border border-gray-200 shadow-sm flex flex-col justify-between">
+          <div className="flex items-center justify-between pb-2">
+            <h3 className="tracking-tight text-sm font-medium text-gray-500">Total PAGU Tahunan</h3>
+            <DollarSign className="h-4 w-4 text-gray-400" />
           </div>
-          <p className="text-sm font-medium text-gray-500 mb-1">Total PAGU Tahunan</p>
-          <div className="flex items-center gap-3">
-            <h3 className="text-2xl font-bold text-gray-800">
-              Rp {paguTahunan.toLocaleString('id-ID')}
+          <div>
+            <div className="flex items-center justify-between">
+              <div className="text-2xl font-bold text-gray-800">
+                Rp {paguTahunan.toLocaleString('id-ID')}
+              </div>
+              <button onClick={handleEditPagu} className="p-1.5 text-blue-600 hover:bg-blue-50 rounded-md transition tooltip" title="Sesuaikan PAGU">
+                <Edit3 size={16} />
+              </button>
+            </div>
+            <p className="text-xs text-gray-400 mt-1">Anggaran pemeliharaan tahun ini</p>
+          </div>
+        </div>
+
+        {/* Card 2: Sisa PAGU Tahunan */}
+        <div className="bg-white p-5 rounded-xl border border-gray-200 shadow-sm flex flex-col justify-between">
+          <div className="flex items-center justify-between pb-2">
+            <h3 className="tracking-tight text-sm font-medium text-gray-500">Sisa PAGU Tahunan</h3>
+            <Wallet className="h-4 w-4 text-gray-400" />
+          </div>
+          <div>
+            <div className="text-2xl font-bold text-gray-800">
+              Rp {sisaPaguTahunan.toLocaleString('id-ID')}
+            </div>
+            <p className="text-xs text-gray-400 mt-1">Sisa anggaran untuk tahun {selectedYear}</p>
+          </div>
+        </div>
+
+        {/* Card 3: Jatah Bulanan */}
+        <div className="bg-white p-5 rounded-xl border border-gray-200 shadow-sm flex flex-col justify-between">
+          <div className="flex items-center justify-between pb-2">
+            <h3 className="tracking-tight text-sm font-medium text-gray-500">Alokasi Jatah Bulanan</h3>
+            <CreditCard className="h-4 w-4 text-gray-400" />
+          </div>
+          <div>
+            <div className="text-2xl font-bold text-gray-800">
+              Rp {paguBulanan.toLocaleString('id-ID')}
+            </div>
+            <p className="text-xs text-gray-400 mt-1">Sistem bagi rata 12 bulan</p>
+          </div>
+        </div>
+
+        {/* Card 4: Status Bulan Berjalan */}
+        <div className={`p-5 rounded-xl border shadow-sm flex flex-col justify-between ${sisaPaguBulanIni < 0 ? 'bg-red-50 border-red-200' : 'bg-emerald-50 border-emerald-200'}`}>
+          <div className="flex items-center justify-between pb-2">
+            <h3 className={`tracking-tight text-sm font-medium ${sisaPaguBulanIni < 0 ? 'text-red-600' : 'text-emerald-700'}`}>
+              Status Bulan {currentMonthName} {selectedYear}
             </h3>
-            <button onClick={handleEditPagu} className="p-1.5 text-blue-600 hover:bg-blue-50 rounded-md transition tooltip" title="Sesuaikan PAGU">
-              <Edit3 size={16} />
-            </button>
+            <Activity className={`h-4 w-4 ${sisaPaguBulanIni < 0 ? 'text-red-400' : 'text-emerald-400'}`} />
           </div>
-        </div>
-
-        {/* Card 2: Jatah Bulanan */}
-        <div className="bg-white p-5 rounded-xl border border-gray-200 shadow-sm">
-          <p className="text-sm font-medium text-gray-500 mb-1">Alokasi Jatah Bulanan</p>
-          <h3 className="text-2xl font-bold text-gray-800">
-            Rp {paguBulanan.toLocaleString('id-ID')}
-          </h3>
-          <p className="text-xs text-gray-400 mt-1">Sistem bagi rata 12 bulan</p>
-        </div>
-
-        {/* Card 3: Status Bulan Berjalan (Dinamis Bulan & Logika Defisit) */}
-        <div className={`p-5 rounded-xl border shadow-sm ${sisaPaguBulanIni < 0 ? 'bg-red-50 border-red-200' : 'bg-emerald-50 border-emerald-200'}`}>
-          <p className={`text-sm font-medium mb-1 ${sisaPaguBulanIni < 0 ? 'text-red-600' : 'text-emerald-700'}`}>
-            Status Bulan {currentMonthName} {selectedYear}
-          </p>
-          <div className="flex items-end gap-2">
-            <h3 className={`text-2xl font-bold ${sisaPaguBulanIni < 0 ? 'text-red-700' : 'text-emerald-800'}`}>
+          <div>
+            <div className={`text-2xl font-bold ${sisaPaguBulanIni < 0 ? 'text-red-700' : 'text-emerald-800'}`}>
               {sisaPaguBulanIni < 0 ? 'Kekurangan' : 'Sisa Aman'}
-            </h3>
-          </div>
-          
-          <div className={`flex items-center gap-1.5 mt-2 text-sm font-semibold ${sisaPaguBulanIni < 0 ? 'text-red-600' : 'text-emerald-600'}`}>
-            {sisaPaguBulanIni < 0 && <TrendingDown size={16} />}
-            {sisaPaguBulanIni < 0 ? `- Rp ${Math.abs(sisaPaguBulanIni).toLocaleString('id-ID')}` : `+ Rp ${sisaPaguBulanIni.toLocaleString('id-ID')}`}
+            </div>
+            <div className={`flex items-center gap-1 mt-1 text-xs font-medium ${sisaPaguBulanIni < 0 ? 'text-red-600' : 'text-emerald-600'}`}>
+              {sisaPaguBulanIni < 0 ? <TrendingDown size={14} /> : <TrendingUp size={14} />}
+              {sisaPaguBulanIni < 0 ? `- Rp ${Math.abs(sisaPaguBulanIni).toLocaleString('id-ID')}` : `+ Rp ${sisaPaguBulanIni.toLocaleString('id-ID')}`}
+            </div>
           </div>
         </div>
       </div>
@@ -176,55 +370,53 @@ export default function KendaraanPage() {
                 <th className="px-6 py-4">NAMA KENDARAAN</th>
                 <th className="px-6 py-4">PLAT NOMOR (KIB B)</th>
                 <th className="px-6 py-4">KATEGORI PENGELUARAN</th>
+                <th className="px-6 py-4">TOTAL BIAYA</th>
                 <th className="px-6 py-4 text-center">AKSI</th>
               </tr>
             </thead>
             <tbody className="divide-y divide-gray-200">
-              {/* Row 1 */}
-              <tr className="hover:bg-gray-50/50 transition">
-                <td className="px-6 py-4 text-gray-500">1</td>
-                <td className="px-6 py-4 text-gray-600 font-medium">Mobil - Toyota Avanza</td>
-                <td className="px-6 py-4 font-bold text-gray-900">DK 8297 O</td>
-                <td className="px-6 py-4">
-                  <span className="inline-flex items-center px-2.5 py-1 rounded-full text-xs font-medium bg-blue-100 text-blue-700">
-                    Bensin
-                  </span>
-                </td>
-                <td className="px-6 py-4">
-                  <div className="flex justify-center items-center gap-3 text-gray-400">
-                    <button className="hover:text-gray-700 transition" title="Lihat Detail"><Eye size={18} /></button>
-                    <button className="hover:text-blue-600 transition" title="Edit"><SquarePen size={18} /></button>
-                    <button className="hover:text-green-600 transition" title="Cetak SPK/Nota"><Printer size={18} /></button>
-                    <button onClick={() => handleDelete('DK 8297 O')} className="hover:text-red-600 transition" title="Hapus"><Trash2 size={18} /></button>
-                  </div>
-                </td>
-              </tr>
-              {/* Row 2 */}
-              <tr className="hover:bg-gray-50/50 transition">
-                <td className="px-6 py-4 text-gray-500">2</td>
-                <td className="px-6 py-4 text-gray-600 font-medium">Mobil - Toyota Kijang Innova</td>
-                <td className="px-6 py-4 font-bold text-gray-900">DK 70 Q</td>
-                <td className="px-6 py-4">
-                  <span className="inline-flex items-center px-2.5 py-1 rounded-full text-xs font-medium bg-yellow-100 text-yellow-700">
-                    Bensin + Pemeliharaan
-                  </span>
-                </td>
-                <td className="px-6 py-4">
-                  <div className="flex justify-center items-center gap-3 text-gray-400">
-                    <button className="hover:text-gray-700 transition"><Eye size={18} /></button>
-                    <button className="hover:text-blue-600 transition"><SquarePen size={18} /></button>
-                    <button className="hover:text-green-600 transition"><Printer size={18} /></button>
-                    <button onClick={() => handleDelete('DK 70 Q')} className="hover:text-red-600 transition"><Trash2 size={18} /></button>
-                  </div>
-                </td>
-              </tr>
+              {isLoading ? (
+                <tr>
+                  <td colSpan={6} className="px-6 py-4 text-center text-gray-500">Memuat data...</td>
+                </tr>
+              ) : pemeliharaanList.length === 0 ? (
+                <tr>
+                  <td colSpan={6} className="px-6 py-4 text-center text-gray-500">Belum ada data pemeliharaan.</td>
+                </tr>
+              ) : (
+                pemeliharaanList.map((item, index) => (
+                  <tr key={item.id} className="hover:bg-gray-50/50 transition">
+                    <td className="px-6 py-4 text-gray-500">{index + 1}</td>
+                    <td className="px-6 py-4 text-gray-600 font-medium">
+                      {item.inventaris_kib_b?.nama_barang} {item.inventaris_kib_b?.merk_type ? `- ${item.inventaris_kib_b?.merk_type}` : ''}
+                    </td>
+                    <td className="px-6 py-4 font-bold text-gray-900">{item.inventaris_kib_b?.no_polisi || '-'}</td>
+                    <td className="px-6 py-4">
+                      <span className="inline-flex items-center px-2.5 py-1 rounded-full text-xs font-medium bg-blue-100 text-blue-700">
+                        {item.kategori_pengeluaran}
+                      </span>
+                    </td>
+                    <td className="px-6 py-4 font-semibold text-gray-800">
+                      Rp {Number(item.total_biaya).toLocaleString('id-ID')}
+                    </td>
+                    <td className="px-6 py-4">
+                      <div className="flex justify-center items-center gap-3 text-gray-400">
+                        <button className="hover:text-gray-700 transition" title="Lihat Detail"><Eye size={18} /></button>
+                        <button className="hover:text-blue-600 transition" title="Edit"><SquarePen size={18} /></button>
+                        <button className="hover:text-green-600 transition" title="Cetak SPK/Nota"><Printer size={18} /></button>
+                        <button onClick={() => handleDelete(item.id, item.inventaris_kib_b?.no_polisi || '-')} className="hover:text-red-600 transition" title="Hapus"><Trash2 size={18} /></button>
+                      </div>
+                    </td>
+                  </tr>
+                ))
+              )}
             </tbody>
           </table>
         </div>
         
         {/* Pagination Footer */}
         <div className="bg-white px-6 py-4 border-t border-gray-200 flex items-center justify-between sm:flex-row flex-col gap-4">
-          <span className="text-sm text-gray-500">Menampilkan 1-2 dari 2 kendaraan</span>
+          <span className="text-sm text-gray-500">Menampilkan {pemeliharaanList.length > 0 ? `1-${pemeliharaanList.length} dari ${pemeliharaanList.length}` : '0'} kendaraan</span>
           <div className="flex items-center gap-2">
             <button className="p-2 rounded hover:bg-gray-100 text-gray-500 disabled:opacity-50" disabled>&lt;</button>
             <button className="w-8 h-8 flex items-center justify-center rounded bg-blue-600 text-white text-sm font-medium">1</button>
@@ -238,6 +430,59 @@ export default function KendaraanPage() {
         isOpen={isModalOpen} 
         onClose={() => setIsModalOpen(false)} 
       />
+
+      {/* Modal Tambah Tahun (Shadcn Style) */}
+      {isAddYearModalOpen && (
+        <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/50 backdrop-blur-sm">
+          <div className="bg-white w-full max-w-md rounded-xl shadow-lg border overflow-hidden">
+            <div className="p-6">
+              <h2 className="text-lg font-semibold tracking-tight text-gray-900">Tambah Tahun Anggaran</h2>
+              <p className="text-sm text-gray-500 mt-1.5">Masukkan tahun anggaran baru untuk ditambahkan ke dalam filter.</p>
+              
+              <div className="mt-6 space-y-4">
+                <div>
+                  <label className="block text-sm font-medium text-gray-700 mb-2">Tahun</label>
+                  <input 
+                    type="number" 
+                    value={newYearInput}
+                    onChange={(e) => setNewYearInput(e.target.value)}
+                    className="w-full px-3 py-2 border border-gray-300 rounded-md focus:outline-none focus:ring-2 focus:ring-blue-500 text-sm font-medium text-gray-900 placeholder:text-gray-400"
+                    placeholder="Contoh: 2027"
+                  />
+                </div>
+                <div>
+                  <label className="block text-sm font-medium text-gray-700 mb-2">Nominal PAGU Tahunan</label>
+                  <div className="relative">
+                    <span className="absolute inset-y-0 left-0 flex items-center pl-3 text-gray-900 text-sm font-medium">Rp.</span>
+                    <input 
+                      type="number" 
+                      value={newPaguInput}
+                      onChange={(e) => setNewPaguInput(e.target.value)}
+                      className="w-full pl-10 pr-3 py-2 border border-gray-300 rounded-md focus:outline-none focus:ring-2 focus:ring-blue-500 text-sm font-medium text-gray-900 placeholder:text-gray-400"
+                      placeholder="0"
+                    />
+                  </div>
+                </div>
+              </div>
+            </div>
+            <div className="px-6 py-4 bg-gray-50 flex items-center justify-end gap-2 border-t">
+              <button 
+                onClick={() => setIsAddYearModalOpen(false)}
+                className="px-4 py-2 border border-gray-300 rounded-md text-gray-700 font-medium hover:bg-gray-100 transition text-sm"
+              >
+                Batal
+              </button>
+              <button 
+                onClick={handleAddYear}
+                disabled={isSubmittingYear}
+                className="px-4 py-2 bg-slate-900 text-white rounded-md font-medium hover:bg-slate-800 transition shadow-sm text-sm disabled:opacity-50"
+              >
+                {isSubmittingYear ? 'Menyimpan...' : 'Simpan Tahun'}
+              </button>
+            </div>
+          </div>
+        </div>
+      )}
     </div>
   );
 }
