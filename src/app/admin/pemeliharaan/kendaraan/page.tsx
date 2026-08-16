@@ -17,21 +17,45 @@ export default function KendaraanPage() {
   
   // LOGIKA DINAMIS TAHUN & BULAN
   const currentYear = new Date().getFullYear();
+  const currentMonthNum = new Date().getMonth() + 1;
   
-  // State Filter Tahun dan Modal Tambah Tahun
+  // State Filter Tahun, Bulan, dan Modal
   const [availableYears, setAvailableYears] = useState<number[]>([]);
   const [selectedYear, setSelectedYear] = useState('');
+  const [selectedMonth, setSelectedMonth] = useState(currentMonthNum);
+  
+  // STATE BARU: Fitur Pencarian Tabel
+  const [searchQuery, setSearchQuery] = useState('');
+
   const [isAddYearModalOpen, setIsAddYearModalOpen] = useState(false);
   const [newYearInput, setNewYearInput] = useState('');
   const [newPaguInput, setNewPaguInput] = useState('');
   const [isSubmittingYear, setIsSubmittingYear] = useState(false);
 
-  // STATE BARU: Modal Edit PAGU (Shadcn style)
+  // State Modal Edit PAGU
   const [isEditPaguModalOpen, setIsEditPaguModalOpen] = useState(false);
   const [editPaguInput, setEditPaguInput] = useState('');
   const [isSubmittingEditPagu, setIsSubmittingEditPagu] = useState(false);
 
-  // Fetch Available Years dari Supabase Pagu
+  // Daftar Nama Bulan
+  const months = [
+    { value: 1, label: 'Januari' }, { value: 2, label: 'Februari' }, { value: 3, label: 'Maret' },
+    { value: 4, label: 'April' }, { value: 5, label: 'Mei' }, { value: 6, label: 'Juni' },
+    { value: 7, label: 'Juli' }, { value: 8, label: 'Agustus' }, { value: 9, label: 'September' },
+    { value: 10, label: 'Oktober' }, { value: 11, label: 'November' }, { value: 12, label: 'Desember' }
+  ];
+  
+  const selectedMonthName = months.find(m => m.value === selectedMonth)?.label;
+
+  // FITUR 1: Load Bulan dari Memori saat Halaman Dibuka
+  useEffect(() => {
+    const savedMonth = localStorage.getItem('sate_selected_month');
+    if (savedMonth) {
+      setSelectedMonth(parseInt(savedMonth, 10));
+    }
+  }, []);
+
+  // FITUR 1: Fetch Available Years & Load Tahun dari Memori
   useEffect(() => {
     const fetchYears = async () => {
       try {
@@ -47,9 +71,13 @@ export default function KendaraanPage() {
           years.sort((a, b) => b - a); // Urutkan descending
           setAvailableYears(years);
           
-          // Jika selectedYear saat ini kosong atau tidak valid, set ke yang terbaru
-          if (!selectedYear || !years.includes(parseInt(selectedYear))) {
-            setSelectedYear(years[0].toString());
+          // Cek apakah ada Tahun tersimpan di memori (localStorage)
+          const savedYear = localStorage.getItem('sate_selected_year');
+          
+          if (savedYear && years.includes(parseInt(savedYear))) {
+            setSelectedYear(savedYear); // Gunakan tahun dari memori jika valid
+          } else {
+            setSelectedYear(years[0].toString()); // Jika tidak ada memori, gunakan tahun paling baru
           }
         } else {
           setAvailableYears([]);
@@ -62,13 +90,19 @@ export default function KendaraanPage() {
       }
     };
     fetchYears();
-  }, [selectedYear]);
-  
-  // Mendapatkan nama bulan saat ini otomatis (contoh: "Agustus")
-  const currentMonthName = new Date().toLocaleString('id-ID', { month: 'long' });
-  const currentMonthNum = new Date().getMonth() + 1;
+  }, []); // Cukup dipanggil sekali saat mount
 
-  // Fetch Data dari Supabase
+  // FITUR 1: Menyimpan Perubahan Filter ke Memori secara Instan
+  useEffect(() => {
+    if (selectedYear) localStorage.setItem('sate_selected_year', selectedYear);
+  }, [selectedYear]);
+
+  useEffect(() => {
+    if (selectedMonth) localStorage.setItem('sate_selected_month', selectedMonth.toString());
+  }, [selectedMonth]);
+
+
+  // 2. Fetch Data Transaksi & Relasi ke Tabel Kendaraan
   useEffect(() => {
     const fetchData = async () => {
       if (!selectedYear) {
@@ -80,8 +114,8 @@ export default function KendaraanPage() {
       
       setIsLoading(true);
       try {
-        // Fetch Pagu
-        const { data: paguData, error: paguErr } = await supabase
+        // A. Fetch Data PAGU Tahunan
+        const { data: paguData } = await supabase
           .from('pagu')
           .select('nominal_tahunan')
           .eq('tahun', parseInt(selectedYear))
@@ -93,17 +127,32 @@ export default function KendaraanPage() {
           setPaguTahunan(0);
         }
 
-        // Fetch Pemeliharaan
+        // B. Fetch Pemeliharaan
+        const startOfYear = `${selectedYear}-01-01`;
+        const endOfYear = `${selectedYear}-12-31`;
+
         const { data: pemeliharaanData, error } = await supabase
           .from('pemeliharaan')
-          .select('*, inventaris_kib_b(nama_barang, merk_type, no_polisi)')
+          .select(`
+            id, 
+            tanggal_pengajuan, 
+            bengkel_rekanan, 
+            total_biaya, 
+            kategori_pengeluaran,
+            inventaris_kib_b ( nama_barang, merk_type, no_polisi )
+          `)
+          .gte('tanggal_pengajuan', startOfYear)
+          .lte('tanggal_pengajuan', endOfYear)
           .order('tanggal_pengajuan', { ascending: false });
           
-        if (error) throw error;
+        if (error) {
+          console.error("Error query relasi tabel:", error);
+          throw error;
+        }
         
         setPemeliharaanList(pemeliharaanData || []);
       } catch (err) {
-        console.error("Gagal mengambil data:", err);
+        console.error("Gagal mengambil data dari Supabase:", err);
       } finally {
         setIsLoading(false);
       }
@@ -112,22 +161,38 @@ export default function KendaraanPage() {
     fetchData();
   }, [selectedYear]);
 
-  // Kalkulasi Anggaran
-  const paguBulanan = paguTahunan / 12; 
+  // ==========================================
+  // KALKULASI ANGGARAN (PAGU)
+  // ==========================================
   
-  const pemeliharaanTahunIni = pemeliharaanList.filter(p => new Date(p.tanggal_pengajuan).getFullYear() === parseInt(selectedYear));
+  const paguBulanan = Math.round(paguTahunan / 12); 
+  const realisasiTahunan = pemeliharaanList.reduce((sum, item) => sum + Number(item.total_biaya), 0);
+  
   const pemeliharaanBulanIni = pemeliharaanList.filter(p => {
-    const d = new Date(p.tanggal_pengajuan);
-    return d.getFullYear() === parseInt(selectedYear) && (d.getMonth() + 1) === currentMonthNum;
+    if (!p.tanggal_pengajuan) return false;
+    const monthStr = p.tanggal_pengajuan.split('-')[1]; 
+    return parseInt(monthStr, 10) === selectedMonth;
   });
 
-  const realisasiTahunan = pemeliharaanTahunIni.reduce((sum, item) => sum + Number(item.total_biaya), 0);
   const realisasiBulanIni = pemeliharaanBulanIni.reduce((sum, item) => sum + Number(item.total_biaya), 0);
   
   const sisaPaguTahunan = paguTahunan - realisasiTahunan;
   const sisaPaguBulanIni = paguBulanan - realisasiBulanIni;
 
-  // Fungsi Hapus (SweetAlert Konfirmasi)
+  // ==========================================
+  // FITUR 2: FILTER PENCARIAN TABEL (LIVE SEARCH)
+  // ==========================================
+  const filteredPemeliharaanList = pemeliharaanList.filter((item) => {
+    if (!searchQuery) return true; // Jika tidak ada pencarian, tampilkan semua
+    
+    const searchLower = searchQuery.toLowerCase();
+    const namaKendaraan = item.inventaris_kib_b?.nama_barang?.toLowerCase() || '';
+    const platNomor = item.inventaris_kib_b?.no_polisi?.toLowerCase() || '';
+    
+    return namaKendaraan.includes(searchLower) || platNomor.includes(searchLower);
+  });
+
+  // Fungsi Hapus
   const handleDelete = (id: number, platNomor: string) => {
     Swal.fire({
       title: 'Apakah Anda yakin?',
@@ -153,13 +218,12 @@ export default function KendaraanPage() {
     });
   };
 
-  // Fungsi Buka Modal Edit PAGU
+  // Fungsi Edit PAGU
   const openEditPaguModal = () => {
-    setEditPaguInput(paguTahunan.toString()); // Set nilai saat ini ke dalam form
+    setEditPaguInput(paguTahunan.toString());
     setIsEditPaguModalOpen(true);
   };
 
-  // Fungsi Simpan Edit PAGU
   const handleSaveEditPagu = async () => {
     if (!editPaguInput || isNaN(Number(editPaguInput))) {
       Swal.fire('Error', 'Harap masukkan nominal yang valid.', 'error');
@@ -193,7 +257,6 @@ export default function KendaraanPage() {
     
     const yearToInsert = parseInt(newYearInput);
 
-    // CEK VALIDASI: Apakah tahun sudah ada di database?
     if (availableYears.includes(yearToInsert)) {
       Swal.fire({
         title: 'Tahun Sudah Ada!',
@@ -201,7 +264,7 @@ export default function KendaraanPage() {
         icon: 'warning',
         confirmButtonColor: '#3b82f6'
       });
-      return; // Hentikan eksekusi, jangan kirim ke server
+      return;
     }
     
     setIsSubmittingYear(true);
@@ -212,9 +275,7 @@ export default function KendaraanPage() {
         .from('pagu')
         .insert([{ tahun: yearToInsert, nominal_tahunan: paguToInsert }]);
         
-      if (error && error.code !== '23505') { 
-        throw error;
-      }
+      if (error && error.code !== '23505') throw error;
       
       const updatedYears = [...availableYears, yearToInsert].sort((a, b) => b - a);
       setAvailableYears(updatedYears);
@@ -237,7 +298,7 @@ export default function KendaraanPage() {
   return (
     <div className="p-6 max-w-full overflow-hidden">
       
-      {/* HEADER & FILTER TAHUN */}
+      {/* HEADER & FILTER TAHUN - BULAN */}
       <div className="flex flex-col md:flex-row md:items-end justify-between gap-4 mb-6">
         <div>
           <h1 className="text-2xl font-bold text-gray-800">Daftar Kendaraan & PAGU</h1>
@@ -246,10 +307,24 @@ export default function KendaraanPage() {
           </p>
         </div>
         
-        {/* Dropdown Filter Tahun (Dinamis) dan Tombol Tambah */}
-        <div className="flex items-center gap-2">
+        <div className="flex flex-wrap items-center gap-2">
+          
           <div className="flex items-center gap-2 bg-white text-black border border-gray-300 rounded-lg px-3 py-2 shadow-sm w-fit">
             <Calendar size={18} className="text-gray-500" /> 
+            <select 
+              value={selectedMonth}
+              onChange={(e) => setSelectedMonth(parseInt(e.target.value))}
+              className="bg-transparent text-sm font-medium text-gray-800 focus:outline-none cursor-pointer"
+            >
+              {months.map((m) => (
+                <option key={m.value} value={m.value}>
+                  Bulan {m.label}
+                </option>
+              ))}
+            </select>
+          </div>
+
+          <div className="flex items-center gap-2 bg-white text-black border border-gray-300 rounded-lg px-3 py-2 shadow-sm w-fit">
             <select 
               value={selectedYear}
               onChange={(e) => setSelectedYear(e.target.value)}
@@ -272,10 +347,9 @@ export default function KendaraanPage() {
         </div>
       </div>
 
-      {/* RINGKASAN PAGU (CARD VIEW - Shadcn UI Style) */}
+      {/* RINGKASAN PAGU (CARD VIEW) */}
       <div className="grid grid-cols-1 md:grid-cols-2 xl:grid-cols-4 gap-4 mb-8">
         
-        {/* Card 1: PAGU Tahunan */}
         <div className="bg-white p-5 rounded-xl border border-gray-200 shadow-sm flex flex-col justify-between">
           <div className="flex items-center justify-between pb-2">
             <h3 className="tracking-tight text-sm font-medium text-gray-500">Total PAGU Tahunan</h3>
@@ -286,11 +360,7 @@ export default function KendaraanPage() {
               <div className="text-2xl font-bold text-gray-800">
                 Rp {paguTahunan.toLocaleString('id-ID')}
               </div>
-              <button 
-                onClick={openEditPaguModal} 
-                className="p-1.5 text-blue-600 hover:bg-blue-50 rounded-md transition tooltip" 
-                title="Sesuaikan PAGU"
-              >
+              <button onClick={openEditPaguModal} className="p-1.5 text-blue-600 hover:bg-blue-50 rounded-md transition tooltip" title="Sesuaikan PAGU">
                 <Edit3 size={16} />
               </button>
             </div>
@@ -298,21 +368,19 @@ export default function KendaraanPage() {
           </div>
         </div>
 
-        {/* Card 2: Sisa PAGU Tahunan */}
         <div className="bg-white p-5 rounded-xl border border-gray-200 shadow-sm flex flex-col justify-between">
           <div className="flex items-center justify-between pb-2">
             <h3 className="tracking-tight text-sm font-medium text-gray-500">Sisa PAGU Tahunan</h3>
             <Wallet className="h-4 w-4 text-gray-400" />
           </div>
           <div>
-            <div className="text-2xl font-bold text-gray-800">
-              Rp {sisaPaguTahunan.toLocaleString('id-ID')}
+            <div className={`text-2xl font-bold ${sisaPaguTahunan < 0 ? 'text-red-600' : 'text-gray-800'}`}>
+              {sisaPaguTahunan < 0 ? `- Rp ${Math.abs(sisaPaguTahunan).toLocaleString('id-ID')}` : `Rp ${sisaPaguTahunan.toLocaleString('id-ID')}`}
             </div>
             <p className="text-xs text-gray-400 mt-1">Sisa anggaran untuk tahun {selectedYear}</p>
           </div>
         </div>
 
-        {/* Card 3: Jatah Bulanan */}
         <div className="bg-white p-5 rounded-xl border border-gray-200 shadow-sm flex flex-col justify-between">
           <div className="flex items-center justify-between pb-2">
             <h3 className="tracking-tight text-sm font-medium text-gray-500">Alokasi Jatah Bulanan</h3>
@@ -326,27 +394,26 @@ export default function KendaraanPage() {
           </div>
         </div>
 
-        {/* Card 4: Status Bulan Berjalan */}
         <div className={`p-5 rounded-xl border shadow-sm flex flex-col justify-between ${sisaPaguBulanIni < 0 ? 'bg-red-50 border-red-200' : 'bg-emerald-50 border-emerald-200'}`}>
           <div className="flex items-center justify-between pb-2">
             <h3 className={`tracking-tight text-sm font-medium ${sisaPaguBulanIni < 0 ? 'text-red-600' : 'text-emerald-700'}`}>
-              Status Bulan {currentMonthName} {selectedYear}
+              Status Bulan {selectedMonthName} {selectedYear}
             </h3>
             <Activity className={`h-4 w-4 ${sisaPaguBulanIni < 0 ? 'text-red-400' : 'text-emerald-400'}`} />
           </div>
           <div>
             <div className={`text-2xl font-bold ${sisaPaguBulanIni < 0 ? 'text-red-700' : 'text-emerald-800'}`}>
-              {sisaPaguBulanIni < 0 ? 'Kekurangan' : 'Sisa Aman'}
+              {sisaPaguBulanIni < 0 ? `- Rp ${Math.abs(sisaPaguBulanIni).toLocaleString('id-ID')}` : `Rp ${sisaPaguBulanIni.toLocaleString('id-ID')}`}
             </div>
-            <div className={`flex items-center gap-1 mt-1 text-xs font-medium ${sisaPaguBulanIni < 0 ? 'text-red-600' : 'text-emerald-600'}`}>
+            <div className={`flex items-center gap-1.5 mt-1 text-xs font-bold uppercase tracking-wide ${sisaPaguBulanIni < 0 ? 'text-red-600' : 'text-emerald-600'}`}>
               {sisaPaguBulanIni < 0 ? <TrendingDown size={14} /> : <TrendingUp size={14} />}
-              {sisaPaguBulanIni < 0 ? `- Rp ${Math.abs(sisaPaguBulanIni).toLocaleString('id-ID')}` : `+ Rp ${sisaPaguBulanIni.toLocaleString('id-ID')}`}
+              {sisaPaguBulanIni < 0 ? 'Kekurangan' : 'Aman'}
             </div>
           </div>
         </div>
       </div>
 
-      {/* Toolbar (Search & Buttons) */}
+      {/* Toolbar & Live Search */}
       <div className="flex flex-col sm:flex-row justify-between items-center gap-4 mb-6">
         <div className="relative w-full sm:w-96">
           <div className="absolute inset-y-0 left-0 pl-3 flex items-center pointer-events-none">
@@ -354,6 +421,8 @@ export default function KendaraanPage() {
           </div>
           <input
             type="text"
+            value={searchQuery}
+            onChange={(e) => setSearchQuery(e.target.value)}
             className="block w-full pl-10 pr-3 py-2 border border-gray-300 rounded-lg focus:ring-blue-500 focus:border-blue-500 text-sm shadow-sm font-medium text-black placeholder:font-normal placeholder:text-gray-400"
             placeholder="Cari plat nomor atau nama kendaraan..."
           />
@@ -372,7 +441,7 @@ export default function KendaraanPage() {
         </div>
       </div>
 
-      {/* Tabel Data */}
+      {/* Tabel Data (Dinamis & Searchable) */}
       <div className="bg-white border border-gray-200 rounded-xl shadow-sm overflow-hidden">
         <div className="overflow-x-auto">
           <table className="w-full text-sm text-left">
@@ -380,7 +449,7 @@ export default function KendaraanPage() {
               <tr>
                 <th className="px-6 py-4 w-16">NO</th>
                 <th className="px-6 py-4">NAMA KENDARAAN</th>
-                <th className="px-6 py-4">PLAT NOMOR (KIB B)</th>
+                <th className="px-6 py-4">PLAT NOMOR</th>
                 <th className="px-6 py-4">KATEGORI PENGELUARAN</th>
                 <th className="px-6 py-4">TOTAL BIAYA</th>
                 <th className="px-6 py-4 text-center">AKSI</th>
@@ -389,14 +458,16 @@ export default function KendaraanPage() {
             <tbody className="divide-y divide-gray-200">
               {isLoading ? (
                 <tr>
-                  <td colSpan={6} className="px-6 py-4 text-center text-gray-500">Memuat data...</td>
+                  <td colSpan={6} className="px-6 py-4 text-center text-gray-500 font-medium">Memuat data dari database...</td>
                 </tr>
-              ) : pemeliharaanList.length === 0 ? (
+              ) : filteredPemeliharaanList.length === 0 ? (
                 <tr>
-                  <td colSpan={6} className="px-6 py-4 text-center text-gray-500">Belum ada data pemeliharaan.</td>
+                  <td colSpan={6} className="px-6 py-4 text-center text-gray-500">
+                    {searchQuery ? 'Data tidak ditemukan.' : `Belum ada pengajuan pemeliharaan untuk tahun ${selectedYear}.`}
+                  </td>
                 </tr>
               ) : (
-                pemeliharaanList.map((item, index) => (
+                filteredPemeliharaanList.map((item, index) => (
                   <tr key={item.id} className="hover:bg-gray-50/50 transition">
                     <td className="px-6 py-4 text-gray-500">{index + 1}</td>
                     <td className="px-6 py-4 text-gray-600 font-medium">
@@ -427,7 +498,7 @@ export default function KendaraanPage() {
         </div>
         
         <div className="bg-white px-6 py-4 border-t border-gray-200 flex items-center justify-between sm:flex-row flex-col gap-4">
-          <span className="text-sm text-gray-500">Menampilkan {pemeliharaanList.length > 0 ? `1-${pemeliharaanList.length} dari ${pemeliharaanList.length}` : '0'} kendaraan</span>
+          <span className="text-sm text-gray-500">Menampilkan {filteredPemeliharaanList.length > 0 ? `1-${filteredPemeliharaanList.length} dari ${filteredPemeliharaanList.length}` : '0'} kendaraan</span>
           <div className="flex items-center gap-2">
             <button className="p-2 rounded hover:bg-gray-100 text-gray-500 disabled:opacity-50" disabled>&lt;</button>
             <button className="w-8 h-8 flex items-center justify-center rounded bg-blue-600 text-white text-sm font-medium">1</button>
@@ -442,7 +513,7 @@ export default function KendaraanPage() {
         onClose={() => setIsModalOpen(false)} 
       />
 
-      {/* MODAL 1: Tambah Tahun (Shadcn Style) */}
+      {/* MODAL 1: Tambah Tahun */}
       {isAddYearModalOpen && (
         <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/50 backdrop-blur-sm">
           <div className="bg-white w-full max-w-md rounded-xl shadow-lg border overflow-hidden mx-4">
@@ -495,7 +566,7 @@ export default function KendaraanPage() {
         </div>
       )}
 
-      {/* MODAL 2: Edit PAGU Tahunan (Shadcn Style) */}
+      {/* MODAL 2: Edit PAGU Tahunan */}
       {isEditPaguModalOpen && (
         <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/50 backdrop-blur-sm">
           <div className="bg-white w-full max-w-md rounded-xl shadow-lg border overflow-hidden mx-4">

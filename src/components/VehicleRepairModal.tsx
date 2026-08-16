@@ -1,9 +1,10 @@
 "use client";
 
-import React, { useState, useEffect } from 'react';
-import { X, Info, Wrench, Plus, Trash2 } from 'lucide-react';
+import React, { useState, useEffect, useRef } from 'react';
+import { X, Info, Wrench, Plus, Trash2, ChevronDown, Search } from 'lucide-react';
 import Swal from 'sweetalert2';
 import { createClient } from "@/lib/supabase"; 
+import { useRouter } from 'next/navigation'; 
 
 interface ItemDetail {
   id: number;
@@ -21,27 +22,40 @@ interface ModalProps {
 
 export default function VehicleRepairModal({ isOpen, onClose }: ModalProps) {
   const supabase = createClient();
+  const router = useRouter(); 
 
   // State untuk Informasi Pengajuan (Header)
   const [tanggal, setTanggal] = useState('');
   const [bengkel, setBengkel] = useState('');
   const [kendaraanId, setKendaraanId] = useState('');
-  
-  // STATE BARU: Untuk Kategori Pengeluaran
   const [kategoriPengeluaran, setKategoriPengeluaran] = useState('');
 
-  // State untuk menyimpan data dropdown kendaraan dari Supabase
+  // State untuk Kendaraan (Searchable Dropdown)
   const [kendaraanList, setKendaraanList] = useState<any[]>([]);
   const [isLoadingKendaraan, setIsLoadingKendaraan] = useState(false);
+  const [isVehicleDropdownOpen, setIsVehicleDropdownOpen] = useState(false);
+  const [searchVehicle, setSearchVehicle] = useState('');
+  const vehicleDropdownRef = useRef<HTMLDivElement>(null);
 
   // State untuk item dinamis (Detail Pemeliharaan)
-  const [items, setItems] = useState<ItemDetail[]>([
-    { id: Date.now(), namaBarang: '', banyaknya: 1, unit: 'PCS', jumlah: 0, keterangan: '' }
-  ]);
+  const [items, setItems] = useState<ItemDetail[]>([]);
   const [totalBiaya, setTotalBiaya] = useState(0);
   const [isSubmitting, setIsSubmitting] = useState(false);
 
-  // FASE 1 UPDATE: Fetch Data dengan Kategori Kendaraan
+  // FITUR 1: Reset form setiap kali modal dibuka/ditutup
+  useEffect(() => {
+    if (isOpen) {
+      setTanggal('');
+      setBengkel('');
+      setKendaraanId('');
+      setKategoriPengeluaran('');
+      setSearchVehicle('');
+      setItems([{ id: Date.now(), namaBarang: '', banyaknya: 1, unit: 'PCS', jumlah: 0, keterangan: '' }]);
+      setIsVehicleDropdownOpen(false);
+    }
+  }, [isOpen]);
+
+  // Fetch Data Kendaraan dari Database
   useEffect(() => {
     if (isOpen) {
       const fetchKendaraan = async () => {
@@ -53,20 +67,27 @@ export default function VehicleRepairModal({ isOpen, onClose }: ModalProps) {
             .in('kategori', ['roda 2', 'roda 4']); 
 
           if (error) throw error;
-          
-          if (data) {
-            setKendaraanList(data);
-          }
+          if (data) setKendaraanList(data);
         } catch (error) {
           console.error("Gagal mengambil data kendaraan:", error);
         } finally {
           setIsLoadingKendaraan(false);
         }
       };
-
       fetchKendaraan();
     }
-  }, [isOpen]);
+  }, [isOpen, supabase]);
+
+  // Menutup dropdown kendaraan saat klik di luar kotak
+  useEffect(() => {
+    const handleClickOutside = (event: MouseEvent) => {
+      if (vehicleDropdownRef.current && !vehicleDropdownRef.current.contains(event.target as Node)) {
+        setIsVehicleDropdownOpen(false);
+      }
+    };
+    document.addEventListener("mousedown", handleClickOutside);
+    return () => document.removeEventListener("mousedown", handleClickOutside);
+  }, []);
 
   // Auto-calculate Total Biaya keseluruhan
   useEffect(() => {
@@ -74,26 +95,23 @@ export default function VehicleRepairModal({ isOpen, onClose }: ModalProps) {
     setTotalBiaya(total);
   }, [items]);
 
-  if (!isOpen) return null;
-
-  // Fungsi Tambah Baris
+  // FITUR 2: Fungsi Tambah Baris (Menambahkan ke urutan PALING ATAS)
   const addItem = () => {
-    setItems([...items, { id: Date.now(), namaBarang: '', banyaknya: 1, unit: 'PCS', jumlah: 0, keterangan: '' }]);
+    const newItem = { id: Date.now(), namaBarang: '', banyaknya: 1, unit: 'PCS', jumlah: 0, keterangan: '' };
+    setItems([newItem, ...items]); // <--- Array destructuring dibalik agar muncul di atas
   };
 
-  // Fungsi Hapus Baris
   const removeItem = (id: number) => {
     if (items.length > 1) {
       setItems(items.filter(item => item.id !== id));
     }
   };
 
-  // Fungsi Update Data Baris
   const updateItem = (id: number, field: keyof ItemDetail, value: any) => {
     setItems(items.map(item => item.id === id ? { ...item, [field]: value } : item));
   };
 
-  // Fungsi Submit
+  // Fungsi Submit & Validasi
   const handleSubmit = async (e: React.FormEvent) => {
     e.preventDefault();
     if (!tanggal || !bengkel || !kendaraanId || !kategoriPengeluaran) {
@@ -103,6 +121,26 @@ export default function VehicleRepairModal({ isOpen, onClose }: ModalProps) {
 
     setIsSubmitting(true);
     try {
+      // FITUR 3: Validasi ketersediaan Tahun di database PAGU
+      const submitYear = new Date(tanggal).getFullYear();
+      const { data: checkPagu, error: paguErr } = await supabase
+        .from('pagu')
+        .select('tahun')
+        .eq('tahun', submitYear)
+        .single();
+
+      if (!checkPagu) {
+        Swal.fire({
+          title: 'Tahun Anggaran Belum Ada!',
+          text: `Anda tidak bisa mengajukan perbaikan di tahun ${submitYear} karena tahun tersebut belum terdaftar di sistem PAGU. Silakan tambahkan tahun anggaran terlebih dahulu di halaman utama.`,
+          icon: 'error',
+          confirmButtonColor: '#d33'
+        });
+        setIsSubmitting(false);
+        return; // Hentikan proses simpan
+      }
+
+      // Insert ke tabel pemeliharaan (Header)
       const { data: pemeliharaan, error: pemeliharaanError } = await supabase
         .from('pemeliharaan')
         .insert([{
@@ -117,7 +155,7 @@ export default function VehicleRepairModal({ isOpen, onClose }: ModalProps) {
 
       if (pemeliharaanError) throw pemeliharaanError;
 
-      // Insert detail items (if valid)
+      // Insert ke tabel pemeliharaan_detail (Items)
       if (items.length > 0 && items[0].namaBarang.trim() !== '') {
         const detailItems = items.map(item => ({
           pemeliharaan_id: pemeliharaan.id,
@@ -126,6 +164,7 @@ export default function VehicleRepairModal({ isOpen, onClose }: ModalProps) {
           unit: item.unit,
           harga_unit: (Number(item.jumlah) / (Number(item.banyaknya) || 1)),
           jumlah: Number(item.jumlah),
+          keterangan: item.keterangan 
         }));
 
         const { error: detailError } = await supabase
@@ -141,16 +180,8 @@ export default function VehicleRepairModal({ isOpen, onClose }: ModalProps) {
         icon: 'success',
         confirmButtonColor: '#3b82f6',
       }).then(() => {
-        // Reset form state
-        setTanggal('');
-        setBengkel('');
-        setKendaraanId('');
-        setKategoriPengeluaran('');
-        setItems([{ id: Date.now(), namaBarang: '', banyaknya: 1, unit: 'PCS', jumlah: 0, keterangan: '' }]);
-        onClose();
-        
-        // Reload parent component page to update dashboard cards & table
-        window.location.reload();
+        onClose(); 
+        router.refresh(); 
       });
 
     } catch (error: any) {
@@ -161,12 +192,26 @@ export default function VehicleRepairModal({ isOpen, onClose }: ModalProps) {
     }
   };
 
+  // Filter Kendaraan untuk Dropdown Search
+  const filteredKendaraan = kendaraanList.filter(k => 
+    k.nama_barang.toLowerCase().includes(searchVehicle.toLowerCase()) || 
+    k.no_polisi.toLowerCase().includes(searchVehicle.toLowerCase())
+  );
+
+  // Menentukan text yang tampil di kotak Dropdown Kendaraan
+  const selectedVehicleObj = kendaraanList.find(k => k.id.toString() === kendaraanId);
+  const displayVehicleName = selectedVehicleObj 
+    ? `[${selectedVehicleObj.no_polisi}] ${selectedVehicleObj.nama_barang} ${selectedVehicleObj.merk_type ? `- ${selectedVehicleObj.merk_type}` : ''}`
+    : (isLoadingKendaraan ? 'Memuat data kendaraan...' : 'Pilih kendaraan...');
+
+  if (!isOpen) return null;
+
   return (
     <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/50 backdrop-blur-sm">
       <div className="bg-white w-full max-w-7xl rounded-xl shadow-xl overflow-hidden max-h-[90vh] flex flex-col mx-4">
         
         {/* Header Modal */}
-        <div className="flex justify-between items-center p-6 border-b">
+        <div className="flex justify-between items-center p-6 border-b shrink-0">
           <div>
             <h2 className="text-xl font-bold text-gray-800">Ajukan Pemeliharaan Kendaraan</h2>
             <p className="text-sm text-gray-500">Lengkapi informasi pengajuan pemeliharaan kendaraan di bawah ini.</p>
@@ -177,8 +222,8 @@ export default function VehicleRepairModal({ isOpen, onClose }: ModalProps) {
         </div>
 
         {/* Body Modal (Scrollable) */}
-        <div className="p-6 overflow-y-auto flex-1 bg-slate-50/50 custom-scrollbar">
-          <form id="repair-form" onSubmit={handleSubmit} className="space-y-8">
+        <div className="overflow-y-auto flex-1 bg-slate-50/50 custom-scrollbar p-6">
+          <form id="repair-form" onSubmit={handleSubmit} className="space-y-6">
             
             {/* SECTION 1: Informasi Pengajuan */}
             <div className="bg-white p-5 rounded-lg border shadow-sm">
@@ -187,10 +232,7 @@ export default function VehicleRepairModal({ isOpen, onClose }: ModalProps) {
                 <h3>INFORMASI PENGAJUAN</h3>
               </div>
               
-              {/* PERUBAHAN: Layout Grid tetap 2 kolom, tapi sekarang terisi 4 field */}
-              <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
-                
-                {/* Baris 1 */}
+              <div className="grid grid-cols-1 md:grid-cols-2 gap-4 relative">
                 <div>
                   <label className="block text-sm font-medium text-gray-700 mb-1">Tanggal Pengajuan</label>
                   <input 
@@ -213,28 +255,52 @@ export default function VehicleRepairModal({ isOpen, onClose }: ModalProps) {
                   />
                 </div>
                 
-                {/* Baris 2 */}
-                <div>
+                {/* FITUR 4: Searchable Custom Dropdown Kendaraan */}
+                <div ref={vehicleDropdownRef} className="relative">
                   <label className="block text-sm font-medium text-gray-700 mb-1">Kendaraan</label>
-                  <select 
-                    value={kendaraanId}
-                    onChange={(e) => setKendaraanId(e.target.value)}
-                    required 
-                    disabled={isLoadingKendaraan}
-                    className="w-full px-3 py-2 border border-gray-300 rounded-md focus:outline-none focus:ring-2 focus:ring-blue-500 text-sm text-black font-medium bg-white disabled:bg-gray-100 disabled:cursor-not-allowed"
+                  <div 
+                    onClick={() => !isLoadingKendaraan && setIsVehicleDropdownOpen(!isVehicleDropdownOpen)}
+                    className={`w-full px-3 py-2 border border-gray-300 rounded-md text-sm font-medium flex justify-between items-center ${isLoadingKendaraan ? 'bg-gray-100 cursor-not-allowed text-gray-400' : 'bg-white cursor-pointer text-black'}`}
                   >
-                    <option value="" className="text-gray-400">
-                      {isLoadingKendaraan ? 'Memuat data kendaraan...' : 'Pilih kendaraan...'}
-                    </option>
-                    {kendaraanList.map((k) => (
-                      <option key={k.id} value={k.id}>
-                        [{k.no_polisi}] {k.nama_barang} {k.merk_type ? `- ${k.merk_type}` : ''}
-                      </option>
-                    ))}
-                  </select>
+                    <span className="truncate">{displayVehicleName}</span>
+                    <ChevronDown size={16} className={`text-gray-400 transition-transform ${isVehicleDropdownOpen ? 'rotate-180' : ''}`} />
+                  </div>
+
+                  {isVehicleDropdownOpen && (
+                    <div className="absolute z-50 w-full mt-1 bg-white border border-gray-200 rounded-md shadow-lg top-full left-0">
+                      <div className="p-2 border-b flex items-center gap-2">
+                        <Search size={16} className="text-gray-400" />
+                        <input 
+                          type="text" 
+                          className="w-full text-sm focus:outline-none text-black font-medium placeholder:font-normal" 
+                          placeholder="Cari plat nomor atau nama..." 
+                          value={searchVehicle} 
+                          onChange={(e) => setSearchVehicle(e.target.value)}
+                          autoFocus
+                        />
+                      </div>
+                      <ul className="max-h-48 overflow-y-auto custom-scrollbar">
+                        {filteredKendaraan.map(k => (
+                          <li 
+                            key={k.id} 
+                            className="px-3 py-2 text-sm cursor-pointer hover:bg-blue-50 text-gray-800 font-medium border-b border-gray-50 last:border-0"
+                            onClick={() => {
+                              setKendaraanId(k.id.toString());
+                              setIsVehicleDropdownOpen(false);
+                              setSearchVehicle('');
+                            }}
+                          >
+                            [{k.no_polisi}] {k.nama_barang} {k.merk_type ? `- ${k.merk_type}` : ''}
+                          </li>
+                        ))}
+                        {filteredKendaraan.length === 0 && (
+                          <li className="px-3 py-4 text-sm text-center text-gray-500">Kendaraan tidak ditemukan</li>
+                        )}
+                      </ul>
+                    </div>
+                  )}
                 </div>
 
-                {/* PENAMBAHAN FIELD BARU: Kategori Pengeluaran */}
                 <div>
                   <label className="block text-sm font-medium text-gray-700 mb-1">Kategori Pengeluaran</label>
                   <select 
@@ -245,6 +311,7 @@ export default function VehicleRepairModal({ isOpen, onClose }: ModalProps) {
                   >
                     <option value="" className="text-gray-400">Pilih kategori...</option>
                     <option value="Bensin">Bensin</option>
+                    <option value="Pemeliharaan">Pemeliharaan</option>
                     <option value="Bensin + Pemeliharaan">Bensin + Pemeliharaan</option>
                     <option value="Lainnya">Lainnya</option>
                   </select>
@@ -254,18 +321,29 @@ export default function VehicleRepairModal({ isOpen, onClose }: ModalProps) {
             </div>
 
             {/* SECTION 2: Detail Pemeliharaan */}
-            <div className="bg-white p-5 rounded-lg border shadow-sm">
-              <div className="flex items-center gap-2 mb-4 text-blue-600 font-semibold">
-                <Wrench size={18} />
-                <h3>DETAIL PEMELIHARAAN</h3>
+            {/* FITUR 5: Sticky Header & Button */}
+            <div className="bg-white rounded-lg border shadow-sm relative flex flex-col">
+              
+              <div className="sticky top-0 bg-gray-50 z-10 p-5 border-b shadow-sm rounded-t-lg flex flex-col sm:flex-row justify-between sm:items-center gap-3">
+                <div className="flex items-center gap-2 text-blue-600 font-semibold">
+                  <Wrench size={18} />
+                  <h3>DETAIL PEMELIHARAAN</h3>
+                </div>
+                <button 
+                  type="button" 
+                  onClick={addItem} 
+                  className="flex items-center gap-1 px-3 py-2 text-sm bg-white text-blue-600 font-bold rounded-md hover:bg-blue-50 transition border border-blue-200 shadow-sm w-fit"
+                >
+                  <Plus size={16} /> item lain
+                </button>
               </div>
 
-              <div className="space-y-4">
+              <div className="p-5 space-y-4">
                 {items.map((item, index) => {
                   const hargaUnit = (item.jumlah > 0 && item.banyaknya > 0) ? (item.jumlah / item.banyaknya) : 0;
 
                   return (
-                    <div key={item.id} className="flex gap-2 items-start border-b pb-4 last:border-0 group">
+                    <div key={item.id} className="flex gap-2 items-start border-b pb-4 last:border-0 group animate-in fade-in slide-in-from-top-4 duration-300">
                       
                       {/* Grid Input Form */}
                       <div className="grid grid-cols-12 gap-3 flex-1">
@@ -305,6 +383,7 @@ export default function VehicleRepairModal({ isOpen, onClose }: ModalProps) {
                             <option value="Buah">Buah</option>
                             <option value="Set">Set</option>
                             <option value="Liter">Liter</option>
+                            <option value="Jasa">Jasa</option>
                           </select>
                         </div>
                         
@@ -363,24 +442,18 @@ export default function VehicleRepairModal({ isOpen, onClose }: ModalProps) {
                   );
                 })}
               </div>
-
-              <div className="mt-4">
-                <button type="button" onClick={addItem} className="flex items-center gap-1 px-3 py-2 text-sm bg-blue-50 text-blue-600 font-medium rounded-md hover:bg-blue-100 transition border border-blue-200">
-                  <Plus size={16} /> Item Lain
-                </button>
-              </div>
             </div>
           </form>
         </div>
 
         {/* Footer Modal */}
-        <div className="p-4 border-t bg-gray-50 flex items-center justify-between">
+        <div className="p-4 border-t bg-gray-50 flex items-center justify-between shrink-0">
           <div className="text-right ml-auto mr-6">
             <span className="text-sm font-medium text-gray-500">Total Biaya:</span>
             <div className="text-xl font-bold text-blue-700">Rp {totalBiaya.toLocaleString('id-ID')}</div>
           </div>
           <div className="flex gap-3">
-            <button onClick={onClose} className="px-4 py-2 border border-gray-300 rounded-md text-gray-700 font-medium hover:bg-gray-100 transition text-sm">
+            <button type="button" onClick={onClose} className="px-4 py-2 border border-gray-300 rounded-md text-gray-700 font-medium hover:bg-gray-100 transition text-sm">
               Batal
             </button>
             <button type="submit" disabled={isSubmitting} form="repair-form" className="px-4 py-2 bg-blue-600 rounded-md text-white font-medium hover:bg-blue-700 transition shadow-sm text-sm flex items-center gap-2 disabled:bg-blue-400">
