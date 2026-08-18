@@ -60,9 +60,9 @@ interface PemeliharaanQueryItem {
   total_biaya: number | null;
   kategori_pengeluaran: string | null;
   inventaris_kib_b:
-    | VehicleRelation[]
-    | VehicleRelation
-    | null;
+  | VehicleRelation[]
+  | VehicleRelation
+  | null;
 }
 
 interface YearData {
@@ -258,7 +258,8 @@ export default function KendaraanPage() {
   // FETCH AVAILABLE YEARS
   // ==========================================
   useEffect(() => {
-    const fetchYears = async () => {
+    let isMounted = true;
+    const fetchYears = async (retryCount = 0) => {
       try {
         const {
           data,
@@ -271,6 +272,13 @@ export default function KendaraanPage() {
           });
 
         if (error) {
+          // Auto-retry for 'JWT issued at future' error
+          if (error.code === 'PGRST303' && retryCount < 3) {
+            setTimeout(() => {
+              if (isMounted) fetchYears(retryCount + 1);
+            }, 1000);
+            return;
+          }
           throw error;
         }
 
@@ -308,18 +316,26 @@ export default function KendaraanPage() {
           setAvailableYears([]);
           setSelectedYear("");
         }
-      } catch (error) {
-        console.error(
-          "Gagal mengambil daftar tahun:",
-          error
-        );
+      } catch (error: any) {
+        if (error?.code !== 'PGRST303') {
+          console.error(
+            "Gagal mengambil daftar tahun:",
+            error
+          );
+        }
 
-        setAvailableYears([]);
-        setSelectedYear("");
+        if (isMounted) {
+          setAvailableYears([]);
+          setSelectedYear("");
+        }
       }
     };
 
     fetchYears();
+
+    return () => {
+      isMounted = false;
+    };
   }, [supabase]);
 
   // ==========================================
@@ -462,7 +478,7 @@ export default function KendaraanPage() {
                 item.inventaris_kib_b
               )
                 ? item.inventaris_kib_b[0] ??
-                  null
+                null
                 : item.inventaris_kib_b,
           }));
 
@@ -673,7 +689,7 @@ export default function KendaraanPage() {
   const totalPages =
     Math.ceil(
       totalItems /
-        itemsPerPage
+      itemsPerPage
     ) || 1;
 
   const startIndex =
@@ -742,12 +758,12 @@ export default function KendaraanPage() {
             );
 
             Swal.fire(
-            "Terhapus!",
-            "Data berhasil dihapus.",
-            "success"
-          ).then(() => {
-            window.location.reload();
-          });
+              "Terhapus!",
+              "Data berhasil dihapus.",
+              "success"
+            ).then(() => {
+              window.location.reload();
+            });
           } catch {
             Swal.fire(
               "Error",
@@ -970,7 +986,7 @@ export default function KendaraanPage() {
         Swal.fire(
           "Error",
           "Gagal menambahkan tahun: " +
-            message,
+          message,
           "error"
         );
       } finally {
@@ -1171,23 +1187,22 @@ export default function KendaraanPage() {
           <div>
 
             <div
-              className={`text-2xl font-bold ${
-                sisaPaguTahunan <
-                0
+              className={`text-2xl font-bold ${sisaPaguTahunan <
+                  0
                   ? "text-red-600"
                   : "text-gray-800"
-              }`}
+                }`}
             >
               {sisaPaguTahunan <
-              0
+                0
                 ? `- Rp ${Math.abs(
-                    sisaPaguTahunan
-                  ).toLocaleString(
-                    "id-ID"
-                  )}`
+                  sisaPaguTahunan
+                ).toLocaleString(
+                  "id-ID"
+                )}`
                 : `Rp ${sisaPaguTahunan.toLocaleString(
-                    "id-ID"
-                  )}`}
+                  "id-ID"
+                )}`}
             </div>
 
             <p className="text-xs text-gray-400 mt-1">
@@ -1235,23 +1250,21 @@ export default function KendaraanPage() {
 
         {/* STATUS BULAN */}
         <div
-          className={`p-5 rounded-xl border shadow-sm flex flex-col justify-between ${
-            sisaPaguBulanIni <
-            0
+          className={`p-5 rounded-xl border shadow-sm flex flex-col justify-between ${sisaPaguBulanIni <
+              0
               ? "bg-red-50 border-red-200"
               : "bg-emerald-50 border-emerald-200"
-          }`}
+            }`}
         >
 
           <div className="flex items-center justify-between pb-2">
 
             <h3
-              className={`tracking-tight text-sm font-medium ${
-                sisaPaguBulanIni <
-                0
+              className={`tracking-tight text-sm font-medium ${sisaPaguBulanIni <
+                  0
                   ? "text-red-600"
                   : "text-emerald-700"
-              }`}
+                }`}
             >
               Status Bulan{" "}
               {
@@ -1263,12 +1276,11 @@ export default function KendaraanPage() {
             </h3>
 
             <Activity
-              className={`h-4 w-4 ${
-                sisaPaguBulanIni <
-                0
+              className={`h-4 w-4 ${sisaPaguBulanIni <
+                  0
                   ? "text-red-400"
                   : "text-emerald-400"
-              }`}
+                }`}
             />
 
           </div>
@@ -1276,12 +1288,11 @@ export default function KendaraanPage() {
           <div>
 
             <div
-              className={`text-2xl font-bold ${
-                sisaPaguBulanIni <
-                0
+              className={`text-2xl font-bold ${sisaPaguBulanIni <
+                  0
                   ? "text-red-700"
                   : "text-emerald-800"
-              }`}
+                }`}
             >
               Rp{" "}
               {realisasiBulanIni.toLocaleString(
@@ -1290,16 +1301,15 @@ export default function KendaraanPage() {
             </div>
 
             <div
-              className={`flex items-center gap-1.5 mt-1 text-xs font-bold uppercase tracking-wide ${
-                sisaPaguBulanIni <
-                0
+              className={`flex items-center gap-1.5 mt-1 text-xs font-bold uppercase tracking-wide ${sisaPaguBulanIni <
+                  0
                   ? "text-red-600"
                   : "text-emerald-600"
-              }`}
+                }`}
             >
 
               {sisaPaguBulanIni <
-              0 ? (
+                0 ? (
                 <TrendingDown
                   size={14}
                 />
@@ -1310,15 +1320,15 @@ export default function KendaraanPage() {
               )}
 
               {sisaPaguBulanIni <
-              0
+                0
                 ? `Kekurangan Rp ${Math.abs(
-                    sisaPaguBulanIni
-                  ).toLocaleString(
-                    "id-ID"
-                  )}`
+                  sisaPaguBulanIni
+                ).toLocaleString(
+                  "id-ID"
+                )}`
                 : `Sisa Rp ${sisaPaguBulanIni.toLocaleString(
-                    "id-ID"
-                  )}`}
+                  "id-ID"
+                )}`}
 
             </div>
 
@@ -1656,7 +1666,7 @@ export default function KendaraanPage() {
                         Rp{" "}
                         {Number(
                           item.total_biaya ||
-                            0
+                          0
                         ).toLocaleString(
                           "id-ID"
                         )}
@@ -1737,7 +1747,7 @@ export default function KendaraanPage() {
                                 item
                                   .inventaris_kib_b
                                   ?.no_polisi ||
-                                  "-"
+                                "-"
                               )
                             }
                             className="hover:text-red-600 transition"
@@ -1869,7 +1879,7 @@ export default function KendaraanPage() {
                 }
                 disabled={
                   currentPage ===
-                    1 ||
+                  1 ||
                   totalPages === 0
                 }
                 className="flex items-center gap-1 px-3 py-1.5 text-sm font-medium text-slate-700 hover:text-blue-600 hover:bg-blue-50 rounded-md disabled:opacity-50 disabled:hover:text-slate-700 disabled:hover:bg-transparent transition-colors"
@@ -1896,9 +1906,9 @@ export default function KendaraanPage() {
                 }
                 disabled={
                   currentPage ===
-                    totalPages ||
+                  totalPages ||
                   totalPages ===
-                    0
+                  0
                 }
                 className="flex items-center gap-1 px-3 py-1.5 text-sm font-medium text-slate-700 hover:text-blue-600 hover:bg-blue-50 rounded-md disabled:opacity-50 disabled:hover:text-slate-700 disabled:hover:bg-transparent transition-colors"
               >
@@ -2177,20 +2187,20 @@ export default function KendaraanPage() {
               prev.map(
                 (item) =>
                   item.id ===
-                  updatedData.id
+                    updatedData.id
                     ? {
-                        ...item,
-                        tanggal_pengajuan:
-                          updatedData.tanggal_pengajuan,
-                        bengkel_rekanan:
-                          updatedData.bengkel_rekanan,
-                        total_biaya:
-                          updatedData.total_biaya,
-                        kategori_pengeluaran:
-                          updatedData.kategori_pengeluaran,
-                        inventaris_kib_b:
-                          updatedData.inventaris_kib_b,
-                      }
+                      ...item,
+                      tanggal_pengajuan:
+                        updatedData.tanggal_pengajuan,
+                      bengkel_rekanan:
+                        updatedData.bengkel_rekanan,
+                      total_biaya:
+                        updatedData.total_biaya,
+                      kategori_pengeluaran:
+                        updatedData.kategori_pengeluaran,
+                      inventaris_kib_b:
+                        updatedData.inventaris_kib_b,
+                    }
                     : item
               )
           );
