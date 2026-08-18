@@ -742,10 +742,12 @@ export default function KendaraanPage() {
             );
 
             Swal.fire(
-              "Terhapus!",
-              "Data berhasil dihapus.",
-              "success"
-            );
+            "Terhapus!",
+            "Data berhasil dihapus.",
+            "success"
+          ).then(() => {
+            window.location.reload();
+          });
           } catch {
             Swal.fire(
               "Error",

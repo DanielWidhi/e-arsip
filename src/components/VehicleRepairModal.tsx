@@ -85,12 +85,6 @@ export default function VehicleRepairModal({
   // ==========================================
   // RESET FORM SAAT MODAL DIBUKA
   // ==========================================
-  // Rule React Hooks baru menganggap setState
-  // sinkron di effect sebagai warning/error.
-  // Namun reset ini memang diperlukan karena modal
-  // harus selalu kosong ketika dibuka kembali.
-  //
-  // Fungsinya tetap dipertahankan.
   useEffect(() => {
     if (isOpen) {
       setTanggal("");
@@ -186,8 +180,6 @@ export default function VehicleRepairModal({
   // ==========================================
   // TOTAL BIAYA
   // ==========================================
-  // Tidak perlu state + useEffect.
-  // Total selalu bisa dihitung langsung dari items.
   const totalBiaya = useMemo(() => {
     return items.reduce(
       (sum, item) =>
@@ -259,13 +251,26 @@ export default function VehicleRepairModal({
     // ==========================================
     if (
       !tanggal ||
-      !bengkel.trim() ||
       !kendaraanId ||
       !kategoriPengeluaran
     ) {
       Swal.fire(
         "Error",
         "Harap lengkapi semua field informasi pengajuan.",
+        "error"
+      );
+
+      return;
+    }
+
+    // Bengkel hanya wajib untuk kategori Pemeliharaan
+    if (
+      kategoriPengeluaran === "Pemeliharaan" &&
+      !bengkel.trim()
+    ) {
+      Swal.fire(
+        "Error",
+        "Bengkel rekanan wajib diisi untuk kategori Pemeliharaan.",
         "error"
       );
 
@@ -355,12 +360,6 @@ export default function VehicleRepairModal({
       // VALIDASI TAHUN ANGGARAN
       // ==========================================
 
-      // Format input date:
-      // YYYY-MM-DD
-      //
-      // Contoh:
-      // 2026-08-17
-
       const submitYear = Number(
         tanggal.split("-")[0]
       );
@@ -443,11 +442,16 @@ export default function VehicleRepairModal({
         .from("pemeliharaan")
         .insert([
           {
-            tanggal_pengajuan:
-              tanggal,
+            tanggal_pengajuan: tanggal,
 
+            // Bengkel hanya diisi untuk kategori Pemeliharaan.
+            // Untuk kategori lain gunakan string kosong agar
+            // tidak mengirim NULL ke kolom database.
             bengkel_rekanan:
-              bengkel.trim(),
+              kategoriPengeluaran ===
+              "Pemeliharaan"
+                ? bengkel.trim()
+                : "",
 
             inventaris_id:
               parseInt(kendaraanId, 10),
@@ -463,6 +467,24 @@ export default function VehicleRepairModal({
         .single();
 
       if (pemeliharaanError) {
+        console.error(
+          "Supabase insert pemeliharaan gagal:",
+          JSON.stringify(
+            {
+              message:
+                pemeliharaanError.message,
+              details:
+                pemeliharaanError.details,
+              hint:
+                pemeliharaanError.hint,
+              code:
+                pemeliharaanError.code,
+            },
+            null,
+            2
+          )
+        );
+
         throw pemeliharaanError;
       }
 
@@ -516,7 +538,7 @@ export default function VehicleRepairModal({
       });
 
       onClose();
-      router.refresh();
+      window.location.reload();
     } catch (error: unknown) {
       console.error(
         "Error submitting data:",
@@ -670,26 +692,60 @@ export default function VehicleRepairModal({
 
                 </div>
 
-                {/* BENGKEL */}
+                 {/* KATEGORI PENGELUARAN */}
                 <div>
 
                   <label className="block text-sm font-medium text-gray-700 mb-1">
-                    Bengkel Rekanan
+                    Kategori Pengeluaran
                   </label>
 
-                  <input
-                    type="text"
-                    value={bengkel}
-                    onChange={(e) =>
-                      setBengkel(
-                        e.target.value
-                      )
+                  <select
+                    value={
+                      kategoriPengeluaran
                     }
-                    placeholder="Contoh: Gede Jaya Motor"
-                    className="w-full px-3 py-2 border border-gray-300 rounded-md focus:outline-none focus:ring-2 focus:ring-blue-500 text-sm text-black font-medium placeholder:text-gray-400 placeholder:font-normal"
-                  />
+                    onChange={(e) => {
+                      const value =
+                        e.target.value;
+
+                      setKategoriPengeluaran(
+                        value
+                      );
+
+                      // Bengkel hanya digunakan
+                      // untuk kategori Pemeliharaan.
+                      if (
+                        value !==
+                        "Pemeliharaan"
+                      ) {
+                        setBengkel("");
+                      }
+                    }}
+                    className="w-full px-3 py-2 border border-gray-300 rounded-md focus:outline-none focus:ring-2 focus:ring-blue-500 text-sm text-black font-medium bg-white"
+                  >
+
+                    <option
+                      value=""
+                      className="text-gray-400"
+                    >
+                      Pilih kategori...
+                    </option>
+
+                    <option value="Bensin">
+                      Bensin
+                    </option>
+
+                    <option value="Pemeliharaan">
+                      Pemeliharaan
+                    </option>
+
+                    <option value="Lainnya">
+                      Lainnya
+                    </option>
+
+                  </select>
 
                 </div>
+
 
                 {/* KENDARAAN */}
                 <div
@@ -716,7 +772,9 @@ export default function VehicleRepairModal({
                   >
 
                     <span className="truncate">
-                      {displayVehicleName}
+                      {
+                        displayVehicleName
+                      }
                     </span>
 
                     <ChevronDown
@@ -744,7 +802,9 @@ export default function VehicleRepairModal({
                           type="text"
                           className="w-full text-sm focus:outline-none text-black font-medium placeholder:font-normal"
                           placeholder="Cari plat nomor atau nama..."
-                          value={searchVehicle}
+                          value={
+                            searchVehicle
+                          }
                           onChange={(e) =>
                             setSearchVehicle(
                               e.target.value
@@ -760,7 +820,9 @@ export default function VehicleRepairModal({
                         {filteredKendaraan.map(
                           (vehicle) => (
                             <li
-                              key={vehicle.id}
+                              key={
+                                vehicle.id
+                              }
                               className="px-3 py-2 text-sm cursor-pointer hover:bg-blue-50 text-gray-800 font-medium border-b border-gray-50 last:border-0"
                               onClick={() => {
                                 setKendaraanId(
@@ -809,47 +871,30 @@ export default function VehicleRepairModal({
 
                 </div>
 
-                {/* KATEGORI */}
-                <div>
+                {/* BENGKEL REKANAN
+                    HANYA MUNCUL JIKA PEMELIHARAAN */}
+                {kategoriPengeluaran ===
+                  "Pemeliharaan" && (
+                  <div>
 
-                  <label className="block text-sm font-medium text-gray-700 mb-1">
-                    Kategori Pengeluaran
-                  </label>
+                    <label className="block text-sm font-medium text-gray-700 mb-1">
+                      Bengkel Rekanan
+                    </label>
 
-                  <select
-                    value={
-                      kategoriPengeluaran
-                    }
-                    onChange={(e) =>
-                      setKategoriPengeluaran(
-                        e.target.value
-                      )
-                    }
-                    className="w-full px-3 py-2 border border-gray-300 rounded-md focus:outline-none focus:ring-2 focus:ring-blue-500 text-sm text-black font-medium bg-white"
-                  >
+                    <input
+                      type="text"
+                      value={bengkel}
+                      onChange={(e) =>
+                        setBengkel(
+                          e.target.value
+                        )
+                      }
+                      placeholder="Contoh: Gede Jaya Motor"
+                      className="w-full px-3 py-2 border border-gray-300 rounded-md focus:outline-none focus:ring-2 focus:ring-blue-500 text-sm text-black font-medium placeholder:text-gray-400 placeholder:font-normal"
+                    />
 
-                    <option
-                      value=""
-                      className="text-gray-400"
-                    >
-                      Pilih kategori...
-                    </option>
-
-                    <option value="Bensin">
-                      Bensin
-                    </option>
-
-                    <option value="Pemeliharaan">
-                      Pemeliharaan
-                    </option>
-
-                    <option value="Lainnya">
-                      Lainnya
-                    </option>
-
-                  </select>
-
-                </div>
+                  </div>
+                )}
 
               </div>
             </div>
@@ -938,7 +983,8 @@ export default function VehicleRepairModal({
                             type="number"
                             min="1"
                             value={
-                              item.banyaknya || ""
+                              item.banyaknya ||
+                              ""
                             }
                             onChange={(e) =>
                               updateItem(
@@ -1042,7 +1088,8 @@ export default function VehicleRepairModal({
                               type="number"
                               placeholder="0"
                               value={
-                                item.jumlah || ""
+                                item.jumlah ||
+                                ""
                               }
                               onChange={(e) =>
                                 updateItem(
@@ -1101,7 +1148,9 @@ export default function VehicleRepairModal({
                             className="text-red-500 hover:text-red-700 p-2 hover:bg-red-50 rounded-md transition-colors"
                             title="Hapus Item"
                           >
-                            <Trash2 size={18} />
+                            <Trash2
+                              size={18}
+                            />
                           </button>
                         ) : (
                           <div className="w-9"></div>

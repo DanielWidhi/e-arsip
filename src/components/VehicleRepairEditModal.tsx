@@ -1,6 +1,11 @@
 "use client";
 
-import React, { useEffect, useMemo, useRef, useState } from "react";
+import React, {
+  useEffect,
+  useMemo,
+  useRef,
+  useState,
+} from "react";
 import {
   X,
   Info,
@@ -64,54 +69,104 @@ export default function VehicleRepairEditModal({
   pemeliharaanId,
   onSaved,
 }: EditModalProps) {
-  const supabase = useMemo(() => createClient(), []);
+  const supabase = useMemo(
+    () => createClient(),
+    []
+  );
 
-  const [data, setData] = useState<PemeliharaanData | null>(null);
+  const [data, setData] =
+    useState<PemeliharaanData | null>(
+      null
+    );
 
   // ==========================================
   // STATE KENDARAAN
   // ==========================================
-  const [vehicles, setVehicles] = useState<Vehicle[]>([]);
-  const [isLoadingKendaraan, setIsLoadingKendaraan] = useState(false);
-  const [isVehicleDropdownOpen, setIsVehicleDropdownOpen] = useState(false);
-  const [searchVehicle, setSearchVehicle] = useState("");
-  const vehicleDropdownRef = useRef<HTMLDivElement>(null);
+  const [vehicles, setVehicles] =
+    useState<Vehicle[]>([]);
+
+  const [
+    isLoadingKendaraan,
+    setIsLoadingKendaraan,
+  ] = useState(false);
+
+  const [
+    isVehicleDropdownOpen,
+    setIsVehicleDropdownOpen,
+  ] = useState(false);
+
+  const [searchVehicle, setSearchVehicle] =
+    useState("");
+
+  const vehicleDropdownRef =
+    useRef<HTMLDivElement>(null);
 
   // ==========================================
   // STATE FORM HEADER
   // ==========================================
-  const [tanggalPengajuan, setTanggalPengajuan] = useState("");
-  const [bengkelRekanan, setBengkelRekanan] = useState("");
-  const [inventarisId, setInventarisId] = useState<number | "">("");
-  const [kategoriPengeluaran, setKategoriPengeluaran] = useState("");
+  const [
+    tanggalPengajuan,
+    setTanggalPengajuan,
+  ] = useState("");
+
+  const [
+    bengkelRekanan,
+    setBengkelRekanan,
+  ] = useState("");
+
+  const [
+    inventarisId,
+    setInventarisId,
+  ] = useState<number | "">("");
+
+  const [
+    kategoriPengeluaran,
+    setKategoriPengeluaran,
+  ] = useState("");
 
   // ==========================================
   // STATE DETAIL
   // ==========================================
-  const [details, setDetails] = useState<DetailItem[]>([]);
+  const [details, setDetails] =
+    useState<DetailItem[]>([]);
 
-  const [isLoading, setIsLoading] = useState(false);
-  const [isSaving, setIsSaving] = useState(false);
+  const [isLoading, setIsLoading] =
+    useState(false);
+
+  const [isSaving, setIsSaving] =
+    useState(false);
 
   // ==========================================
   // LOAD DATA PEMELIHARAAN
   // ==========================================
   useEffect(() => {
-    if (!isOpen || pemeliharaanId === null) {
+    if (
+      !isOpen ||
+      pemeliharaanId === null
+    ) {
       return;
     }
 
     const fetchData = async () => {
       setIsLoading(true);
+      setIsLoadingKendaraan(true);
 
       try {
         // ==========================================
         // AMBIL DATA KENDARAAN
         // ==========================================
-        const { data: vehicleData, error: vehicleError } = await supabase
+        const {
+          data: vehicleData,
+          error: vehicleError,
+        } = await supabase
           .from("inventaris_kib_b")
-          .select("id, nama_barang, merk_type, no_polisi")
-          .in("kategori", ["roda 2", "roda 4"]);
+          .select(
+            "id, nama_barang, merk_type, no_polisi"
+          )
+          .in("kategori", [
+            "roda 2",
+            "roda 4",
+          ]);
 
         if (vehicleError) {
           throw vehicleError;
@@ -122,7 +177,10 @@ export default function VehicleRepairEditModal({
         // ==========================================
         // AMBIL DATA PEMELIHARAAN
         // ==========================================
-        const { data: detailData, error: detailError } = await supabase
+        const {
+          data: detailData,
+          error: detailError,
+        } = await supabase
           .from("pemeliharaan")
           .select(`
             id,
@@ -148,14 +206,18 @@ export default function VehicleRepairEditModal({
               keterangan
             )
           `)
-          .eq("id", pemeliharaanId)
+          .eq(
+            "id",
+            pemeliharaanId
+          )
           .single();
 
         if (detailError) {
           throw detailError;
         }
 
-        const typedData = detailData as unknown as PemeliharaanData;
+        const typedData =
+          detailData as unknown as PemeliharaanData;
 
         setData(typedData);
 
@@ -164,51 +226,81 @@ export default function VehicleRepairEditModal({
         // ==========================================
         setTanggalPengajuan(
           typedData.tanggal_pengajuan
-            ? typedData.tanggal_pengajuan.slice(0, 10)
+            ? typedData.tanggal_pengajuan.slice(
+                0,
+                10
+              )
             : ""
         );
 
-        setBengkelRekanan(typedData.bengkel_rekanan || "");
+        setBengkelRekanan(
+          typedData.bengkel_rekanan ||
+            ""
+        );
 
         setInventarisId(
-          typedData.inventaris_id !== null
+          typedData.inventaris_id !==
+            null
             ? typedData.inventaris_id
             : ""
         );
 
         setKategoriPengeluaran(
-          typedData.kategori_pengeluaran || ""
+          typedData.kategori_pengeluaran ||
+            ""
         );
 
         // ==========================================
         // SET DETAIL
         // ==========================================
         setDetails(
-          (typedData.pemeliharaan_detail || []).map((item) => {
-            const banyaknya = Number(item.banyaknya) || 0;
-            const jumlah = Number(item.jumlah) || 0;
+          (
+            typedData.pemeliharaan_detail ||
+            []
+          ).map((item) => {
+            const banyaknya =
+              Number(item.banyaknya) ||
+              0;
+
+            const jumlah =
+              Number(item.jumlah) ||
+              0;
 
             const hargaUnit =
               banyaknya > 0
                 ? jumlah / banyaknya
-                : Number(item.harga_unit) || 0;
+                : Number(
+                    item.harga_unit
+                  ) || 0;
 
             return {
               ...item,
               banyaknya,
-              harga_unit: hargaUnit,
+              harga_unit:
+                hargaUnit,
               jumlah,
-              keterangan: item.keterangan || "",
-              nama_barang: item.nama_barang || "",
-              unit: item.unit || "PCS",
+              keterangan:
+                item.keterangan ||
+                "",
+              nama_barang:
+                item.nama_barang ||
+                "",
+              unit:
+                item.unit ||
+                "PCS",
             };
           })
         );
 
         setSearchVehicle("");
-        setIsVehicleDropdownOpen(false);
+        setIsVehicleDropdownOpen(
+          false
+        );
       } catch (error) {
-        console.error("Gagal mengambil data edit:", error);
+        console.error(
+          "Gagal mengambil data edit:",
+          error
+        );
 
         Swal.fire(
           "Error",
@@ -217,26 +309,42 @@ export default function VehicleRepairEditModal({
         );
       } finally {
         setIsLoading(false);
+        setIsLoadingKendaraan(
+          false
+        );
       }
     };
 
     fetchData();
-  }, [isOpen, pemeliharaanId, supabase]);
+  }, [
+    isOpen,
+    pemeliharaanId,
+    supabase,
+  ]);
 
   // ==========================================
   // MENUTUP DROPDOWN KENDARAAN SAAT KLIK LUAR
   // ==========================================
   useEffect(() => {
-    const handleClickOutside = (event: MouseEvent) => {
+    const handleClickOutside = (
+      event: MouseEvent
+    ) => {
       if (
         vehicleDropdownRef.current &&
-        !vehicleDropdownRef.current.contains(event.target as Node)
+        !vehicleDropdownRef.current.contains(
+          event.target as Node
+        )
       ) {
-        setIsVehicleDropdownOpen(false);
+        setIsVehicleDropdownOpen(
+          false
+        );
       }
     };
 
-    document.addEventListener("mousedown", handleClickOutside);
+    document.addEventListener(
+      "mousedown",
+      handleClickOutside
+    );
 
     return () => {
       document.removeEventListener(
@@ -249,54 +357,64 @@ export default function VehicleRepairEditModal({
   // ==========================================
   // TOTAL BIAYA
   // ==========================================
-  const totalBiaya = details.reduce(
-    (total, item) =>
-      total + (Number(item.jumlah) || 0),
-    0
-  );
+  const totalBiaya =
+    details.reduce(
+      (total, item) =>
+        total +
+        (Number(item.jumlah) || 0),
+      0
+    );
 
   // ==========================================
   // FILTER KENDARAAN
   // ==========================================
-  const filteredVehicles = vehicles.filter((vehicle) => {
-    const search = searchVehicle.toLowerCase();
+  const filteredVehicles =
+    vehicles.filter((vehicle) => {
+      const search =
+        searchVehicle.toLowerCase();
 
-    const namaBarang =
-      vehicle.nama_barang?.toLowerCase() || "";
+      const namaBarang =
+        vehicle.nama_barang?.toLowerCase() ||
+        "";
 
-    const noPolisi =
-      vehicle.no_polisi?.toLowerCase() || "";
+      const noPolisi =
+        vehicle.no_polisi?.toLowerCase() ||
+        "";
 
-    const merkType =
-      vehicle.merk_type?.toLowerCase() || "";
+      const merkType =
+        vehicle.merk_type?.toLowerCase() ||
+        "";
 
-    return (
-      namaBarang.includes(search) ||
-      noPolisi.includes(search) ||
-      merkType.includes(search)
-    );
-  });
+      return (
+        namaBarang.includes(search) ||
+        noPolisi.includes(search) ||
+        merkType.includes(search)
+      );
+    });
 
   // ==========================================
   // KENDARAAN TERPILIH
   // ==========================================
-  const selectedVehicleObj = vehicles.find(
-    (vehicle) =>
-      vehicle.id.toString() ===
-      String(inventarisId)
-  );
+  const selectedVehicleObj =
+    vehicles.find(
+      (vehicle) =>
+        vehicle.id.toString() ===
+        String(inventarisId)
+    );
 
-  const displayVehicleName = selectedVehicleObj
-    ? `[${selectedVehicleObj.no_polisi || "-"}] ${
-        selectedVehicleObj.nama_barang || "-"
-      } ${
-        selectedVehicleObj.merk_type
-          ? `- ${selectedVehicleObj.merk_type}`
-          : ""
-      }`
-    : isLoadingKendaraan
-      ? "Memuat data kendaraan..."
-      : "Pilih kendaraan...";
+  const displayVehicleName =
+    selectedVehicleObj
+      ? `[${selectedVehicleObj.no_polisi || "-"}] ${
+          selectedVehicleObj.nama_barang ||
+          "-"
+        } ${
+          selectedVehicleObj.merk_type
+            ? `- ${selectedVehicleObj.merk_type}`
+            : ""
+        }`
+      : isLoadingKendaraan
+        ? "Memuat data kendaraan..."
+        : "Pilih kendaraan...";
 
   // ==========================================
   // UPDATE DETAIL
@@ -307,64 +425,85 @@ export default function VehicleRepairEditModal({
     value: string
   ) => {
     setDetails((prev) =>
-      prev.map((item, itemIndex) => {
-        if (itemIndex !== index) {
-          return item;
-        }
+      prev.map(
+        (item, itemIndex) => {
+          if (
+            itemIndex !== index
+          ) {
+            return item;
+          }
 
-        // ==========================================
-        // BANYAKNYA BERUBAH
-        // ==========================================
-        if (field === "banyaknya") {
-          const banyaknya = Number(value) || 0;
-          const jumlah = Number(item.jumlah) || 0;
+          // ==========================================
+          // BANYAKNYA BERUBAH
+          // ==========================================
+          if (
+            field === "banyaknya"
+          ) {
+            const banyaknya =
+              Number(value) || 0;
 
-          const hargaUnit =
-            banyaknya > 0
-              ? jumlah / banyaknya
-              : 0;
+            const jumlah =
+              Number(item.jumlah) ||
+              0;
 
+            const hargaUnit =
+              banyaknya > 0
+                ? jumlah / banyaknya
+                : 0;
+
+            return {
+              ...item,
+              banyaknya,
+              harga_unit:
+                hargaUnit,
+            };
+          }
+
+          // ==========================================
+          // JUMLAH BERUBAH
+          // ==========================================
+          if (
+            field === "jumlah"
+          ) {
+            const jumlah =
+              Number(value) || 0;
+
+            const banyaknya =
+              Number(
+                item.banyaknya
+              ) || 0;
+
+            const hargaUnit =
+              banyaknya > 0
+                ? jumlah / banyaknya
+                : 0;
+
+            return {
+              ...item,
+              jumlah,
+              harga_unit:
+                hargaUnit,
+            };
+          }
+
+          // ==========================================
+          // FIELD LAIN
+          // ==========================================
           return {
             ...item,
-            banyaknya,
-            harga_unit: hargaUnit,
+            [field]: value,
           };
         }
-
-        // ==========================================
-        // JUMLAH BERUBAH
-        // ==========================================
-        if (field === "jumlah") {
-          const jumlah = Number(value) || 0;
-          const banyaknya = Number(item.banyaknya) || 0;
-
-          const hargaUnit =
-            banyaknya > 0
-              ? jumlah / banyaknya
-              : 0;
-
-          return {
-            ...item,
-            jumlah,
-            harga_unit: hargaUnit,
-          };
-        }
-
-        // ==========================================
-        // FIELD LAIN
-        // ==========================================
-        return {
-          ...item,
-          [field]: value,
-        };
-      })
+      )
     );
   };
 
   // ==========================================
   // HAPUS DETAIL
   // ==========================================
-  const handleRemoveDetail = (index: number) => {
+  const handleRemoveDetail = (
+    index: number
+  ) => {
     if (details.length <= 1) {
       return;
     }
@@ -397,15 +536,6 @@ export default function VehicleRepairEditModal({
       return;
     }
 
-    if (!bengkelRekanan.trim()) {
-      Swal.fire(
-        "Data belum lengkap",
-        "Bengkel rekanan wajib diisi.",
-        "warning"
-      );
-      return;
-    }
-
     if (inventarisId === "") {
       Swal.fire(
         "Data belum lengkap",
@@ -425,6 +555,22 @@ export default function VehicleRepairEditModal({
     }
 
     // ==========================================
+    // BENGKEL HANYA WAJIB UNTUK PEMELIHARAAN
+    // ==========================================
+    if (
+      kategoriPengeluaran ===
+        "Pemeliharaan" &&
+      !bengkelRekanan.trim()
+    ) {
+      Swal.fire(
+        "Data belum lengkap",
+        "Bengkel rekanan wajib diisi untuk kategori Pemeliharaan.",
+        "warning"
+      );
+      return;
+    }
+
+    // ==========================================
     // VALIDASI DETAIL
     // ==========================================
     if (details.length === 0) {
@@ -436,13 +582,21 @@ export default function VehicleRepairEditModal({
       return;
     }
 
-    for (let i = 0; i < details.length; i++) {
+    for (
+      let i = 0;
+      i < details.length;
+      i++
+    ) {
       const item = details[i];
 
-      if (!item.nama_barang.trim()) {
+      if (
+        !item.nama_barang.trim()
+      ) {
         Swal.fire(
           "Data belum lengkap",
-          `Nama Barang / Jasa pada baris ${i + 1} wajib diisi.`,
+          `Nama Barang / Jasa pada baris ${
+            i + 1
+          } wajib diisi.`,
           "warning"
         );
         return;
@@ -450,11 +604,14 @@ export default function VehicleRepairEditModal({
 
       if (
         !item.banyaknya ||
-        Number(item.banyaknya) <= 0
+        Number(item.banyaknya) <=
+          0
       ) {
         Swal.fire(
           "Data belum lengkap",
-          `Banyaknya pada baris ${i + 1} wajib lebih dari 0.`,
+          `Banyaknya pada baris ${
+            i + 1
+          } wajib lebih dari 0.`,
           "warning"
         );
         return;
@@ -463,7 +620,9 @@ export default function VehicleRepairEditModal({
       if (!item.unit.trim()) {
         Swal.fire(
           "Data belum lengkap",
-          `Unit pada baris ${i + 1} wajib dipilih.`,
+          `Unit pada baris ${
+            i + 1
+          } wajib dipilih.`,
           "warning"
         );
         return;
@@ -471,12 +630,16 @@ export default function VehicleRepairEditModal({
 
       if (
         item.jumlah === null ||
-        item.jumlah === undefined ||
-        Number(item.jumlah) <= 0
+        item.jumlah ===
+          undefined ||
+        Number(item.jumlah) <=
+          0
       ) {
         Swal.fire(
           "Data belum lengkap",
-          `Jumlah Biaya pada baris ${i + 1} wajib diisi.`,
+          `Jumlah Biaya pada baris ${
+            i + 1
+          } wajib diisi.`,
           "warning"
         );
         return;
@@ -486,11 +649,17 @@ export default function VehicleRepairEditModal({
     // ==========================================
     // VALIDASI TAHUN ANGGARAN
     // ==========================================
-    const submitYear = Number(
-      tanggalPengajuan.split("-")[0]
-    );
+    const submitYear =
+      Number(
+        tanggalPengajuan.split(
+          "-"
+        )[0]
+      );
 
-    if (!submitYear || submitYear < 1900) {
+    if (
+      !submitYear ||
+      submitYear < 1900
+    ) {
       Swal.fire(
         "Tanggal Tidak Valid",
         "Tanggal pengajuan tidak valid.",
@@ -528,7 +697,8 @@ export default function VehicleRepairEditModal({
       // ==========================================
       if (!checkPagu) {
         await Swal.fire({
-          title: "Tahun Anggaran Belum Ada!",
+          title:
+            "Tahun Anggaran Belum Ada!",
           html: `
             <div style="text-align: left;">
               <p style="margin-bottom: 10px;">
@@ -549,8 +719,10 @@ export default function VehicleRepairEditModal({
             </div>
           `,
           icon: "warning",
-          confirmButtonColor: "#3b82f6",
-          confirmButtonText: "Mengerti",
+          confirmButtonColor:
+            "#3b82f6",
+          confirmButtonText:
+            "Mengerti",
         });
 
         setIsSaving(false);
@@ -561,7 +733,8 @@ export default function VehicleRepairEditModal({
       // 1. UPDATE DATA PEMELIHARAAN
       // ==========================================
       const {
-        error: updateHeaderError,
+        error:
+          updateHeaderError,
       } = await supabase
         .from("pemeliharaan")
         .update({
@@ -569,7 +742,10 @@ export default function VehicleRepairEditModal({
             tanggalPengajuan,
 
           bengkel_rekanan:
-            bengkelRekanan.trim(),
+            kategoriPengeluaran ===
+            "Pemeliharaan"
+              ? bengkelRekanan.trim()
+              : "",
 
           inventaris_id:
             Number(inventarisId),
@@ -580,9 +756,14 @@ export default function VehicleRepairEditModal({
           kategori_pengeluaran:
             kategoriPengeluaran,
         })
-        .eq("id", pemeliharaanId);
+        .eq(
+          "id",
+          pemeliharaanId
+        );
 
-      if (updateHeaderError) {
+      if (
+        updateHeaderError
+      ) {
         throw updateHeaderError;
       }
 
@@ -591,34 +772,51 @@ export default function VehicleRepairEditModal({
       // ==========================================
       const originalIds =
         data?.pemeliharaan_detail
-          ?.map((item) => item.id)
+          ?.map(
+            (item) =>
+              item.id
+          )
           .filter(
             (
               id
             ): id is number =>
-              typeof id === "number"
+              typeof id ===
+              "number"
           ) || [];
 
-      const currentIds = details
-        .map((item) => item.id)
-        .filter(
-          (
-            id
-          ): id is number =>
-            typeof id === "number"
-        );
+      const currentIds =
+        details
+          .map(
+            (item) =>
+              item.id
+          )
+          .filter(
+            (
+              id
+            ): id is number =>
+              typeof id ===
+              "number"
+          );
 
       const deletedIds =
         originalIds.filter(
           (id) =>
-            !currentIds.includes(id)
+            !currentIds.includes(
+              id
+            )
         );
 
-      if (deletedIds.length > 0) {
+      if (
+        deletedIds.length >
+        0
+      ) {
         const {
-          error: deleteError,
+          error:
+            deleteError,
         } = await supabase
-          .from("pemeliharaan_detail")
+          .from(
+            "pemeliharaan_detail"
+          )
           .delete()
           .in(
             "id",
@@ -634,64 +832,81 @@ export default function VehicleRepairEditModal({
       // 3. UPDATE / INSERT DETAIL
       // ==========================================
       const detailPayload =
-        details.map((item) => {
-          const banyaknya =
-            Number(item.banyaknya) || 0;
+        details.map(
+          (item) => {
+            const banyaknya =
+              Number(
+                item.banyaknya
+              ) || 0;
 
-          const jumlah =
-            Number(item.jumlah) || 0;
+            const jumlah =
+              Number(
+                item.jumlah
+              ) || 0;
 
-          const hargaUnit =
-            banyaknya > 0
-              ? jumlah / banyaknya
-              : 0;
+            const hargaUnit =
+              banyaknya > 0
+                ? jumlah /
+                  banyaknya
+                : 0;
 
-          const payload: {
-            id?: number;
-            pemeliharaan_id: number;
-            nama_barang: string;
-            banyaknya: number;
-            unit: string;
-            harga_unit: number;
-            jumlah: number;
-            keterangan: string | null;
-          } = {
-            pemeliharaan_id:
-              pemeliharaanId,
+            const payload: {
+              id?: number;
+              pemeliharaan_id: number;
+              nama_barang: string;
+              banyaknya: number;
+              unit: string;
+              harga_unit: number;
+              jumlah: number;
+              keterangan:
+                | string
+                | null;
+            } = {
+              pemeliharaan_id:
+                pemeliharaanId,
 
-            nama_barang:
-              item.nama_barang.trim(),
+              nama_barang:
+                item.nama_barang.trim(),
 
-            banyaknya,
+              banyaknya,
 
-            unit:
-              item.unit.trim(),
+              unit:
+                item.unit.trim(),
 
-            harga_unit:
-              hargaUnit,
+              harga_unit:
+                hargaUnit,
 
-            jumlah,
+              jumlah,
 
-            keterangan:
-              item.keterangan.trim() ||
-              null,
-          };
+              keterangan:
+                item.keterangan.trim() ||
+                null,
+            };
 
-          if (item.id !== undefined) {
-            payload.id = item.id;
+            if (
+              item.id !==
+              undefined
+            ) {
+              payload.id =
+                item.id;
+            }
+
+            return payload;
           }
-
-          return payload;
-        });
+        );
 
       const {
-        error: detailError,
+        error:
+          detailError,
       } = await supabase
-        .from("pemeliharaan_detail")
+        .from(
+          "pemeliharaan_detail"
+        )
         .upsert(
           detailPayload,
           {
-            onConflict: "id",
+            onConflict:
+              "id",
           }
         );
 
@@ -706,30 +921,42 @@ export default function VehicleRepairEditModal({
         vehicles.find(
           (vehicle) =>
             vehicle.id ===
-            Number(inventarisId)
+            Number(
+              inventarisId
+            )
         ) || null;
 
-      const savedData: SavedData = {
-        id: pemeliharaanId,
+      const savedData: SavedData =
+        {
+          id:
+            pemeliharaanId,
 
-        tanggal_pengajuan:
-          tanggalPengajuan,
+          tanggal_pengajuan:
+            tanggalPengajuan,
 
-        bengkel_rekanan:
-          bengkelRekanan.trim(),
+          bengkel_rekanan:
+            kategoriPengeluaran ===
+            "Pemeliharaan"
+              ? bengkelRekanan.trim()
+              : "",
 
-        total_biaya:
-          totalBiaya,
+          total_biaya:
+            totalBiaya,
 
-        kategori_pengeluaran:
-          kategoriPengeluaran,
+          kategori_pengeluaran:
+            kategoriPengeluaran,
 
-        inventaris_kib_b:
-          selectedVehicle,
-      };
+          inventaris_kib_b:
+            selectedVehicle,
+        };
 
-      onSaved?.(savedData);
+      onSaved?.(
+        savedData
+      );
 
+      // ==========================================
+      // BERHASIL
+      // ==========================================
       await Swal.fire({
         title: "Berhasil!",
         text: "Data pemeliharaan berhasil diperbarui.",
@@ -739,6 +966,9 @@ export default function VehicleRepairEditModal({
       });
 
       onClose();
+
+      // Refresh halaman setelah edit berhasil
+      window.location.reload();
     } catch (error) {
       console.error(
         "Gagal memperbarui data:",
@@ -784,6 +1014,7 @@ export default function VehicleRepairEditModal({
           </div>
 
           <button
+            type="button"
             onClick={onClose}
             disabled={isSaving}
             className="p-2 text-gray-400 hover:text-gray-600 hover:bg-gray-100 rounded-full transition disabled:opacity-50"
@@ -802,7 +1033,9 @@ export default function VehicleRepairEditModal({
 
               <div className="w-8 h-8 border-4 border-blue-500 border-t-transparent rounded-full animate-spin mb-3"></div>
 
-              <p>Memuat data...</p>
+              <p>
+                Memuat data...
+              </p>
 
             </div>
           ) : (
@@ -824,6 +1057,64 @@ export default function VehicleRepairEditModal({
 
                 <div className="grid grid-cols-1 md:grid-cols-2 gap-4 relative">
 
+                  {/* KATEGORI */}
+
+                  <div>
+
+                    <label className="block text-sm font-medium text-gray-700 mb-1">
+                      Kategori Pengeluaran
+                    </label>
+
+                    <select
+                      value={
+                        kategoriPengeluaran
+                      }
+                      onChange={(e) => {
+                        const value =
+                          e.target.value;
+
+                        setKategoriPengeluaran(
+                          value
+                        );
+
+                        // Bengkel hanya untuk
+                        // kategori Pemeliharaan
+                        if (
+                          value !==
+                          "Pemeliharaan"
+                        ) {
+                          setBengkelRekanan(
+                            ""
+                          );
+                        }
+                      }}
+                      disabled={isSaving}
+                      className="w-full px-3 py-2 border border-gray-300 rounded-md focus:outline-none focus:ring-2 focus:ring-blue-500 text-sm text-black font-medium bg-white"
+                    >
+
+                      <option
+                        value=""
+                        className="text-gray-400"
+                      >
+                        Pilih kategori...
+                      </option>
+
+                      <option value="Bensin">
+                        Bensin
+                      </option>
+
+                      <option value="Pemeliharaan">
+                        Pemeliharaan
+                      </option>
+
+                      <option value="Lainnya">
+                        Lainnya
+                      </option>
+
+                    </select>
+
+                  </div>
+
                   {/* TANGGAL */}
 
                   <div>
@@ -834,7 +1125,9 @@ export default function VehicleRepairEditModal({
 
                     <input
                       type="date"
-                      value={tanggalPengajuan}
+                      value={
+                        tanggalPengajuan
+                      }
                       onChange={(e) =>
                         setTanggalPengajuan(
                           e.target.value
@@ -846,33 +1139,12 @@ export default function VehicleRepairEditModal({
 
                   </div>
 
-                  {/* BENGKEL */}
-
-                  <div>
-
-                    <label className="block text-sm font-medium text-gray-700 mb-1">
-                      Bengkel Rekanan
-                    </label>
-
-                    <input
-                      type="text"
-                      value={bengkelRekanan}
-                      onChange={(e) =>
-                        setBengkelRekanan(
-                          e.target.value
-                        )
-                      }
-                      placeholder="Contoh: Gede Jaya Motor"
-                      disabled={isSaving}
-                      className="w-full px-3 py-2 border border-gray-300 rounded-md focus:outline-none focus:ring-2 focus:ring-blue-500 text-sm text-black font-medium placeholder:text-gray-400 placeholder:font-normal"
-                    />
-
-                  </div>
-
                   {/* KENDARAAN */}
 
                   <div
-                    ref={vehicleDropdownRef}
+                    ref={
+                      vehicleDropdownRef
+                    }
                     className="relative"
                   >
 
@@ -886,11 +1158,9 @@ export default function VehicleRepairEditModal({
                         if (
                           !isLoadingKendaraan
                         ) {
-
                           setIsVehicleDropdownOpen(
                             !isVehicleDropdownOpen
                           );
-
                         }
 
                       }}
@@ -902,7 +1172,9 @@ export default function VehicleRepairEditModal({
                     >
 
                       <span className="truncate">
-                        {displayVehicleName}
+                        {
+                          displayVehicleName
+                        }
                       </span>
 
                       <ChevronDown
@@ -931,7 +1203,9 @@ export default function VehicleRepairEditModal({
                             type="text"
                             className="w-full text-sm focus:outline-none text-black font-medium placeholder:font-normal"
                             placeholder="Cari plat nomor atau nama..."
-                            value={searchVehicle}
+                            value={
+                              searchVehicle
+                            }
                             onChange={(e) =>
                               setSearchVehicle(
                                 e.target.value
@@ -979,9 +1253,7 @@ export default function VehicleRepairEditModal({
                                 {
                                   vehicle.nama_barang ||
                                   "-"
-                                }
-
-                                {" "}
+                                }{" "}
 
                                 {
                                   vehicle.merk_type
@@ -1011,50 +1283,36 @@ export default function VehicleRepairEditModal({
 
                   </div>
 
-                  {/* KATEGORI */}
+                  {/* BENGKEL REKANAN */}
+                  {/* HANYA MUNCUL UNTUK PEMELIHARAAN */}
 
-                  <div>
+                  {kategoriPengeluaran ===
+                    "Pemeliharaan" && (
 
-                    <label className="block text-sm font-medium text-gray-700 mb-1">
-                      Kategori Pengeluaran
-                    </label>
+                    <div>
 
-                    <select
-                      value={
-                        kategoriPengeluaran
-                      }
-                      onChange={(e) =>
-                        setKategoriPengeluaran(
-                          e.target.value
-                        )
-                      }
-                      disabled={isSaving}
-                      className="w-full px-3 py-2 border border-gray-300 rounded-md focus:outline-none focus:ring-2 focus:ring-blue-500 text-sm text-black font-medium bg-white"
-                    >
+                      <label className="block text-sm font-medium text-gray-700 mb-1">
+                        Bengkel Rekanan
+                      </label>
 
-                      <option
-                        value=""
-                        className="text-gray-400"
-                      >
-                        Pilih kategori...
-                      </option>
+                      <input
+                        type="text"
+                        value={
+                          bengkelRekanan
+                        }
+                        onChange={(e) =>
+                          setBengkelRekanan(
+                            e.target.value
+                          )
+                        }
+                        placeholder="Contoh: Gede Jaya Motor"
+                        disabled={isSaving}
+                        className="w-full px-3 py-2 border border-gray-300 rounded-md focus:outline-none focus:ring-2 focus:ring-blue-500 text-sm text-black font-medium placeholder:text-gray-400 placeholder:font-normal"
+                      />
 
-                      <option value="Bensin">
-                        Bensin
-                      </option>
+                    </div>
 
-                      <option value="Pemeliharaan">
-                        Pemeliharaan
-                      </option>
-
-
-                      <option value="Lainnya">
-                        Lainnya
-                      </option>
-
-                    </select>
-
-                  </div>
+                  )}
 
                 </div>
 
@@ -1080,7 +1338,8 @@ export default function VehicleRepairEditModal({
 
                 <div className="p-5 space-y-4">
 
-                  {details.length > 0 ? (
+                  {details.length >
+                  0 ? (
 
                     details.map(
                       (
@@ -1089,14 +1348,15 @@ export default function VehicleRepairEditModal({
                       ) => {
 
                         const hargaUnit =
-                          item.jumlah > 0 &&
-                          item.banyaknya > 0
+                          item.jumlah >
+                            0 &&
+                          item.banyaknya >
+                            0
                             ? item.jumlah /
                               item.banyaknya
                             : 0;
 
                         return (
-
                           <div
                             key={
                               item.id ??
@@ -1125,7 +1385,8 @@ export default function VehicleRepairEditModal({
                                     handleDetailChange(
                                       index,
                                       "nama_barang",
-                                      e.target.value
+                                      e.target
+                                        .value
                                     )
                                   }
                                   disabled={
@@ -1155,7 +1416,8 @@ export default function VehicleRepairEditModal({
                                     handleDetailChange(
                                       index,
                                       "banyaknya",
-                                      e.target.value
+                                      e.target
+                                        .value
                                     )
                                   }
                                   disabled={
@@ -1182,7 +1444,8 @@ export default function VehicleRepairEditModal({
                                     handleDetailChange(
                                       index,
                                       "unit",
-                                      e.target.value
+                                      e.target
+                                        .value
                                     )
                                   }
                                   disabled={
@@ -1232,11 +1495,9 @@ export default function VehicleRepairEditModal({
                                   <input
                                     type="text"
                                     disabled
-                                    value={
-                                      hargaUnit.toLocaleString(
-                                        "id-ID"
-                                      )
-                                    }
+                                    value={hargaUnit.toLocaleString(
+                                      "id-ID"
+                                    )}
                                     className="w-full pl-8 pr-3 py-2 border border-gray-200 bg-gray-100 rounded-md text-sm font-semibold text-black"
                                   />
 
@@ -1269,7 +1530,8 @@ export default function VehicleRepairEditModal({
                                       handleDetailChange(
                                         index,
                                         "jumlah",
-                                        e.target.value
+                                        e.target
+                                          .value
                                       )
                                     }
                                     disabled={
@@ -1300,7 +1562,8 @@ export default function VehicleRepairEditModal({
                                     handleDetailChange(
                                       index,
                                       "keterangan",
-                                      e.target.value
+                                      e.target
+                                        .value
                                     )
                                   }
                                   disabled={
@@ -1317,7 +1580,8 @@ export default function VehicleRepairEditModal({
 
                             <div className="w-10 pt-6 flex justify-end shrink-0">
 
-                              {details.length > 1 ? (
+                              {details.length >
+                              1 ? (
 
                                 <button
                                   type="button"
