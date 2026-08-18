@@ -1,6 +1,11 @@
 "use client";
 
-import React, { useState, useEffect, useRef } from 'react';
+import React, {
+  useState,
+  useEffect,
+  useRef,
+  useMemo,
+} from "react";
 import {
   X,
   Info,
@@ -8,11 +13,11 @@ import {
   Plus,
   Trash2,
   ChevronDown,
-  Search
-} from 'lucide-react';
-import Swal from 'sweetalert2';
+  Search,
+} from "lucide-react";
+import Swal from "sweetalert2";
 import { createClient } from "@/lib/supabase";
-import { useRouter } from 'next/navigation';
+import { useRouter } from "next/navigation";
 
 interface ItemDetail {
   id: number;
@@ -23,6 +28,13 @@ interface ItemDetail {
   keterangan: string;
 }
 
+interface Vehicle {
+  id: number;
+  nama_barang: string | null;
+  merk_type: string | null;
+  no_polisi: string | null;
+}
+
 interface ModalProps {
   isOpen: boolean;
   onClose: () => void;
@@ -30,55 +42,72 @@ interface ModalProps {
 
 export default function VehicleRepairModal({
   isOpen,
-  onClose
+  onClose,
 }: ModalProps) {
-  const supabase = createClient();
+  // Gunakan instance Supabase yang stabil
+  // agar tidak dibuat ulang setiap render.
+  const supabase = useMemo(() => createClient(), []);
   const router = useRouter();
 
   // ==========================================
   // STATE INFORMASI PENGAJUAN
   // ==========================================
-  const [tanggal, setTanggal] = useState('');
-  const [bengkel, setBengkel] = useState('');
-  const [kendaraanId, setKendaraanId] = useState('');
-  const [kategoriPengeluaran, setKategoriPengeluaran] = useState('');
+  const [tanggal, setTanggal] = useState("");
+  const [bengkel, setBengkel] = useState("");
+  const [kendaraanId, setKendaraanId] = useState("");
+  const [kategoriPengeluaran, setKategoriPengeluaran] =
+    useState("");
 
   // ==========================================
   // STATE KENDARAAN
   // ==========================================
-  const [kendaraanList, setKendaraanList] = useState<any[]>([]);
-  const [isLoadingKendaraan, setIsLoadingKendaraan] = useState(false);
-  const [isVehicleDropdownOpen, setIsVehicleDropdownOpen] = useState(false);
-  const [searchVehicle, setSearchVehicle] = useState('');
-  const vehicleDropdownRef = useRef<HTMLDivElement>(null);
+  const [kendaraanList, setKendaraanList] = useState<
+    Vehicle[]
+  >([]);
+  const [isLoadingKendaraan, setIsLoadingKendaraan] =
+    useState(false);
+  const [
+    isVehicleDropdownOpen,
+    setIsVehicleDropdownOpen,
+  ] = useState(false);
+  const [searchVehicle, setSearchVehicle] =
+    useState("");
+  const vehicleDropdownRef =
+    useRef<HTMLDivElement>(null);
 
   // ==========================================
   // STATE DETAIL PEMELIHARAAN
   // ==========================================
   const [items, setItems] = useState<ItemDetail[]>([]);
-  const [totalBiaya, setTotalBiaya] = useState(0);
-  const [isSubmitting, setIsSubmitting] = useState(false);
+  const [isSubmitting, setIsSubmitting] =
+    useState(false);
 
   // ==========================================
   // RESET FORM SAAT MODAL DIBUKA
   // ==========================================
+  // Rule React Hooks baru menganggap setState
+  // sinkron di effect sebagai warning/error.
+  // Namun reset ini memang diperlukan karena modal
+  // harus selalu kosong ketika dibuka kembali.
+  //
+  // Fungsinya tetap dipertahankan.
   useEffect(() => {
     if (isOpen) {
-      setTanggal('');
-      setBengkel('');
-      setKendaraanId('');
-      setKategoriPengeluaran('');
-      setSearchVehicle('');
+      setTanggal("");
+      setBengkel("");
+      setKendaraanId("");
+      setKategoriPengeluaran("");
+      setSearchVehicle("");
 
       setItems([
         {
           id: Date.now(),
-          namaBarang: '',
+          namaBarang: "",
           banyaknya: 1,
-          unit: 'PCS',
+          unit: "PCS",
           jumlah: 0,
-          keterangan: ''
-        }
+          keterangan: "",
+        },
       ]);
 
       setIsVehicleDropdownOpen(false);
@@ -89,42 +118,48 @@ export default function VehicleRepairModal({
   // FETCH DATA KENDARAAN
   // ==========================================
   useEffect(() => {
-    if (isOpen) {
-      const fetchKendaraan = async () => {
-        setIsLoadingKendaraan(true);
-
-        try {
-          const { data, error } = await supabase
-            .from('inventaris_kib_b')
-            .select('id, nama_barang, merk_type, no_polisi')
-            .in('kategori', ['roda 2', 'roda 4']);
-
-          if (error) {
-            throw error;
-          }
-
-          if (data) {
-            setKendaraanList(data);
-          }
-        } catch (error) {
-          console.error(
-            "Gagal mengambil data kendaraan:",
-            error
-          );
-        } finally {
-          setIsLoadingKendaraan(false);
-        }
-      };
-
-      fetchKendaraan();
+    if (!isOpen) {
+      return;
     }
+
+    const fetchKendaraan = async () => {
+      setIsLoadingKendaraan(true);
+
+      try {
+        const { data, error } = await supabase
+          .from("inventaris_kib_b")
+          .select(
+            "id, nama_barang, merk_type, no_polisi"
+          )
+          .in("kategori", ["roda 2", "roda 4"]);
+
+        if (error) {
+          throw error;
+        }
+
+        if (data) {
+          setKendaraanList(data as Vehicle[]);
+        }
+      } catch (error) {
+        console.error(
+          "Gagal mengambil data kendaraan:",
+          error
+        );
+      } finally {
+        setIsLoadingKendaraan(false);
+      }
+    };
+
+    fetchKendaraan();
   }, [isOpen, supabase]);
 
   // ==========================================
   // MENUTUP DROPDOWN SAAT KLIK DI LUAR
   // ==========================================
   useEffect(() => {
-    const handleClickOutside = (event: MouseEvent) => {
+    const handleClickOutside = (
+      event: MouseEvent
+    ) => {
       if (
         vehicleDropdownRef.current &&
         !vehicleDropdownRef.current.contains(
@@ -140,40 +175,42 @@ export default function VehicleRepairModal({
       handleClickOutside
     );
 
-    return () =>
+    return () => {
       document.removeEventListener(
         "mousedown",
         handleClickOutside
       );
+    };
   }, []);
 
   // ==========================================
-  // HITUNG TOTAL BIAYA
+  // TOTAL BIAYA
   // ==========================================
-  useEffect(() => {
-    const total = items.reduce(
+  // Tidak perlu state + useEffect.
+  // Total selalu bisa dihitung langsung dari items.
+  const totalBiaya = useMemo(() => {
+    return items.reduce(
       (sum, item) =>
         sum + (Number(item.jumlah) || 0),
       0
     );
-
-    setTotalBiaya(total);
   }, [items]);
 
   // ==========================================
   // TAMBAH ITEM
   // ==========================================
   const addItem = () => {
-    const newItem = {
+    const newItem: ItemDetail = {
       id: Date.now(),
-      namaBarang: '',
+      namaBarang: "",
       banyaknya: 1,
-      unit: 'PCS',
+      unit: "PCS",
       jumlah: 0,
-      keterangan: ''
+      keterangan: "",
     };
 
-    setItems([newItem, ...items]);
+    // Item baru muncul paling atas
+    setItems((prev) => [newItem, ...prev]);
   };
 
   // ==========================================
@@ -181,9 +218,9 @@ export default function VehicleRepairModal({
   // ==========================================
   const removeItem = (id: number) => {
     if (items.length > 1) {
-      setItems(
-        items.filter(
-          item => item.id !== id
+      setItems((prev) =>
+        prev.filter(
+          (item) => item.id !== id
         )
       );
     }
@@ -195,14 +232,14 @@ export default function VehicleRepairModal({
   const updateItem = (
     id: number,
     field: keyof ItemDetail,
-    value: any
+    value: string | number
   ) => {
-    setItems(
-      items.map(item =>
+    setItems((prev) =>
+      prev.map((item) =>
         item.id === id
           ? {
               ...item,
-              [field]: value
+              [field]: value,
             }
           : item
       )
@@ -222,14 +259,14 @@ export default function VehicleRepairModal({
     // ==========================================
     if (
       !tanggal ||
-      !bengkel ||
+      !bengkel.trim() ||
       !kendaraanId ||
       !kategoriPengeluaran
     ) {
       Swal.fire(
-        'Error',
-        'Harap lengkapi semua field informasi pengajuan.',
-        'error'
+        "Error",
+        "Harap lengkapi semua field informasi pengajuan.",
+        "error"
       );
 
       return;
@@ -240,9 +277,9 @@ export default function VehicleRepairModal({
     // ==========================================
     if (items.length === 0) {
       Swal.fire(
-        'Error',
-        'Minimal harus ada satu detail pemeliharaan.',
-        'error'
+        "Error",
+        "Minimal harus ada satu detail pemeliharaan.",
+        "error"
       );
 
       return;
@@ -257,9 +294,11 @@ export default function VehicleRepairModal({
 
       if (!item.namaBarang.trim()) {
         Swal.fire(
-          'Error',
-          `Nama Barang / Jasa pada baris ${i + 1} wajib diisi.`,
-          'error'
+          "Error",
+          `Nama Barang / Jasa pada baris ${
+            i + 1
+          } wajib diisi.`,
+          "error"
         );
 
         return;
@@ -270,9 +309,11 @@ export default function VehicleRepairModal({
         Number(item.banyaknya) <= 0
       ) {
         Swal.fire(
-          'Error',
-          `Banyaknya pada baris ${i + 1} wajib lebih dari 0.`,
-          'error'
+          "Error",
+          `Banyaknya pada baris ${
+            i + 1
+          } wajib lebih dari 0.`,
+          "error"
         );
 
         return;
@@ -280,9 +321,11 @@ export default function VehicleRepairModal({
 
       if (!item.unit) {
         Swal.fire(
-          'Error',
-          `Unit pada baris ${i + 1} wajib dipilih.`,
-          'error'
+          "Error",
+          `Unit pada baris ${
+            i + 1
+          } wajib dipilih.`,
+          "error"
         );
 
         return;
@@ -294,9 +337,11 @@ export default function VehicleRepairModal({
         Number(item.jumlah) <= 0
       ) {
         Swal.fire(
-          'Error',
-          `Jumlah Biaya pada baris ${i + 1} wajib diisi.`,
-          'error'
+          "Error",
+          `Jumlah Biaya pada baris ${
+            i + 1
+          } wajib diisi.`,
+          "error"
         );
 
         return;
@@ -310,26 +355,24 @@ export default function VehicleRepairModal({
       // VALIDASI TAHUN ANGGARAN
       // ==========================================
 
-      // Nilai input date berbentuk:
+      // Format input date:
       // YYYY-MM-DD
       //
       // Contoh:
       // 2026-08-17
-      //
-      // Ambil 4 digit pertama sebagai tahun.
+
       const submitYear = Number(
-        tanggal.split('-')[0]
+        tanggal.split("-")[0]
       );
 
-      // Pastikan tahun valid
       if (
         !submitYear ||
         submitYear < 1900
       ) {
         Swal.fire(
-          'Error',
-          'Tanggal pengajuan tidak valid.',
-          'error'
+          "Error",
+          "Tanggal pengajuan tidak valid.",
+          "error"
         );
 
         setIsSubmitting(false);
@@ -337,18 +380,17 @@ export default function VehicleRepairModal({
       }
 
       // ==========================================
-      // CEK APAKAH TAHUN SUDAH ADA DI PAGU
+      // CEK TAHUN DI TABEL PAGU
       // ==========================================
       const {
         data: checkPagu,
-        error: paguErr
+        error: paguErr,
       } = await supabase
-        .from('pagu')
-        .select('tahun')
-        .eq('tahun', submitYear)
+        .from("pagu")
+        .select("tahun")
+        .eq("tahun", submitYear)
         .maybeSingle();
 
-      // Jika query Supabase mengalami error
       if (paguErr) {
         console.error(
           "Error cek tahun PAGU:",
@@ -359,15 +401,17 @@ export default function VehicleRepairModal({
       }
 
       // ==========================================
-      // TAHUN TIDAK ADA DI FILTER TAHUN
+      // TAHUN BELUM ADA
       // ==========================================
       if (!checkPagu) {
-        Swal.fire({
-          title: 'Tahun Anggaran Belum Ada!',
+        await Swal.fire({
+          title:
+            "Tahun Anggaran Belum Ada!",
           html: `
             <div style="text-align: left;">
               <p style="margin-bottom: 10px;">
-                Tahun pengajuan <b>${submitYear}</b>
+                Tahun pengajuan
+                <b>${submitYear}</b>
                 belum tersedia pada daftar Tahun Anggaran.
               </p>
 
@@ -380,9 +424,9 @@ export default function VehicleRepairModal({
               </p>
             </div>
           `,
-          icon: 'warning',
-          confirmButtonColor: '#3b82f6',
-          confirmButtonText: 'Mengerti'
+          icon: "warning",
+          confirmButtonColor: "#3b82f6",
+          confirmButtonText: "Mengerti",
         });
 
         setIsSubmitting(false);
@@ -390,26 +434,30 @@ export default function VehicleRepairModal({
       }
 
       // ==========================================
-      // JIKA TAHUN ADA, LANJUT INSERT
-      // ==========================================
-
-      // ==========================================
       // INSERT KE TABEL PEMELIHARAAN
       // ==========================================
       const {
         data: pemeliharaan,
-        error: pemeliharaanError
+        error: pemeliharaanError,
       } = await supabase
-        .from('pemeliharaan')
+        .from("pemeliharaan")
         .insert([
           {
-            tanggal_pengajuan: tanggal,
-            bengkel_rekanan: bengkel,
-            inventaris_id: parseInt(kendaraanId),
+            tanggal_pengajuan:
+              tanggal,
+
+            bengkel_rekanan:
+              bengkel.trim(),
+
+            inventaris_id:
+              parseInt(kendaraanId, 10),
+
             kategori_pengeluaran:
               kategoriPengeluaran,
-            total_biaya: totalBiaya
-          }
+
+            total_biaya:
+              totalBiaya,
+          },
         ])
         .select()
         .single();
@@ -421,13 +469,13 @@ export default function VehicleRepairModal({
       // ==========================================
       // INSERT DETAIL PEMELIHARAAN
       // ==========================================
-      const detailItems = items.map(
-        item => ({
+      const detailItems =
+        items.map((item) => ({
           pemeliharaan_id:
             pemeliharaan.id,
 
           nama_barang:
-            item.namaBarang,
+            item.namaBarang.trim(),
 
           banyaknya:
             Number(item.banyaknya),
@@ -443,14 +491,14 @@ export default function VehicleRepairModal({
             Number(item.jumlah),
 
           keterangan:
-            item.keterangan
-        })
-      );
+            item.keterangan.trim() ||
+            null,
+        }));
 
       const {
-        error: detailError
+        error: detailError,
       } = await supabase
-        .from('pemeliharaan_detail')
+        .from("pemeliharaan_detail")
         .insert(detailItems);
 
       if (detailError) {
@@ -461,32 +509,31 @@ export default function VehicleRepairModal({
       // BERHASIL
       // ==========================================
       await Swal.fire({
-        title: 'Berhasil!',
+        title: "Berhasil!",
         text: `Pengajuan pemeliharaan kendaraan untuk tahun ${submitYear} berhasil disimpan.`,
-        icon: 'success',
-        confirmButtonColor: '#3b82f6'
+        icon: "success",
+        confirmButtonColor: "#3b82f6",
       });
 
       onClose();
-
       router.refresh();
-
-    } catch (error: any) {
+    } catch (error: unknown) {
       console.error(
-        'Error submitting data:',
+        "Error submitting data:",
         error
       );
 
-      Swal.fire(
-        'Error',
-        'Gagal menyimpan pengajuan: ' +
-          (
-            error?.message ||
-            'Unknown error'
-          ),
-        'error'
-      );
+      const errorMessage =
+        error instanceof Error
+          ? error.message
+          : "Unknown error";
 
+      Swal.fire(
+        "Error",
+        "Gagal menyimpan pengajuan: " +
+          errorMessage,
+        "error"
+      );
     } finally {
       setIsSubmitting(false);
     }
@@ -496,12 +543,14 @@ export default function VehicleRepairModal({
   // FILTER KENDARAAN
   // ==========================================
   const filteredKendaraan =
-    kendaraanList.filter(k => {
+    kendaraanList.filter((vehicle) => {
       const namaBarang =
-        k.nama_barang?.toLowerCase() || '';
+        vehicle.nama_barang
+          ?.toLowerCase() || "";
 
       const noPolisi =
-        k.no_polisi?.toLowerCase() || '';
+        vehicle.no_polisi
+          ?.toLowerCase() || "";
 
       const search =
         searchVehicle.toLowerCase();
@@ -517,21 +566,24 @@ export default function VehicleRepairModal({
   // ==========================================
   const selectedVehicleObj =
     kendaraanList.find(
-      k =>
-        k.id.toString() ===
+      (vehicle) =>
+        vehicle.id.toString() ===
         kendaraanId
     );
 
   const displayVehicleName =
     selectedVehicleObj
-      ? `[${selectedVehicleObj.no_polisi}] ${selectedVehicleObj.nama_barang} ${
+      ? `[${selectedVehicleObj.no_polisi || "-"}] ${
+          selectedVehicleObj.nama_barang ||
+          "-"
+        } ${
           selectedVehicleObj.merk_type
             ? `- ${selectedVehicleObj.merk_type}`
-            : ''
+            : ""
         }`
       : isLoadingKendaraan
-        ? 'Memuat data kendaraan...'
-        : 'Pilih kendaraan...';
+        ? "Memuat data kendaraan..."
+        : "Pilih kendaraan...";
 
   if (!isOpen) {
     return null;
@@ -559,6 +611,7 @@ export default function VehicleRepairModal({
           </div>
 
           <button
+            type="button"
             onClick={onClose}
             className="p-2 text-gray-400 hover:text-gray-600 hover:bg-gray-100 rounded-full transition"
           >
@@ -588,6 +641,7 @@ export default function VehicleRepairModal({
 
               <div className="flex items-center gap-2 mb-4 text-blue-600 font-semibold">
                 <Info size={18} />
+
                 <h3>
                   INFORMASI PENGAJUAN
                 </h3>
@@ -656,8 +710,8 @@ export default function VehicleRepairModal({
                     }
                     className={`w-full px-3 py-2 border border-gray-300 rounded-md text-sm font-medium flex justify-between items-center ${
                       isLoadingKendaraan
-                        ? 'bg-gray-100 cursor-not-allowed text-gray-400'
-                        : 'bg-white cursor-pointer text-black'
+                        ? "bg-gray-100 cursor-not-allowed text-gray-400"
+                        : "bg-white cursor-pointer text-black"
                     }`}
                   >
 
@@ -669,8 +723,8 @@ export default function VehicleRepairModal({
                       size={16}
                       className={`text-gray-400 transition-transform ${
                         isVehicleDropdownOpen
-                          ? 'rotate-180'
-                          : ''
+                          ? "rotate-180"
+                          : ""
                       }`}
                     />
 
@@ -704,13 +758,13 @@ export default function VehicleRepairModal({
                       <ul className="max-h-48 overflow-y-auto custom-scrollbar">
 
                         {filteredKendaraan.map(
-                          k => (
+                          (vehicle) => (
                             <li
-                              key={k.id}
+                              key={vehicle.id}
                               className="px-3 py-2 text-sm cursor-pointer hover:bg-blue-50 text-gray-800 font-medium border-b border-gray-50 last:border-0"
                               onClick={() => {
                                 setKendaraanId(
-                                  k.id.toString()
+                                  vehicle.id.toString()
                                 );
 
                                 setIsVehicleDropdownOpen(
@@ -718,17 +772,25 @@ export default function VehicleRepairModal({
                                 );
 
                                 setSearchVehicle(
-                                  ''
+                                  ""
                                 );
                               }}
                             >
                               [
-                              {k.no_polisi}
+                              {
+                                vehicle.no_polisi ||
+                                "-"
+                              }
                               ]{" "}
-                              {k.nama_barang}{" "}
-                              {k.merk_type
-                                ? `- ${k.merk_type}`
-                                : ''}
+                              {
+                                vehicle.nama_barang ||
+                                "-"
+                              }{" "}
+                              {
+                                vehicle.merk_type
+                                  ? `- ${vehicle.merk_type}`
+                                  : ""
+                              }
                             </li>
                           )
                         )}
@@ -823,245 +885,240 @@ export default function VehicleRepairModal({
 
               <div className="p-5 space-y-4">
 
-                {items.map(
-                  (item) => {
+                {items.map((item) => {
 
-                    const hargaUnit =
-                      item.jumlah > 0 &&
-                      item.banyaknya > 0
-                        ? item.jumlah /
-                          item.banyaknya
-                        : 0;
+                  const hargaUnit =
+                    item.jumlah > 0 &&
+                    item.banyaknya > 0
+                      ? item.jumlah /
+                        item.banyaknya
+                      : 0;
 
-                    return (
-                      <div
-                        key={item.id}
-                        className="flex gap-2 items-start border-b pb-4 last:border-0 group animate-in fade-in slide-in-from-top-4 duration-300"
-                      >
+                  return (
+                    <div
+                      key={item.id}
+                      className="flex gap-2 items-start border-b pb-4 last:border-0 group animate-in fade-in slide-in-from-top-4 duration-300"
+                    >
 
-                        <div className="grid grid-cols-12 gap-3 flex-1">
+                      <div className="grid grid-cols-12 gap-3 flex-1">
 
-                          {/* NAMA BARANG */}
-                          <div className="col-span-12 md:col-span-3">
+                        {/* NAMA BARANG */}
+                        <div className="col-span-12 md:col-span-3">
 
-                            <label className="block text-xs font-medium text-gray-500 mb-1">
-                              Nama Barang / Jasa
-                            </label>
+                          <label className="block text-xs font-medium text-gray-500 mb-1">
+                            Nama Barang / Jasa
+                          </label>
+
+                          <input
+                            type="text"
+                            placeholder="Contoh: Aki Kering"
+                            value={
+                              item.namaBarang
+                            }
+                            onChange={(e) =>
+                              updateItem(
+                                item.id,
+                                "namaBarang",
+                                e.target.value
+                              )
+                            }
+                            className="w-full px-3 py-2 border border-gray-300 rounded-md text-sm text-black font-medium placeholder:text-gray-400 placeholder:font-normal"
+                          />
+
+                        </div>
+
+                        {/* BANYAKNYA */}
+                        <div className="col-span-4 md:col-span-1">
+
+                          <label className="block text-xs font-medium text-gray-500 mb-1">
+                            Banyaknya
+                          </label>
+
+                          <input
+                            type="number"
+                            min="1"
+                            value={
+                              item.banyaknya || ""
+                            }
+                            onChange={(e) =>
+                              updateItem(
+                                item.id,
+                                "banyaknya",
+                                Number(
+                                  e.target.value
+                                )
+                              )
+                            }
+                            className="w-full px-3 py-2 border border-gray-300 rounded-md text-sm text-black font-medium [appearance:textfield] [&::-webkit-outer-spin-button]:appearance-none [&::-webkit-inner-spin-button]:appearance-none"
+                          />
+
+                        </div>
+
+                        {/* UNIT */}
+                        <div className="col-span-4 md:col-span-1">
+
+                          <label className="block text-xs font-medium text-gray-500 mb-1">
+                            Unit
+                          </label>
+
+                          <select
+                            value={
+                              item.unit
+                            }
+                            onChange={(e) =>
+                              updateItem(
+                                item.id,
+                                "unit",
+                                e.target.value
+                              )
+                            }
+                            className="w-full px-3 py-2 border border-gray-300 rounded-md text-sm text-black font-medium bg-white"
+                          >
+
+                            <option value="PCS">
+                              PCS
+                            </option>
+
+                            <option value="Buah">
+                              Buah
+                            </option>
+
+                            <option value="Set">
+                              Set
+                            </option>
+
+                            <option value="Liter">
+                              Liter
+                            </option>
+
+                            <option value="Jasa">
+                              Jasa
+                            </option>
+
+                          </select>
+
+                        </div>
+
+                        {/* HARGA UNIT */}
+                        <div className="col-span-4 md:col-span-2">
+
+                          <label className="block text-xs font-medium text-gray-500 mb-1">
+                            Harga / Unit
+                          </label>
+
+                          <div className="relative">
+
+                            <span className="absolute left-3 top-2 text-gray-600 text-sm font-medium">
+                              Rp
+                            </span>
 
                             <input
                               type="text"
-                              placeholder="Contoh: Aki Kering"
-                              value={
-                                item.namaBarang
-                              }
-                              onChange={(e) =>
-                                updateItem(
-                                  item.id,
-                                  'namaBarang',
-                                  e.target.value
-                                )
-                              }
-                              className="w-full px-3 py-2 border border-gray-300 rounded-md text-sm text-black font-medium placeholder:text-gray-400 placeholder:font-normal"
+                              disabled
+                              value={hargaUnit.toLocaleString(
+                                "id-ID"
+                              )}
+                              className="w-full pl-8 pr-3 py-2 border border-gray-200 bg-gray-100 rounded-md text-sm font-semibold text-black"
                             />
 
                           </div>
 
-                          {/* BANYAKNYA */}
-                          <div className="col-span-4 md:col-span-1">
+                        </div>
 
-                            <label className="block text-xs font-medium text-gray-500 mb-1">
-                              Banyaknya
-                            </label>
+                        {/* JUMLAH BIAYA */}
+                        <div className="col-span-12 md:col-span-2">
+
+                          <label className="block text-xs font-medium text-gray-500 mb-1">
+                            Jumlah Biaya
+                          </label>
+
+                          <div className="relative">
+
+                            <span className="absolute left-3 top-2 text-gray-600 text-sm font-medium">
+                              Rp
+                            </span>
 
                             <input
                               type="number"
-                              min="1"
+                              placeholder="0"
                               value={
-                                item.banyaknya || ''
+                                item.jumlah || ""
                               }
                               onChange={(e) =>
                                 updateItem(
                                   item.id,
-                                  'banyaknya',
+                                  "jumlah",
                                   Number(
                                     e.target.value
                                   )
                                 )
                               }
-                              className="w-full px-3 py-2 border border-gray-300 rounded-md text-sm text-black font-medium [appearance:textfield] [&::-webkit-outer-spin-button]:appearance-none [&::-webkit-inner-spin-button]:appearance-none"
-                            />
-
-                          </div>
-
-                          {/* UNIT */}
-                          <div className="col-span-4 md:col-span-1">
-
-                            <label className="block text-xs font-medium text-gray-500 mb-1">
-                              Unit
-                            </label>
-
-                            <select
-                              value={
-                                item.unit
-                              }
-                              onChange={(e) =>
-                                updateItem(
-                                  item.id,
-                                  'unit',
-                                  e.target.value
-                                )
-                              }
-                              className="w-full px-3 py-2 border border-gray-300 rounded-md text-sm text-black font-medium bg-white"
-                            >
-
-                              <option value="PCS">
-                                PCS
-                              </option>
-
-                              <option value="Buah">
-                                Buah
-                              </option>
-
-                              <option value="Set">
-                                Set
-                              </option>
-
-                              <option value="Liter">
-                                Liter
-                              </option>
-
-                              <option value="Jasa">
-                                Jasa
-                              </option>
-
-                            </select>
-
-                          </div>
-
-                          {/* HARGA UNIT */}
-                          <div className="col-span-4 md:col-span-2">
-
-                            <label className="block text-xs font-medium text-gray-500 mb-1">
-                              Harga / Unit
-                            </label>
-
-                            <div className="relative">
-
-                              <span className="absolute left-3 top-2 text-gray-600 text-sm font-medium">
-                                Rp
-                              </span>
-
-                              <input
-                                type="text"
-                                disabled
-                                value={
-                                  hargaUnit.toLocaleString(
-                                    'id-ID'
-                                  )
-                                }
-                                className="w-full pl-8 pr-3 py-2 border border-gray-200 bg-gray-100 rounded-md text-sm font-semibold text-black"
-                              />
-
-                            </div>
-
-                          </div>
-
-                          {/* JUMLAH BIAYA */}
-                          <div className="col-span-12 md:col-span-2">
-
-                            <label className="block text-xs font-medium text-gray-500 mb-1">
-                              Jumlah Biaya
-                            </label>
-
-                            <div className="relative">
-
-                              <span className="absolute left-3 top-2 text-gray-600 text-sm font-medium">
-                                Rp
-                              </span>
-
-                              <input
-                                type="number"
-                                placeholder="0"
-                                value={
-                                  item.jumlah || ''
-                                }
-                                onChange={(e) =>
-                                  updateItem(
-                                    item.id,
-                                    'jumlah',
-                                    Number(
-                                      e.target.value
-                                    )
-                                  )
-                                }
-                                className="w-full pl-8 pr-3 py-2 border border-gray-300 rounded-md text-sm text-black font-medium placeholder:text-gray-400 placeholder:font-normal focus:ring-2 focus:ring-blue-500 [appearance:textfield] [&::-webkit-outer-spin-button]:appearance-none [&::-webkit-inner-spin-button]:appearance-none"
-                              />
-
-                            </div>
-
-                          </div>
-
-                          {/* KETERANGAN */}
-                          <div className="col-span-12 md:col-span-3">
-
-                            <label className="block text-xs font-medium text-gray-500 mb-1">
-                              Keterangan
-                            </label>
-
-                            <input
-                              type="text"
-                              placeholder="Catatan..."
-                              value={
-                                item.keterangan
-                              }
-                              onChange={(e) =>
-                                updateItem(
-                                  item.id,
-                                  'keterangan',
-                                  e.target.value
-                                )
-                              }
-                              className="w-full px-3 py-2 border border-gray-300 rounded-md text-sm text-black font-medium placeholder:text-gray-400 placeholder:font-normal"
+                              className="w-full pl-8 pr-3 py-2 border border-gray-300 rounded-md text-sm text-black font-medium placeholder:text-gray-400 placeholder:font-normal focus:ring-2 focus:ring-blue-500 [appearance:textfield] [&::-webkit-outer-spin-button]:appearance-none [&::-webkit-inner-spin-button]:appearance-none"
                             />
 
                           </div>
 
                         </div>
 
-                        {/* HAPUS ITEM */}
-                        <div className="w-10 pt-6 flex justify-end shrink-0">
+                        {/* KETERANGAN */}
+                        <div className="col-span-12 md:col-span-3">
 
-                          {items.length > 1 ? (
-                            <button
-                              type="button"
-                              onClick={() =>
-                                removeItem(
-                                  item.id
-                                )
-                              }
-                              className="text-red-500 hover:text-red-700 p-2 hover:bg-red-50 rounded-md transition-colors"
-                              title="Hapus Item"
-                            >
-                              <Trash2
-                                size={18}
-                              />
-                            </button>
-                          ) : (
-                            <div className="w-9"></div>
-                          )}
+                          <label className="block text-xs font-medium text-gray-500 mb-1">
+                            Keterangan
+                          </label>
+
+                          <input
+                            type="text"
+                            placeholder="Catatan..."
+                            value={
+                              item.keterangan
+                            }
+                            onChange={(e) =>
+                              updateItem(
+                                item.id,
+                                "keterangan",
+                                e.target.value
+                              )
+                            }
+                            className="w-full px-3 py-2 border border-gray-300 rounded-md text-sm text-black font-medium placeholder:text-gray-400 placeholder:font-normal"
+                          />
 
                         </div>
 
                       </div>
-                    );
-                  }
-                )}
+
+                      {/* HAPUS ITEM */}
+                      <div className="w-10 pt-6 flex justify-end shrink-0">
+
+                        {items.length > 1 ? (
+                          <button
+                            type="button"
+                            onClick={() =>
+                              removeItem(
+                                item.id
+                              )
+                            }
+                            className="text-red-500 hover:text-red-700 p-2 hover:bg-red-50 rounded-md transition-colors"
+                            title="Hapus Item"
+                          >
+                            <Trash2 size={18} />
+                          </button>
+                        ) : (
+                          <div className="w-9"></div>
+                        )}
+
+                      </div>
+
+                    </div>
+                  );
+                })}
 
               </div>
 
             </div>
 
           </form>
+
         </div>
 
         {/* ========================================== */}
@@ -1079,7 +1136,7 @@ export default function VehicleRepairModal({
             <div className="text-xl font-bold text-blue-700">
               Rp{" "}
               {totalBiaya.toLocaleString(
-                'id-ID'
+                "id-ID"
               )}
             </div>
 
@@ -1104,8 +1161,8 @@ export default function VehicleRepairModal({
               <Wrench size={16} />
 
               {isSubmitting
-                ? 'Menyimpan...'
-                : 'Ajukan Pemeliharaan'}
+                ? "Menyimpan..."
+                : "Ajukan Pemeliharaan"}
             </button>
 
           </div>
@@ -1113,6 +1170,7 @@ export default function VehicleRepairModal({
         </div>
 
       </div>
+
     </div>
   );
 }

@@ -155,7 +155,7 @@ export default function VehicleRepairEditModal({
           throw detailError;
         }
 
-        const typedData = detailData as PemeliharaanData;
+        const typedData = detailData as unknown as PemeliharaanData;
 
         setData(typedData);
 
