@@ -1,10 +1,10 @@
 "use client";
 
 import { useState, useEffect } from "react";
-import { Package, CheckCircle, Wrench, Wallet, Calendar, Loader2, BarChart3 } from "lucide-react";
+import { Package, CheckCircle, Wrench, Wallet, Calendar, Loader2, BarChart3, DollarSign, Activity, TrendingDown, TrendingUp, CreditCard } from "lucide-react";
 import { createClient } from "@/lib/supabase";
 import Link from "next/link";
-import { useRouter } from "next/navigation"; // Import useRouter
+import { useRouter } from "next/navigation"; 
 
 import AssetDetailModal, { AssetType } from "@/components/AssetDetailModal";
 import AssetEditModal from "@/components/AssetEditModal";
@@ -42,14 +42,23 @@ type ChartData = {
 };
 
 export default function AdminDashboardPage() {
-  const router = useRouter(); // Gunakan router untuk navigasi
+  const router = useRouter(); 
   const [currentDate, setCurrentDate] = useState("");
   const [isLoading, setIsLoading] = useState(true);
   const [userName, setUserName] = useState("Admin");
 
+  // State Statistik Inventaris
   const [stats, setStats] = useState({ totalAset: 0, kondisiBaik: 0, perluPemeliharaan: 0, totalNilai: 0 });
   const [actionItems, setActionItems] = useState<AssetItem[]>([]);
   const [chartData, setChartData] = useState<ChartData[]>([]);
+
+  // State Statistik PAGU Kendaraan
+  const [paguStats, setPaguStats] = useState({
+    totalTahunan: 0,
+    sisaTahunan: 0,
+    sisaBulanIni: 0,
+    realisasiBulanIni: 0, // <-- Tambahan State
+  });
 
   const [isDetailModalOpen, setIsDetailModalOpen] = useState(false);
   const [isEditModalOpen, setIsEditModalOpen] = useState(false);
@@ -57,6 +66,13 @@ export default function AdminDashboardPage() {
   const [assetToEdit, setAssetToEdit] = useState<AssetItem | null>(null);
 
   const supabase = createClient();
+
+  // =========================================================
+  // HELPER WAKTU SAAT INI (DINAMIS MENGIKUTI KALENDER)
+  // =========================================================
+  const currentYear = new Date().getFullYear();
+  const currentMonthNum = new Date().getMonth() + 1;
+  const currentMonthName = new Date().toLocaleString('id-ID', { month: 'long' });
 
   const fetchUserProfile = async () => {
     const {
@@ -70,6 +86,8 @@ export default function AdminDashboardPage() {
 
   const fetchDashboardData = async () => {
     setIsLoading(true);
+    
+    // 1. FETCH DATA INVENTARIS KIB B
     const { data, error } = await supabase.from("inventaris_kib_b").select("*, kir:master_kir(nama_ruangan), asal_usul:master_asal_usul(nama_asal)").order("id", { ascending: false });
 
     if (!error && data) {
@@ -133,6 +151,58 @@ export default function AdminDashboardPage() {
 
       setChartData(dynamicChartData);
     }
+
+    // 2. FETCH DATA PAGU KENDARAAN TAHUN BERJALAN
+    try {
+      // Ambil PAGU tahun saat ini (dinamis)
+      const { data: paguData } = await supabase
+        .from('pagu')
+        .select('nominal_tahunan')
+        .eq('tahun', currentYear)
+        .single();
+        
+      const paguTahunan = paguData ? Number(paguData.nominal_tahunan) : 0;
+      const paguBulanan = Math.round(paguTahunan / 12);
+
+      // Ambil Pemeliharaan Tahun Ini (dinamis)
+      const startOfYear = `${currentYear}-01-01`;
+      const endOfYear = `${currentYear}-12-31`;
+
+      const { data: pemeliharaanData } = await supabase
+        .from('pemeliharaan')
+        .select('tanggal_pengajuan, total_biaya')
+        .gte('tanggal_pengajuan', startOfYear)
+        .lte('tanggal_pengajuan', endOfYear);
+
+      let realisasiTahunan = 0;
+      let realisasiBulanIni = 0;
+
+      if (pemeliharaanData) {
+        pemeliharaanData.forEach(p => {
+          const biaya = Number(p.total_biaya) || 0;
+          realisasiTahunan += biaya;
+
+          // Cek bulan berjalan (dinamis)
+          if (p.tanggal_pengajuan) {
+            const monthStr = p.tanggal_pengajuan.split('-')[1]; 
+            if (parseInt(monthStr, 10) === currentMonthNum) {
+              realisasiBulanIni += biaya;
+            }
+          }
+        });
+      }
+
+      setPaguStats({
+        totalTahunan: paguTahunan,
+        sisaTahunan: paguTahunan - realisasiTahunan,
+        sisaBulanIni: paguBulanan - realisasiBulanIni,
+        realisasiBulanIni: realisasiBulanIni, // <-- Data ini dilempar ke UI
+      });
+
+    } catch (err) {
+      console.error("Gagal mengambil data PAGU:", err);
+    }
+
     setIsLoading(false);
   };
 
@@ -163,8 +233,16 @@ export default function AdminDashboardPage() {
     setIsEditModalOpen(true);
   };
 
+  // Fungsi navigasi klik kartu PAGU
+  const handlePaguClick = () => {
+    router.push('/admin/pemeliharaan/kendaraan');
+  };
+
+  // Hitung Jatah Bulanan untuk ditampilkan di card
+  const alokasiJatahBulanan = Math.round(paguStats.totalTahunan / 12);
+
   return (
-    <div className="max-w-7xl mx-auto space-y-6 overflow-hidden">
+    <div className="max-w-7xl mx-auto space-y-6 overflow-hidden pb-10">
       {/* WELCOME SECTION */}
       <div className="flex flex-col md:flex-row md:items-end justify-between gap-4 bg-white p-6 md:p-8 rounded-2xl border border-slate-200 shadow-sm">
         <div>
@@ -179,7 +257,7 @@ export default function AdminDashboardPage() {
         </div>
       </div>
 
-      {/* STATISTIK KARTU */}
+      {/* STATISTIK KARTU INVENTARIS */}
       <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-6">
         <div className="bg-white p-6 rounded-2xl border border-slate-200 shadow-sm hover:shadow-md transition-shadow">
           <div className="flex justify-between items-start mb-4">
@@ -224,7 +302,99 @@ export default function AdminDashboardPage() {
         </div>
       </div>
 
-      {/* GRID KONTEN BAWAH */}
+      {/* ========================================================
+          RINGKASAN PAGU KENDARAAN (4 KOLOM, DINAMIS)
+          ======================================================== */}
+      <div>
+        <h3 className="text-lg font-bold text-slate-900 mb-4">Ringkasan Anggaran Kendaraan (PAGU) {currentYear}</h3>
+        
+        <div className="grid grid-cols-1 md:grid-cols-2 xl:grid-cols-4 gap-4">
+          
+          {/* Card 1: PAGU Tahunan */}
+          <div 
+            onClick={handlePaguClick}
+            className="bg-white p-5 rounded-xl border border-slate-200 shadow-sm hover:shadow-md hover:border-blue-300 cursor-pointer transition-all flex flex-col justify-between group"
+          >
+            <div className="flex items-center justify-between pb-2">
+              <h3 className="tracking-tight text-sm font-medium text-slate-500 group-hover:text-blue-600 transition-colors">Total PAGU Tahunan</h3>
+              <DollarSign className="h-4 w-4 text-slate-400 group-hover:text-blue-500 transition-colors" />
+            </div>
+            <div>
+              <div className="text-2xl font-bold text-slate-800">
+                {isLoading ? <Loader2 size={20} className="animate-spin text-slate-300" /> : `Rp ${paguStats.totalTahunan.toLocaleString('id-ID')}`}
+              </div>
+              <p className="text-xs text-slate-400 mt-1">Anggaran pemeliharaan tahun {currentYear}</p>
+            </div>
+          </div>
+
+          {/* Card 2: Sisa PAGU Tahunan */}
+          <div 
+            onClick={handlePaguClick}
+            className="bg-white p-5 rounded-xl border border-slate-200 shadow-sm hover:shadow-md hover:border-blue-300 cursor-pointer transition-all flex flex-col justify-between group"
+          >
+            <div className="flex items-center justify-between pb-2">
+              <h3 className="tracking-tight text-sm font-medium text-slate-500 group-hover:text-blue-600 transition-colors">Sisa PAGU Tahunan</h3>
+              <Wallet className="h-4 w-4 text-slate-400 group-hover:text-blue-500 transition-colors" />
+            </div>
+            <div>
+              <div className={`text-2xl font-bold ${paguStats.sisaTahunan < 0 ? 'text-red-600' : 'text-slate-800'}`}>
+                {isLoading ? <Loader2 size={20} className="animate-spin text-slate-300" /> : paguStats.sisaTahunan < 0 ? `- Rp ${Math.abs(paguStats.sisaTahunan).toLocaleString('id-ID')}` : `Rp ${paguStats.sisaTahunan.toLocaleString('id-ID')}`}
+              </div>
+              <p className="text-xs text-slate-400 mt-1">Sisa anggaran untuk tahun {currentYear}</p>
+            </div>
+          </div>
+
+          {/* Card 3: Alokasi Jatah Bulanan */}
+          <div 
+            onClick={handlePaguClick}
+            className="bg-white p-5 rounded-xl border border-slate-200 shadow-sm hover:shadow-md hover:border-blue-300 cursor-pointer transition-all flex flex-col justify-between group"
+          >
+            <div className="flex items-center justify-between pb-2">
+              <h3 className="tracking-tight text-sm font-medium text-slate-500 group-hover:text-blue-600 transition-colors">Alokasi Jatah Bulanan</h3>
+              <CreditCard className="h-4 w-4 text-slate-400 group-hover:text-blue-500 transition-colors" />
+            </div>
+            <div>
+              <div className="text-2xl font-bold text-slate-800">
+                {isLoading ? <Loader2 size={20} className="animate-spin text-slate-300" /> : `Rp ${alokasiJatahBulanan.toLocaleString('id-ID')}`}
+              </div>
+              <p className="text-xs text-slate-400 mt-1">Sistem bagi rata 12 bulan</p>
+            </div>
+          </div>
+
+          {/* CARD 4: REVISI STATUS BULAN BERJALAN SESUAI PERMINTAAN */}
+          <div 
+            onClick={handlePaguClick}
+            className={`p-5 rounded-xl border shadow-sm hover:shadow-md cursor-pointer transition-all flex flex-col justify-between group ${isLoading ? 'bg-white border-slate-200' : paguStats.sisaBulanIni < 0 ? 'bg-red-50 border-red-200 hover:border-red-300' : 'bg-emerald-50 border-emerald-200 hover:border-emerald-300'}`}
+          >
+            <div className="flex items-center justify-between pb-2">
+              <h3 className={`tracking-tight text-sm font-medium transition-colors ${isLoading ? 'text-slate-500' : paguStats.sisaBulanIni < 0 ? 'text-red-600 group-hover:text-red-700' : 'text-emerald-700 group-hover:text-emerald-800'}`}>
+                Status Bulan {currentMonthName} {currentYear}
+              </h3>
+              <Activity className={`h-4 w-4 transition-colors ${isLoading ? 'text-slate-400' : paguStats.sisaBulanIni < 0 ? 'text-red-400 group-hover:text-red-500' : 'text-emerald-400 group-hover:text-emerald-500'}`} />
+            </div>
+            
+            <div>
+              <div className={`text-2xl font-bold ${isLoading ? 'text-slate-800' : paguStats.sisaBulanIni < 0 ? 'text-red-700' : 'text-emerald-800'}`}>
+                {isLoading ? <Loader2 size={20} className="animate-spin text-slate-300" /> : `Rp ${paguStats.realisasiBulanIni.toLocaleString('id-ID')}`}
+              </div>
+              
+              {!isLoading && (
+                <div className={`flex items-center gap-1.5 mt-1 text-xs font-bold uppercase tracking-wide ${paguStats.sisaBulanIni < 0 ? 'text-red-600' : 'text-emerald-600'}`}>
+                  {paguStats.sisaBulanIni < 0 ? <TrendingDown size={14} /> : <TrendingUp size={14} />}
+                  {paguStats.sisaBulanIni < 0 
+                    ? `Kekurangan Rp ${Math.abs(paguStats.sisaBulanIni).toLocaleString('id-ID')}`
+                    : `Sisa Rp ${paguStats.sisaBulanIni.toLocaleString('id-ID')}`}
+                </div>
+              )}
+            </div>
+          </div>
+
+        </div>
+      </div>
+      {/* ======================================================== */}
+
+
+      {/* GRID KONTEN BAWAH (Chart & Action Items) */}
       <div className="grid grid-cols-1 lg:grid-cols-3 gap-6">
         {/* GRAFIK ASET DINAMIS BERDASARKAN TAHUN */}
         <div className="lg:col-span-2 bg-white p-6 md:p-8 rounded-2xl border border-slate-200 shadow-sm flex flex-col min-h-[400px]">
@@ -247,7 +417,6 @@ export default function AdminDashboardPage() {
               chartData.map((bar, i) => (
                 <div
                   key={i}
-                  // REVISI: KLIK BATANG LANGSUNG MEMFILTER KE HALAMAN INVENTARIS
                   onClick={() => router.push(`/admin/inventaris?tahun=${bar.year}`)}
                   title={`Klik untuk melihat aset tahun ${bar.year}`}
                   className="w-full h-full flex flex-col justify-end items-center gap-3 group cursor-pointer relative"

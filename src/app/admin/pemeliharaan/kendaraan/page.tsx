@@ -1,7 +1,7 @@
 "use client";
 
 import React, { useState, useEffect } from 'react';
-import { Search, Plus, Filter, Eye, SquarePen, Printer, Trash2, Calendar, DollarSign, TrendingDown, TrendingUp, Edit3, Wallet, CreditCard, Activity } from 'lucide-react';
+import { Search, Plus, Filter, Eye, SquarePen, Printer, Trash2, Calendar, DollarSign, TrendingDown, TrendingUp, Edit3, Wallet, CreditCard, Activity, ChevronLeft, ChevronRight, Fuel, Wrench } from 'lucide-react';
 import Swal from 'sweetalert2';
 import VehicleRepairModal from '@/components/VehicleRepairModal';
 import VehicleRepairDetailModal from '@/components/VehicleRepairDetailModal';
@@ -34,8 +34,10 @@ export default function KendaraanPage() {
   const [selectedYear, setSelectedYear] = useState('');
   const [selectedMonth, setSelectedMonth] = useState(currentMonthNum);
 
-  // STATE BARU: Fitur Pencarian Tabel
+  // FITUR PENCARIAN & PAGINATION
   const [searchQuery, setSearchQuery] = useState('');
+  const [currentPage, setCurrentPage] = useState(1);
+  const [itemsPerPage, setItemsPerPage] = useState(10);
 
   const [isAddYearModalOpen, setIsAddYearModalOpen] = useState(false);
   const [newYearInput, setNewYearInput] = useState('');
@@ -57,7 +59,12 @@ export default function KendaraanPage() {
 
   const selectedMonthName = months.find(m => m.value === selectedMonth)?.label;
 
-  // FITUR 1: Load Bulan dari Memori saat Halaman Dibuka
+  // Reset pagination ke halaman 1 jika filter/pencarian berubah
+  useEffect(() => {
+    setCurrentPage(1);
+  }, [searchQuery, selectedYear, selectedMonth, itemsPerPage]);
+
+  // Load memori bulan
   useEffect(() => {
     const savedMonth = localStorage.getItem('sate_selected_month');
     if (savedMonth) {
@@ -65,7 +72,7 @@ export default function KendaraanPage() {
     }
   }, []);
 
-  // FITUR 1: Fetch Available Years & Load Tahun dari Memori
+  // Fetch Available Years & Load Tahun dari Memori
   useEffect(() => {
     const fetchYears = async () => {
       try {
@@ -78,16 +85,14 @@ export default function KendaraanPage() {
 
         if (data && data.length > 0) {
           const years = data.map((d: any) => d.tahun);
-          years.sort((a, b) => b - a); // Urutkan descending
+          years.sort((a: number, b: number) => b - a); 
           setAvailableYears(years);
 
-          // Cek apakah ada Tahun tersimpan di memori (localStorage)
           const savedYear = localStorage.getItem('sate_selected_year');
-
           if (savedYear && years.includes(parseInt(savedYear))) {
-            setSelectedYear(savedYear); // Gunakan tahun dari memori jika valid
+            setSelectedYear(savedYear); 
           } else {
-            setSelectedYear(years[0].toString()); // Jika tidak ada memori, gunakan tahun paling baru
+            setSelectedYear(years[0].toString()); 
           }
         } else {
           setAvailableYears([]);
@@ -100,9 +105,9 @@ export default function KendaraanPage() {
       }
     };
     fetchYears();
-  }, []); // Cukup dipanggil sekali saat mount
+  }, [supabase]); 
 
-  // FITUR 1: Menyimpan Perubahan Filter ke Memori secara Instan
+  // Simpan Perubahan Filter ke Memori
   useEffect(() => {
     if (selectedYear) localStorage.setItem('sate_selected_year', selectedYear);
   }, [selectedYear]);
@@ -111,8 +116,7 @@ export default function KendaraanPage() {
     if (selectedMonth) localStorage.setItem('sate_selected_month', selectedMonth.toString());
   }, [selectedMonth]);
 
-
-  // 2. Fetch Data Transaksi & Relasi ke Tabel Kendaraan
+  // Fetch Data Transaksi & Relasi
   useEffect(() => {
     const fetchData = async () => {
       if (!selectedYear) {
@@ -124,7 +128,6 @@ export default function KendaraanPage() {
 
       setIsLoading(true);
       try {
-        // A. Fetch Data PAGU Tahunan
         const { data: paguData } = await supabase
           .from('pagu')
           .select('nominal_tahunan')
@@ -137,7 +140,6 @@ export default function KendaraanPage() {
           setPaguTahunan(0);
         }
 
-        // B. Fetch Pemeliharaan
         const startOfYear = `${selectedYear}-01-01`;
         const endOfYear = `${selectedYear}-12-31`;
 
@@ -169,12 +171,11 @@ export default function KendaraanPage() {
     };
 
     fetchData();
-  }, [selectedYear]);
+  }, [selectedYear, supabase]);
 
   // ==========================================
-  // KALKULASI ANGGARAN (PAGU)
+  // KALKULASI ANGGARAN UTAMA (PAGU)
   // ==========================================
-
   const paguBulanan = Math.round(paguTahunan / 12);
   const realisasiTahunan = pemeliharaanList.reduce((sum, item) => sum + Number(item.total_biaya), 0);
 
@@ -185,15 +186,43 @@ export default function KendaraanPage() {
   });
 
   const realisasiBulanIni = pemeliharaanBulanIni.reduce((sum, item) => sum + Number(item.total_biaya), 0);
-
   const sisaPaguTahunan = paguTahunan - realisasiTahunan;
   const sisaPaguBulanIni = paguBulanan - realisasiBulanIni;
 
   // ==========================================
-  // FITUR 2: FILTER PENCARIAN TABEL (LIVE SEARCH)
+  // KALKULASI KATEGORI (HANYA BENSIN & PEMELIHARAAN)
+  // ==========================================
+  
+  const bensinTahunan = pemeliharaanList
+    .filter(p => p.kategori_pengeluaran === 'Bensin')
+    .reduce((sum, item) => sum + Number(item.total_biaya), 0);
+
+  const pemeliharaanKategoriTahunan = pemeliharaanList
+    .filter(p => p.kategori_pengeluaran === 'Pemeliharaan')
+    .reduce((sum, item) => sum + Number(item.total_biaya), 0);
+
+  const bensinBulanan = pemeliharaanBulanIni
+    .filter(p => p.kategori_pengeluaran === 'Bensin')
+    .reduce((sum, item) => sum + Number(item.total_biaya), 0);
+
+  const pemeliharaanKategoriBulanan = pemeliharaanBulanIni
+    .filter(p => p.kategori_pengeluaran === 'Pemeliharaan')
+    .reduce((sum, item) => sum + Number(item.total_biaya), 0);
+
+  // ==========================================
+  // PENCARIAN & PAGINATION
   // ==========================================
   const filteredPemeliharaanList = pemeliharaanList.filter((item) => {
-    if (!searchQuery) return true; // Jika tidak ada pencarian, tampilkan semua
+    // 1. FILTER BULAN (Menyesuaikan dropdown filter bulan)
+    if (item.tanggal_pengajuan) {
+      const monthStr = item.tanggal_pengajuan.split('-')[1];
+      if (parseInt(monthStr, 10) !== selectedMonth) return false;
+    } else {
+      return false;
+    }
+
+    // 2. FILTER SEARCH BAR
+    if (!searchQuery) return true;
 
     const searchLower = searchQuery.toLowerCase();
     const namaKendaraan = item.inventaris_kib_b?.nama_barang?.toLowerCase() || '';
@@ -201,6 +230,13 @@ export default function KendaraanPage() {
 
     return namaKendaraan.includes(searchLower) || platNomor.includes(searchLower);
   });
+
+  const totalItems = filteredPemeliharaanList.length;
+  const totalPages = Math.ceil(totalItems / itemsPerPage) || 1;
+  const startIndex = (currentPage - 1) * itemsPerPage;
+  const endIndex = startIndex + itemsPerPage;
+  
+  const paginatedList = filteredPemeliharaanList.slice(startIndex, endIndex);
 
   // Fungsi Hapus
   const handleDelete = (id: number, platNomor: string) => {
@@ -228,7 +264,6 @@ export default function KendaraanPage() {
     });
   };
 
-  // Fungsi Edit PAGU
   const openEditPaguModal = () => {
     setEditPaguInput(paguTahunan.toString());
     setIsEditPaguModalOpen(true);
@@ -251,14 +286,14 @@ export default function KendaraanPage() {
       setPaguTahunan(Number(editPaguInput));
       setIsEditPaguModalOpen(false);
       Swal.fire('Tersimpan!', 'PAGU Tahunan berhasil diperbarui.', 'success');
-    } catch (error: any) {
+    } catch (err) {
+      const error = err as Error;
       Swal.fire('Error', `Gagal menyimpan: ${error.message}`, 'error');
     } finally {
       setIsSubmittingEditPagu(false);
     }
   };
 
-  // Fungsi Tambah Tahun Anggaran Baru
   const handleAddYear = async () => {
     if (!newYearInput || isNaN(Number(newYearInput))) {
       Swal.fire('Error', 'Harap masukkan tahun yang valid.', 'error');
@@ -296,17 +331,16 @@ export default function KendaraanPage() {
       setNewPaguInput('');
       Swal.fire('Berhasil', 'Tahun anggaran berhasil ditambahkan.', 'success');
 
-    } catch (err: any) {
-      console.error("Detail Error Supabase:", JSON.stringify(err, null, 2));
-      const errorMsg = err.message || err.details || err.hint || 'Terjadi kesalahan tidak dikenal';
-      Swal.fire('Error', 'Gagal menambahkan tahun: ' + errorMsg, 'error');
+    } catch (err) {
+      const error = err as Error;
+      Swal.fire('Error', 'Gagal menambahkan tahun: ' + error.message, 'error');
     } finally {
       setIsSubmittingYear(false);
     }
   };
 
   return (
-    <div className="p-6 max-w-full overflow-hidden">
+    <div className="p-6 max-w-full overflow-hidden flex flex-col min-h-screen">
 
       {/* HEADER & FILTER TAHUN - BULAN */}
       <div className="flex flex-col md:flex-row md:items-end justify-between gap-4 mb-6">
@@ -318,7 +352,6 @@ export default function KendaraanPage() {
         </div>
 
         <div className="flex flex-wrap items-center gap-2">
-
           <div className="flex items-center gap-2 bg-white text-black border border-gray-300 rounded-lg px-3 py-2 shadow-sm w-fit">
             <Calendar size={18} className="text-gray-500" />
             <select
@@ -358,30 +391,24 @@ export default function KendaraanPage() {
         </div>
       </div>
 
-      {/* RINGKASAN PAGU (CARD VIEW) */}
-      <div className="grid grid-cols-1 md:grid-cols-2 xl:grid-cols-4 gap-4 mb-8">
-
+      {/* ========================================================= */}
+      {/* 1. RINGKASAN PAGU UTAMA (CARD VIEW) */}
+      {/* ========================================================= */}
+      <div className="grid grid-cols-1 md:grid-cols-2 xl:grid-cols-4 gap-4 mb-4">
         <div className="bg-white p-5 rounded-xl border border-gray-200 shadow-sm flex flex-col justify-between">
           <div className="flex items-center justify-between pb-2">
             <h3 className="tracking-tight text-sm font-medium text-gray-500">Total PAGU Tahunan</h3>
             <DollarSign className="h-4 w-4 text-gray-400" />
           </div>
-
           <div>
             <div className="flex items-center justify-between">
               <div className="text-2xl font-bold text-gray-800">
                 Rp {paguTahunan.toLocaleString('id-ID')}
               </div>
-
-              <button
-                onClick={openEditPaguModal}
-                className="p-1.5 text-blue-600 hover:bg-blue-50 rounded-md transition tooltip"
-                title="Sesuaikan PAGU"
-              >
+              <button onClick={openEditPaguModal} className="p-1.5 text-blue-600 hover:bg-blue-50 rounded-md transition tooltip" title="Sesuaikan PAGU">
                 <Edit3 size={16} />
               </button>
             </div>
-
             <p className="text-xs text-gray-400 mt-1">Anggaran pemeliharaan tahun ini</p>
           </div>
         </div>
@@ -391,14 +418,10 @@ export default function KendaraanPage() {
             <h3 className="tracking-tight text-sm font-medium text-gray-500">Sisa PAGU Tahunan</h3>
             <Wallet className="h-4 w-4 text-gray-400" />
           </div>
-
           <div>
             <div className={`text-2xl font-bold ${sisaPaguTahunan < 0 ? 'text-red-600' : 'text-gray-800'}`}>
-              {sisaPaguTahunan < 0
-                ? `- Rp ${Math.abs(sisaPaguTahunan).toLocaleString('id-ID')}`
-                : `Rp ${sisaPaguTahunan.toLocaleString('id-ID')}`}
+              {sisaPaguTahunan < 0 ? `- Rp ${Math.abs(sisaPaguTahunan).toLocaleString('id-ID')}` : `Rp ${sisaPaguTahunan.toLocaleString('id-ID')}`}
             </div>
-
             <p className="text-xs text-gray-400 mt-1">Sisa anggaran untuk tahun {selectedYear}</p>
           </div>
         </div>
@@ -408,12 +431,10 @@ export default function KendaraanPage() {
             <h3 className="tracking-tight text-sm font-medium text-gray-500">Alokasi Jatah Bulanan</h3>
             <CreditCard className="h-4 w-4 text-gray-400" />
           </div>
-
           <div>
             <div className="text-2xl font-bold text-gray-800">
               Rp {paguBulanan.toLocaleString('id-ID')}
             </div>
-
             <p className="text-xs text-gray-400 mt-1">Sistem bagi rata 12 bulan</p>
           </div>
         </div>
@@ -423,24 +444,81 @@ export default function KendaraanPage() {
             <h3 className={`tracking-tight text-sm font-medium ${sisaPaguBulanIni < 0 ? 'text-red-600' : 'text-emerald-700'}`}>
               Status Bulan {selectedMonthName} {selectedYear}
             </h3>
-
             <Activity className={`h-4 w-4 ${sisaPaguBulanIni < 0 ? 'text-red-400' : 'text-emerald-400'}`} />
           </div>
-
           <div>
             <div className={`text-2xl font-bold ${sisaPaguBulanIni < 0 ? 'text-red-700' : 'text-emerald-800'}`}>
               Rp {realisasiBulanIni.toLocaleString('id-ID')}
             </div>
-
             <div className={`flex items-center gap-1.5 mt-1 text-xs font-bold uppercase tracking-wide ${sisaPaguBulanIni < 0 ? 'text-red-600' : 'text-emerald-600'}`}>
               {sisaPaguBulanIni < 0 ? <TrendingDown size={14} /> : <TrendingUp size={14} />}
-
-              {sisaPaguBulanIni < 0
-                ? `Kekurangan Rp ${Math.abs(sisaPaguBulanIni).toLocaleString('id-ID')}`
-                : `Sisa Rp ${sisaPaguBulanIni.toLocaleString('id-ID')}`}
+              {sisaPaguBulanIni < 0 ? `Kekurangan Rp ${Math.abs(sisaPaguBulanIni).toLocaleString('id-ID')}` : `Sisa Rp ${sisaPaguBulanIni.toLocaleString('id-ID')}`}
             </div>
           </div>
         </div>
+      </div>
+
+      {/* ========================================================= */}
+      {/* 2. RINGKASAN KATEGORI PENGELUARAN (4 KARTU BARU) */}
+      {/* ========================================================= */}
+      <div className="grid grid-cols-1 md:grid-cols-2 xl:grid-cols-4 gap-4 mb-8">
+        
+        {/* Card 1: Bensin Tahun Ini */}
+        <div className="bg-white p-5 rounded-xl border border-gray-200 shadow-sm flex flex-col justify-between">
+          <div className="flex items-center justify-between pb-2">
+            <h3 className="tracking-tight text-sm font-medium text-gray-500">Total Bensin Pertahun</h3>
+            <Fuel className="h-4 w-4 text-orange-500" />
+          </div>
+          <div>
+            <div className="text-xl font-bold text-gray-800">
+              Rp {bensinTahunan.toLocaleString('id-ID')}
+            </div>
+            <p className="text-xs text-gray-400 mt-1">Total pengeluaran bensin {selectedYear}</p>
+          </div>
+        </div>
+
+        {/* Card 2: Bensin Bulan Ini */}
+        <div className="bg-white p-5 rounded-xl border border-gray-200 shadow-sm flex flex-col justify-between">
+          <div className="flex items-center justify-between pb-2">
+            <h3 className="tracking-tight text-sm font-medium text-gray-500">Total Bensin Perbulan</h3>
+            <Fuel className="h-4 w-4 text-orange-500" />
+          </div>
+          <div>
+            <div className="text-xl font-bold text-gray-800">
+              Rp {bensinBulanan.toLocaleString('id-ID')}
+            </div>
+            <p className="text-xs text-gray-400 mt-1">Pengeluaran bensin bulan {selectedMonthName}</p>
+          </div>
+        </div>
+
+        {/* Card 3: Pemeliharaan Tahun Ini */}
+        <div className="bg-white p-5 rounded-xl border border-gray-200 shadow-sm flex flex-col justify-between">
+          <div className="flex items-center justify-between pb-2">
+            <h3 className="tracking-tight text-sm font-medium text-gray-500">Total Pemeliharaan Pertahun</h3>
+            <Wrench className="h-4 w-4 text-blue-500" />
+          </div>
+          <div>
+            <div className="text-xl font-bold text-gray-800">
+              Rp {pemeliharaanKategoriTahunan.toLocaleString('id-ID')}
+            </div>
+            <p className="text-xs text-gray-400 mt-1">Total biaya pemeliharaan {selectedYear}</p>
+          </div>
+        </div>
+
+        {/* Card 4: Pemeliharaan Bulan Ini */}
+        <div className="bg-white p-5 rounded-xl border border-gray-200 shadow-sm flex flex-col justify-between">
+          <div className="flex items-center justify-between pb-2">
+            <h3 className="tracking-tight text-sm font-medium text-gray-500">Total Pemeliharaan Perbulan</h3>
+            <Wrench className="h-4 w-4 text-blue-500" />
+          </div>
+          <div>
+            <div className="text-xl font-bold text-gray-800">
+              Rp {pemeliharaanKategoriBulanan.toLocaleString('id-ID')}
+            </div>
+            <p className="text-xs text-gray-400 mt-1">Biaya pemeliharaan bulan {selectedMonthName}</p>
+          </div>
+        </div>
+
       </div>
 
       {/* Toolbar & Live Search */}
@@ -449,7 +527,6 @@ export default function KendaraanPage() {
           <div className="absolute inset-y-0 left-0 pl-3 flex items-center pointer-events-none">
             <Search className="h-4 w-4 text-gray-400" />
           </div>
-
           <input
             type="text"
             value={searchQuery}
@@ -463,7 +540,6 @@ export default function KendaraanPage() {
           <button className="flex items-center gap-2 px-4 py-2 border border-gray-300 bg-white text-gray-700 rounded-lg text-sm font-medium hover:bg-gray-50 shadow-sm transition">
             <Filter size={16} /> Filter
           </button>
-
           <button
             onClick={() => setIsModalOpen(true)}
             className="flex items-center gap-2 px-4 py-2 bg-blue-600 text-white rounded-lg text-sm font-medium hover:bg-blue-700 shadow-sm transition"
@@ -473,8 +549,8 @@ export default function KendaraanPage() {
         </div>
       </div>
 
-      {/* Tabel Data (Dinamis & Searchable) */}
-      <div className="bg-white border border-gray-200 rounded-xl shadow-sm overflow-hidden">
+      {/* Tabel Data */}
+      <div className="bg-white border border-gray-200 rounded-xl shadow-sm overflow-hidden flex flex-col flex-1">
         <div className="overflow-x-auto">
           <table className="w-full text-sm text-left">
             <thead className="bg-gray-50/80 text-gray-600 font-semibold border-b border-gray-200">
@@ -495,24 +571,22 @@ export default function KendaraanPage() {
                     Memuat data dari database...
                   </td>
                 </tr>
-              ) : filteredPemeliharaanList.length === 0 ? (
+              ) : paginatedList.length === 0 ? (
                 <tr>
                   <td colSpan={6} className="px-6 py-4 text-center text-gray-500">
                     {searchQuery
                       ? 'Data tidak ditemukan.'
-                      : `Belum ada pengajuan pemeliharaan untuk tahun ${selectedYear}.`}
+                      : `Belum ada pengajuan pemeliharaan untuk bulan ini.`}
                   </td>
                 </tr>
               ) : (
-                filteredPemeliharaanList.map((item, index) => (
+                paginatedList.map((item, index) => (
                   <tr key={item.id} className="hover:bg-gray-50/50 transition">
-                    <td className="px-6 py-4 text-gray-500">{index + 1}</td>
+                    <td className="px-6 py-4 text-gray-500">{startIndex + index + 1}</td>
 
                     <td className="px-6 py-4 text-gray-600 font-medium">
                       {item.inventaris_kib_b?.nama_barang}
-                      {item.inventaris_kib_b?.merk_type
-                        ? ` - ${item.inventaris_kib_b?.merk_type}`
-                        : ''}
+                      {item.inventaris_kib_b?.merk_type ? ` - ${item.inventaris_kib_b?.merk_type}` : ''}
                     </td>
 
                     <td className="px-6 py-4 font-bold text-gray-900">
@@ -531,8 +605,6 @@ export default function KendaraanPage() {
 
                     <td className="px-6 py-4">
                       <div className="flex justify-center items-center gap-3 text-gray-400">
-
-                        {/* TOMBOL LIHAT DETAIL */}
                         <button
                           onClick={() => {
                             setSelectedDetailId(item.id);
@@ -555,26 +627,17 @@ export default function KendaraanPage() {
                           <SquarePen size={18} />
                         </button>
 
-                        <button
-                          className="hover:text-green-600 transition"
-                          title="Cetak SPK/Nota"
-                        >
+                        <button className="hover:text-green-600 transition" title="Cetak SPK/Nota">
                           <Printer size={18} />
                         </button>
 
                         <button
-                          onClick={() =>
-                            handleDelete(
-                              item.id,
-                              item.inventaris_kib_b?.no_polisi || '-'
-                            )
-                          }
+                          onClick={() => handleDelete(item.id, item.inventaris_kib_b?.no_polisi || '-')}
                           className="hover:text-red-600 transition"
                           title="Hapus"
                         >
                           <Trash2 size={18} />
                         </button>
-
                       </div>
                     </td>
                   </tr>
@@ -584,30 +647,48 @@ export default function KendaraanPage() {
           </table>
         </div>
 
-        <div className="bg-white px-6 py-4 border-t border-gray-200 flex items-center justify-between sm:flex-row flex-col gap-4">
-          <span className="text-sm text-gray-500">
-            Menampilkan{' '}
-            {filteredPemeliharaanList.length > 0
-              ? `1-${filteredPemeliharaanList.length} dari ${filteredPemeliharaanList.length}`
-              : '0'}{' '}
-            kendaraan
+        {/* PAGINATION */}
+        <div className="px-6 py-4 border-t border-gray-200 bg-white flex flex-col sm:flex-row items-center justify-between gap-4 mt-auto">
+          <span className="text-sm text-gray-500 font-medium">
+            Menampilkan {totalItems === 0 ? 0 : startIndex + 1}-{Math.min(endIndex, totalItems)} dari {totalItems} data
           </span>
 
-          <div className="flex items-center gap-2">
-            <button
-              className="p-2 rounded hover:bg-gray-100 text-gray-500 disabled:opacity-50"
-              disabled
-            >
-              &lt;
-            </button>
+          <div className="flex flex-col sm:flex-row items-center gap-4 sm:gap-6">
+            <div className="flex items-center gap-2">
+              <span className="text-sm font-medium text-slate-700">Rows per page</span>
+              <select
+                value={itemsPerPage}
+                onChange={(e) => {
+                  setItemsPerPage(Number(e.target.value));
+                  setCurrentPage(1);
+                }}
+                className="border border-slate-200 rounded-md px-2 py-1 text-sm text-slate-700 outline-none focus:ring-2 focus:ring-blue-600 focus:border-blue-600 bg-white cursor-pointer"
+              >
+                <option value={10}>10</option>
+                <option value={20}>20</option>
+                <option value={50}>50</option>
+                <option value={100}>100</option>
+              </select>
+            </div>
 
-            <button className="w-8 h-8 flex items-center justify-center rounded bg-blue-600 text-white text-sm font-medium">
-              1
-            </button>
-
-            <button className="p-2 rounded hover:bg-gray-100 text-gray-500">
-              &gt;
-            </button>
+            <div className="flex items-center gap-2">
+              <button
+                onClick={() => setCurrentPage(prev => Math.max(prev - 1, 1))}
+                disabled={currentPage === 1 || totalPages === 0}
+                className="flex items-center gap-1 px-3 py-1.5 text-sm font-medium text-slate-700 hover:text-blue-600 hover:bg-blue-50 rounded-md disabled:opacity-50 disabled:hover:text-slate-700 disabled:hover:bg-transparent transition-colors"
+              >
+                <ChevronLeft size={16} />
+                Previous
+              </button>
+              <button
+                onClick={() => setCurrentPage(prev => Math.min(prev + 1, totalPages))}
+                disabled={currentPage === totalPages || totalPages === 0}
+                className="flex items-center gap-1 px-3 py-1.5 text-sm font-medium text-slate-700 hover:text-blue-600 hover:bg-blue-50 rounded-md disabled:opacity-50 disabled:hover:text-slate-700 disabled:hover:bg-transparent transition-colors"
+              >
+                Next
+                <ChevronRight size={16} />
+              </button>
+            </div>
           </div>
         </div>
       </div>
@@ -617,41 +698,25 @@ export default function KendaraanPage() {
         <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/50 backdrop-blur-sm">
           <div className="bg-white w-full max-w-md rounded-xl shadow-lg border overflow-hidden mx-4">
             <div className="p-6">
-              <h2 className="text-lg font-semibold tracking-tight text-gray-900">
-                Tambah Tahun Anggaran
-              </h2>
-
-              <p className="text-sm text-gray-500 mt-1.5">
-                Masukkan tahun anggaran baru untuk ditambahkan ke dalam filter.
-              </p>
-
+              <h2 className="text-lg font-semibold tracking-tight text-gray-900">Tambah Tahun Anggaran</h2>
+              <p className="text-sm text-gray-500 mt-1.5">Masukkan tahun anggaran baru untuk ditambahkan ke dalam filter.</p>
               <div className="mt-6 space-y-4">
                 <div>
-                  <label className="block text-sm font-medium text-gray-700 mb-2">
-                    Tahun
-                  </label>
-
-                  <input
-                    type="number"
+                  <label className="block text-sm font-medium text-gray-700 mb-2">Tahun</label>
+                  <input 
+                    type="number" 
                     value={newYearInput}
                     onChange={(e) => setNewYearInput(e.target.value)}
                     className="w-full px-3 py-2 border border-gray-300 rounded-md focus:outline-none focus:ring-2 focus:ring-blue-500 text-sm font-medium text-gray-900 placeholder:text-gray-400 [appearance:textfield] [&::-webkit-outer-spin-button]:appearance-none [&::-webkit-inner-spin-button]:appearance-none"
                     placeholder="Contoh: 2027"
                   />
                 </div>
-
                 <div>
-                  <label className="block text-sm font-medium text-gray-700 mb-2">
-                    Nominal PAGU Tahunan
-                  </label>
-
+                  <label className="block text-sm font-medium text-gray-700 mb-2">Nominal PAGU Tahunan</label>
                   <div className="relative">
-                    <span className="absolute inset-y-0 left-0 flex items-center pl-3 text-gray-900 text-sm font-medium">
-                      Rp.
-                    </span>
-
-                    <input
-                      type="number"
+                    <span className="absolute inset-y-0 left-0 flex items-center pl-3 text-gray-900 text-sm font-medium">Rp.</span>
+                    <input 
+                      type="number" 
                       value={newPaguInput}
                       onChange={(e) => setNewPaguInput(e.target.value)}
                       className="w-full pl-10 pr-3 py-2 border border-gray-300 rounded-md focus:outline-none focus:ring-2 focus:ring-blue-500 text-sm font-medium text-gray-900 placeholder:text-gray-400 [appearance:textfield] [&::-webkit-outer-spin-button]:appearance-none [&::-webkit-inner-spin-button]:appearance-none"
@@ -661,20 +726,9 @@ export default function KendaraanPage() {
                 </div>
               </div>
             </div>
-
             <div className="px-6 py-4 bg-gray-50 flex items-center justify-end gap-2 border-t">
-              <button
-                onClick={() => setIsAddYearModalOpen(false)}
-                className="px-4 py-2 border border-gray-300 rounded-md text-gray-700 font-medium hover:bg-gray-100 transition text-sm"
-              >
-                Batal
-              </button>
-
-              <button
-                onClick={handleAddYear}
-                disabled={isSubmittingYear}
-                className="px-4 py-2 bg-slate-900 text-white rounded-md font-medium hover:bg-slate-800 transition shadow-sm text-sm disabled:opacity-50"
-              >
+              <button onClick={() => setIsAddYearModalOpen(false)} className="px-4 py-2 border border-gray-300 rounded-md text-gray-700 font-medium hover:bg-gray-100 transition text-sm">Batal</button>
+              <button onClick={handleAddYear} disabled={isSubmittingYear} className="px-4 py-2 bg-slate-900 text-white rounded-md font-medium hover:bg-slate-800 transition shadow-sm text-sm disabled:opacity-50">
                 {isSubmittingYear ? 'Menyimpan...' : 'Simpan Tahun'}
               </button>
             </div>
@@ -687,26 +741,14 @@ export default function KendaraanPage() {
         <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/50 backdrop-blur-sm">
           <div className="bg-white w-full max-w-md rounded-xl shadow-lg border overflow-hidden mx-4">
             <div className="p-6">
-              <h2 className="text-lg font-semibold tracking-tight text-gray-900">
-                Sesuaikan PAGU Tahunan
-              </h2>
-
-              <p className="text-sm text-gray-500 mt-1.5">
-                Ubah anggaran pemeliharaan untuk tahun berjalan ({selectedYear}).
-              </p>
-
+              <h2 className="text-lg font-semibold tracking-tight text-gray-900">Sesuaikan PAGU Tahunan</h2>
+              <p className="text-sm text-gray-500 mt-1.5">Ubah anggaran pemeliharaan untuk tahun berjalan ({selectedYear}).</p>
               <div className="mt-6">
-                <label className="block text-sm font-medium text-gray-700 mb-2">
-                  Nominal PAGU Tahunan
-                </label>
-
+                <label className="block text-sm font-medium text-gray-700 mb-2">Nominal PAGU Tahunan</label>
                 <div className="relative">
-                  <span className="absolute inset-y-0 left-0 flex items-center pl-3 text-gray-900 text-sm font-medium">
-                    Rp.
-                  </span>
-
-                  <input
-                    type="number"
+                  <span className="absolute inset-y-0 left-0 flex items-center pl-3 text-gray-900 text-sm font-medium">Rp.</span>
+                  <input 
+                    type="number" 
                     value={editPaguInput}
                     onChange={(e) => setEditPaguInput(e.target.value)}
                     className="w-full pl-10 pr-3 py-2 border border-gray-300 rounded-md focus:outline-none focus:ring-2 focus:ring-blue-500 text-sm font-medium text-gray-900 placeholder:text-gray-400 [appearance:textfield] [&::-webkit-outer-spin-button]:appearance-none [&::-webkit-inner-spin-button]:appearance-none"
@@ -715,20 +757,9 @@ export default function KendaraanPage() {
                 </div>
               </div>
             </div>
-
             <div className="px-6 py-4 bg-gray-50 flex items-center justify-end gap-2 border-t">
-              <button
-                onClick={() => setIsEditPaguModalOpen(false)}
-                className="px-4 py-2 border border-gray-300 rounded-md text-gray-700 font-medium hover:bg-gray-100 transition text-sm"
-              >
-                Batal
-              </button>
-
-              <button
-                onClick={handleSaveEditPagu}
-                disabled={isSubmittingEditPagu}
-                className="px-4 py-2 bg-blue-600 text-white rounded-md font-medium hover:bg-blue-700 transition shadow-sm text-sm disabled:opacity-50"
-              >
+              <button onClick={() => setIsEditPaguModalOpen(false)} className="px-4 py-2 border border-gray-300 rounded-md text-gray-700 font-medium hover:bg-gray-100 transition text-sm">Batal</button>
+              <button onClick={handleSaveEditPagu} disabled={isSubmittingEditPagu} className="px-4 py-2 bg-blue-600 text-white rounded-md font-medium hover:bg-blue-700 transition shadow-sm text-sm disabled:opacity-50">
                 {isSubmittingEditPagu ? 'Menyimpan...' : 'Simpan Perubahan'}
               </button>
             </div>
@@ -736,19 +767,9 @@ export default function KendaraanPage() {
         </div>
       )}
 
-      {/* Render Komponen Modal Pengajuan */}
-      <VehicleRepairModal
-        isOpen={isModalOpen}
-        onClose={() => setIsModalOpen(false)}
-      />
-
-      {/* Render Komponen Modal Lihat Detail */}
-      <VehicleRepairDetailModal
-        isOpen={isDetailModalOpen}
-        onClose={() => setIsDetailModalOpen(false)}
-        pemeliharaanId={selectedDetailId}
-      />
-      {/* Render Komponen Modal Edit */}
+      {/* Render Komponen Modal */}
+      <VehicleRepairModal isOpen={isModalOpen} onClose={() => setIsModalOpen(false)} />
+      <VehicleRepairDetailModal isOpen={isDetailModalOpen} onClose={() => setIsDetailModalOpen(false)} pemeliharaanId={selectedDetailId} />
       <VehicleRepairEditModal
         isOpen={isEditModalOpen}
         onClose={() => setIsEditModalOpen(false)}
@@ -762,8 +783,7 @@ export default function KendaraanPage() {
                     tanggal_pengajuan: updatedData.tanggal_pengajuan,
                     bengkel_rekanan: updatedData.bengkel_rekanan,
                     total_biaya: updatedData.total_biaya,
-                    kategori_pengeluaran:
-                      updatedData.kategori_pengeluaran,
+                    kategori_pengeluaran: updatedData.kategori_pengeluaran,
                     inventaris_kib_b: updatedData.inventaris_kib_b,
                   }
                 : item

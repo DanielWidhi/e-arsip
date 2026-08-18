@@ -781,10 +781,6 @@ export default function VehicleRepairModal({
                       Pemeliharaan
                     </option>
 
-                    <option value="Bensin + Pemeliharaan">
-                      Bensin + Pemeliharaan
-                    </option>
-
                     <option value="Lainnya">
                       Lainnya
                     </option>

@@ -6,7 +6,6 @@ import {
   Info,
   Wrench,
   Save,
-  Plus,
   Trash2,
   ChevronDown,
   Search,
@@ -360,30 +359,6 @@ export default function VehicleRepairEditModal({
         };
       })
     );
-  };
-
-  // ==========================================
-  // TAMBAH DETAIL
-  // ==========================================
-  const handleAddDetail = () => {
-    if (pemeliharaanId === null) {
-      return;
-    }
-
-    const newDetail: DetailItem = {
-      pemeliharaan_id: pemeliharaanId,
-      nama_barang: "",
-      banyaknya: 1,
-      unit: "PCS",
-      harga_unit: 0,
-      jumlah: 0,
-      keterangan: "",
-    };
-
-    setDetails((prev) => [
-      newDetail,
-      ...prev,
-    ]);
   };
 
   // ==========================================
@@ -1072,9 +1047,6 @@ export default function VehicleRepairEditModal({
                         Pemeliharaan
                       </option>
 
-                      <option value="Bensin + Pemeliharaan">
-                        Bensin + Pemeliharaan
-                      </option>
 
                       <option value="Lainnya">
                         Lainnya
@@ -1103,19 +1075,6 @@ export default function VehicleRepairEditModal({
                     </h3>
 
                   </div>
-
-                  <button
-                    type="button"
-                    onClick={handleAddDetail}
-                    disabled={isSaving}
-                    className="flex items-center gap-1 px-3 py-2 text-sm bg-white text-blue-600 font-bold rounded-md hover:bg-blue-50 transition border border-blue-200 shadow-sm w-fit"
-                  >
-
-                    <Plus size={16} />
-
-                    item lain
-
-                  </button>
 
                 </div>
 
