@@ -27,10 +27,17 @@ import {
   Wrench,
 } from "lucide-react";
 import Swal from "sweetalert2";
+
 import VehicleRepairModal from "@/components/VehicleRepairModal";
 import VehicleRepairDetailModal from "@/components/VehicleRepairDetailModal";
 import VehicleRepairEditModal from "@/components/VehicleRepairEditModal";
+
 import { createClient } from "@/lib/supabase";
+
+import {
+  generateVehicleRepairNotaPdf,
+  VehicleRepairPrintData,
+} from "@/utils/exportVehicleRepairNota";
 
 // ==========================================
 // TYPE DATA
@@ -51,8 +58,6 @@ interface PemeliharaanItem {
   inventaris_kib_b: VehicleRelation | null;
 }
 
-// Tipe khusus untuk hasil query Supabase.
-// Relasi inventaris_kib_b dapat terbaca sebagai array.
 interface PemeliharaanQueryItem {
   id: number;
   tanggal_pengajuan: string | null;
@@ -60,222 +65,88 @@ interface PemeliharaanQueryItem {
   total_biaya: number | null;
   kategori_pengeluaran: string | null;
   inventaris_kib_b:
-  | VehicleRelation[]
-  | VehicleRelation
-  | null;
+    | VehicleRelation[]
+    | VehicleRelation
+    | null;
 }
 
 interface YearData {
   tahun: number;
 }
 
+// ==========================================
+// PAGE
+// ==========================================
+
 export default function KendaraanPage() {
-  // Supabase dibuat stabil agar tidak berubah setiap render.
   const supabase = useMemo(
     () => createClient(),
     []
   );
 
-  const [isModalOpen, setIsModalOpen] =
-    useState(false);
+  const [isModalOpen, setIsModalOpen] = useState(false);
+  const [isDetailModalOpen, setIsDetailModalOpen] = useState(false);
+  const [selectedDetailId, setSelectedDetailId] = useState<number | null>(null);
+  const [isEditModalOpen, setIsEditModalOpen] = useState(false);
+  const [selectedEditId, setSelectedEditId] = useState<number | null>(null);
+  const [isPrinting, setIsPrinting] = useState(false);
 
-  // ==========================================
-  // STATE DETAIL MODAL
-  // ==========================================
-  const [
-    isDetailModalOpen,
-    setIsDetailModalOpen,
-  ] = useState(false);
+  const [paguTahunan, setPaguTahunan] = useState(0);
+  const [pemeliharaanList, setPemeliharaanList] = useState<PemeliharaanItem[]>([]);
+  const [isLoading, setIsLoading] = useState(true);
 
-  const [
-    selectedDetailId,
-    setSelectedDetailId,
-  ] = useState<number | null>(null);
+  const currentMonthNum = new Date().getMonth() + 1;
 
-  // ==========================================
-  // STATE EDIT MODAL
-  // ==========================================
-  const [
-    isEditModalOpen,
-    setIsEditModalOpen,
-  ] = useState(false);
+  const [availableYears, setAvailableYears] = useState<number[]>([]);
+  const [selectedYear, setSelectedYear] = useState("");
+  const [selectedMonth, setSelectedMonth] = useState(currentMonthNum);
 
-  const [
-    selectedEditId,
-    setSelectedEditId,
-  ] = useState<number | null>(null);
+  const [searchQuery, setSearchQuery] = useState("");
+  const [currentPage, setCurrentPage] = useState(1);
+  const [itemsPerPage, setItemsPerPage] = useState(10);
 
-  // ==========================================
-  // DATA STATES
-  // ==========================================
-  const [paguTahunan, setPaguTahunan] =
-    useState(0);
+  const [isAddYearModalOpen, setIsAddYearModalOpen] = useState(false);
+  const [newYearInput, setNewYearInput] = useState("");
+  const [newPaguInput, setNewPaguInput] = useState("");
+  const [isSubmittingYear, setIsSubmittingYear] = useState(false);
 
-  const [
-    pemeliharaanList,
-    setPemeliharaanList,
-  ] = useState<PemeliharaanItem[]>([]);
+  const [isEditPaguModalOpen, setIsEditPaguModalOpen] = useState(false);
+  const [editPaguInput, setEditPaguInput] = useState("");
+  const [isSubmittingEditPagu, setIsSubmittingEditPagu] = useState(false);
 
-  const [isLoading, setIsLoading] =
-    useState(true);
-
-  // ==========================================
-  // LOGIKA DINAMIS BULAN
-  // ==========================================
-  const currentMonthNum =
-    new Date().getMonth() + 1;
-
-  // ==========================================
-  // STATE FILTER TAHUN & BULAN
-  // ==========================================
-  const [
-    availableYears,
-    setAvailableYears,
-  ] = useState<number[]>([]);
-
-  const [
-    selectedYear,
-    setSelectedYear,
-  ] = useState("");
-
-  const [
-    selectedMonth,
-    setSelectedMonth,
-  ] = useState(currentMonthNum);
-
-  // ==========================================
-  // SEARCH & PAGINATION
-  // ==========================================
-  const [
-    searchQuery,
-    setSearchQuery,
-  ] = useState("");
-
-  const [
-    currentPage,
-    setCurrentPage,
-  ] = useState(1);
-
-  const [
-    itemsPerPage,
-    setItemsPerPage,
-  ] = useState(10);
-
-  // ==========================================
-  // STATE TAMBAH TAHUN
-  // ==========================================
-  const [
-    isAddYearModalOpen,
-    setIsAddYearModalOpen,
-  ] = useState(false);
-
-  const [
-    newYearInput,
-    setNewYearInput,
-  ] = useState("");
-
-  const [
-    newPaguInput,
-    setNewPaguInput,
-  ] = useState("");
-
-  const [
-    isSubmittingYear,
-    setIsSubmittingYear,
-  ] = useState(false);
-
-  // ==========================================
-  // STATE EDIT PAGU
-  // ==========================================
-  const [
-    isEditPaguModalOpen,
-    setIsEditPaguModalOpen,
-  ] = useState(false);
-
-  const [
-    editPaguInput,
-    setEditPaguInput,
-  ] = useState("");
-
-  const [
-    isSubmittingEditPagu,
-    setIsSubmittingEditPagu,
-  ] = useState(false);
-
-  // ==========================================
-  // DAFTAR BULAN
-  // ==========================================
   const months = [
-    { value: 1, label: "Januari" },
-    { value: 2, label: "Februari" },
-    { value: 3, label: "Maret" },
-    { value: 4, label: "April" },
-    { value: 5, label: "Mei" },
-    { value: 6, label: "Juni" },
-    { value: 7, label: "Juli" },
-    { value: 8, label: "Agustus" },
-    { value: 9, label: "September" },
-    { value: 10, label: "Oktober" },
-    { value: 11, label: "November" },
-    { value: 12, label: "Desember" },
+    { value: 1, label: "Januari" }, { value: 2, label: "Februari" }, { value: 3, label: "Maret" },
+    { value: 4, label: "April" }, { value: 5, label: "Mei" }, { value: 6, label: "Juni" },
+    { value: 7, label: "Juli" }, { value: 8, label: "Agustus" }, { value: 9, label: "September" },
+    { value: 10, label: "Oktober" }, { value: 11, label: "November" }, { value: 12, label: "Desember" },
   ];
 
-  const selectedMonthName = months.find(
-    (m) => m.value === selectedMonth
-  )?.label;
+  const selectedMonthName = months.find((m) => m.value === selectedMonth)?.label;
 
-  // ==========================================
-  // RESET PAGINATION SAAT FILTER BERUBAH
-  // ==========================================
   useEffect(() => {
-    // eslint-disable-next-line react-hooks/set-state-in-effect
     setCurrentPage(1);
-  }, [
-    searchQuery,
-    selectedYear,
-    selectedMonth,
-    itemsPerPage,
-  ]);
+  }, [searchQuery, selectedYear, selectedMonth, itemsPerPage]);
 
-  // ==========================================
-  // LOAD BULAN DARI LOCAL STORAGE
-  // ==========================================
   useEffect(() => {
-    const savedMonth =
-      localStorage.getItem(
-        "sate_selected_month"
-      );
-
+    const savedMonth = localStorage.getItem("sate_selected_month");
     if (savedMonth) {
-      // eslint-disable-next-line react-hooks/set-state-in-effect
-      setSelectedMonth(
-        parseInt(savedMonth, 10)
-      );
+      setSelectedMonth(parseInt(savedMonth, 10));
     }
   }, []);
 
-  // ==========================================
-  // FETCH AVAILABLE YEARS
-  // ==========================================
   useEffect(() => {
     let isMounted = true;
     const fetchYears = async (retryCount = 0) => {
       try {
-        const {
-          data,
-          error,
-        } = await supabase
+        const { data, error } = await supabase
           .from("pagu")
           .select("tahun")
-          .order("tahun", {
-            ascending: false,
-          });
+          .order("tahun", { ascending: false });
 
         if (error) {
-          // Auto-retry for 'JWT issued at future' error
-          if (error.code === 'PGRST303' && retryCount < 3) {
+          if (error.code === "PGRST303" && retryCount < 3) {
             setTimeout(() => {
-              if (isMounted) fetchYears(retryCount + 1);
+              if (isMounted) void fetchYears(retryCount + 1);
             }, 1000);
             return;
           }
@@ -283,47 +154,26 @@ export default function KendaraanPage() {
         }
 
         if (data && data.length > 0) {
-          const years = (
-            data as YearData[]
-          ).map((d) => d.tahun);
-
-          years.sort(
-            (a, b) => b - a
-          );
-
+          const years = (data as YearData[]).map((d) => d.tahun);
+          years.sort((a, b) => b - a);
           setAvailableYears(years);
 
-          const savedYear =
-            localStorage.getItem(
-              "sate_selected_year"
-            );
-
-          if (
-            savedYear &&
-            years.includes(
-              parseInt(savedYear, 10)
-            )
-          ) {
-            setSelectedYear(
-              savedYear
-            );
+          const savedYear = localStorage.getItem("sate_selected_year");
+          if (savedYear && years.includes(parseInt(savedYear, 10))) {
+            setSelectedYear(savedYear);
           } else {
-            setSelectedYear(
-              years[0].toString()
-            );
+            setSelectedYear(years[0].toString());
           }
         } else {
           setAvailableYears([]);
           setSelectedYear("");
         }
-      } catch (error: any) {
-        if (error?.code !== 'PGRST303') {
-          console.error(
-            "Gagal mengambil daftar tahun:",
-            error
-          );
+      } catch (error: unknown) {
+        const errorCode = typeof error === "object" && error !== null && "code" in error
+          ? String((error as { code?: unknown }).code ?? "") : "";
+        if (errorCode !== "PGRST303") {
+          console.error("Gagal mengambil daftar tahun:", error);
         }
-
         if (isMounted) {
           setAvailableYears([]);
           setSelectedYear("");
@@ -331,40 +181,18 @@ export default function KendaraanPage() {
       }
     };
 
-    fetchYears();
-
-    return () => {
-      isMounted = false;
-    };
+    void fetchYears();
+    return () => { isMounted = false; };
   }, [supabase]);
 
-  // ==========================================
-  // SIMPAN TAHUN KE LOCAL STORAGE
-  // ==========================================
   useEffect(() => {
-    if (selectedYear) {
-      localStorage.setItem(
-        "sate_selected_year",
-        selectedYear
-      );
-    }
+    if (selectedYear) localStorage.setItem("sate_selected_year", selectedYear);
   }, [selectedYear]);
 
-  // ==========================================
-  // SIMPAN BULAN KE LOCAL STORAGE
-  // ==========================================
   useEffect(() => {
-    if (selectedMonth) {
-      localStorage.setItem(
-        "sate_selected_month",
-        selectedMonth.toString()
-      );
-    }
+    if (selectedMonth) localStorage.setItem("sate_selected_month", selectedMonth.toString());
   }, [selectedMonth]);
 
-  // ==========================================
-  // FETCH DATA PEMELIHARAAN
-  // ==========================================
   useEffect(() => {
     const fetchData = async () => {
       if (!selectedYear) {
@@ -375,1839 +203,530 @@ export default function KendaraanPage() {
       }
 
       setIsLoading(true);
-
       try {
-        // ==========================================
-        // A. FETCH PAGU TAHUNAN
-        // ==========================================
-        const {
-          data: paguData,
-        } = await supabase
+        const { data: paguData } = await supabase
           .from("pagu")
           .select("nominal_tahunan")
-          .eq(
-            "tahun",
-            parseInt(
-              selectedYear,
-              10
-            )
-          )
+          .eq("tahun", parseInt(selectedYear, 10))
           .single();
 
         if (paguData) {
-          setPaguTahunan(
-            Number(
-              paguData.nominal_tahunan
-            )
-          );
+          setPaguTahunan(Number(paguData.nominal_tahunan));
         } else {
           setPaguTahunan(0);
         }
 
-        // ==========================================
-        // B. FETCH PEMELIHARAAN
-        // ==========================================
-        const startOfYear =
-          `${selectedYear}-01-01`;
+        const startOfYear = `${selectedYear}-01-01`;
+        const endOfYear = `${selectedYear}-12-31`;
 
-        const endOfYear =
-          `${selectedYear}-12-31`;
-
-        const {
-          data: pemeliharaanData,
-          error,
-        } = await supabase
+        const { data: pemeliharaanData, error } = await supabase
           .from("pemeliharaan")
-          .select(`
-            id,
-            tanggal_pengajuan,
-            bengkel_rekanan,
-            total_biaya,
-            kategori_pengeluaran,
-            inventaris_kib_b (
-              nama_barang,
-              merk_type,
-              no_polisi
-            )
-          `)
-          .gte(
-            "tanggal_pengajuan",
-            startOfYear
-          )
-          .lte(
-            "tanggal_pengajuan",
-            endOfYear
-          )
-          .order(
-            "tanggal_pengajuan",
-            {
-              ascending: false,
-            }
-          );
+          .select(`id, tanggal_pengajuan, bengkel_rekanan, total_biaya, kategori_pengeluaran, inventaris_kib_b ( nama_barang, merk_type, no_polisi )`)
+          .gte("tanggal_pengajuan", startOfYear)
+          .lte("tanggal_pengajuan", endOfYear)
+          .order("tanggal_pengajuan", { ascending: false });
 
-        if (error) {
-          console.error(
-            "Error query relasi tabel:",
-            error
-          );
+        if (error) throw error;
 
-          throw error;
-        }
+        const rawData = (pemeliharaanData || []) as unknown as PemeliharaanQueryItem[];
+        const normalizedData: PemeliharaanItem[] = rawData.map((item) => ({
+          id: item.id,
+          tanggal_pengajuan: item.tanggal_pengajuan,
+          bengkel_rekanan: item.bengkel_rekanan,
+          total_biaya: item.total_biaya,
+          kategori_pengeluaran: item.kategori_pengeluaran,
+          inventaris_kib_b: Array.isArray(item.inventaris_kib_b) ? item.inventaris_kib_b[0] ?? null : item.inventaris_kib_b,
+        }));
 
-        // ==========================================
-        // NORMALISASI HASIL RELASI SUPABASE
-        // ==========================================
-        const rawData =
-          (pemeliharaanData ||
-            []) as unknown as PemeliharaanQueryItem[];
-
-        const normalizedData: PemeliharaanItem[] =
-          rawData.map((item) => ({
-            id: item.id,
-            tanggal_pengajuan:
-              item.tanggal_pengajuan,
-            bengkel_rekanan:
-              item.bengkel_rekanan,
-            total_biaya:
-              item.total_biaya,
-            kategori_pengeluaran:
-              item.kategori_pengeluaran,
-
-            inventaris_kib_b:
-              Array.isArray(
-                item.inventaris_kib_b
-              )
-                ? item.inventaris_kib_b[0] ??
-                null
-                : item.inventaris_kib_b,
-          }));
-
-        setPemeliharaanList(
-          normalizedData
-        );
+        setPemeliharaanList(normalizedData);
       } catch (error) {
-        console.error(
-          "Gagal mengambil data dari Supabase:",
-          error
-        );
+        console.error("Gagal mengambil data dari Supabase:", error);
       } finally {
         setIsLoading(false);
       }
     };
 
-    fetchData();
+    void fetchData();
   }, [selectedYear, supabase]);
 
   // ==========================================
-  // KALKULASI ANGGARAN UTAMA
+  // PRINT DATA / GENERATE PDF DENGAN INPUT KETERANGAN
   // ==========================================
 
-  const paguBulanan =
-    Math.round(
-      paguTahunan / 12
-    );
+  const handlePrint = async (pemeliharaanId: number) => {
+    if (isPrinting) return;
 
-  const realisasiTahunan =
-    pemeliharaanList.reduce(
-      (sum, item) =>
-        sum +
-        Number(
-          item.total_biaya || 0
-        ),
-      0
-    );
+    // 1. Prompt Input Text (Untuk Pembayaran Kwitansi)
+    const { value: keteranganInput, isDismissed } = await Swal.fire({
+      title: 'Keterangan Kwitansi',
+      text: 'Masukkan keterangan "Untuk Pembayaran" yang akan tercetak di Kwitansi.',
+      input: 'textarea',
+      inputPlaceholder: 'Contoh: Belanja Jasa Tenaga Kerja Non Pegawai (Jasa Pengangkutan Sampah)...',
+      showCancelButton: true,
+      confirmButtonText: 'Cetak Dokumen',
+      cancelButtonText: 'Batal',
+      confirmButtonColor: '#2563eb',
+    });
 
-  const pemeliharaanBulanIni =
-    pemeliharaanList.filter(
-      (p) => {
-        if (!p.tanggal_pengajuan) {
-          return false;
-        }
+    // Jika user klik Batal, hentikan proses
+    if (isDismissed) return;
 
-        const monthStr =
-          p.tanggal_pengajuan.split(
-            "-"
-          )[1];
+    setIsPrinting(true);
 
-        return (
-          parseInt(
-            monthStr,
-            10
-          ) === selectedMonth
-        );
-      }
-    );
-
-  const realisasiBulanIni =
-    pemeliharaanBulanIni.reduce(
-      (sum, item) =>
-        sum +
-        Number(
-          item.total_biaya || 0
-        ),
-      0
-    );
-
-  const sisaPaguTahunan =
-    paguTahunan -
-    realisasiTahunan;
-
-  const sisaPaguBulanIni =
-    paguBulanan -
-    realisasiBulanIni;
-
-  // ==========================================
-  // KALKULASI KATEGORI
-  // ==========================================
-
-  const bensinTahunan =
-    pemeliharaanList
-      .filter(
-        (p) =>
-          p.kategori_pengeluaran ===
-          "Bensin"
-      )
-      .reduce(
-        (sum, item) =>
-          sum +
-          Number(
-            item.total_biaya || 0
-          ),
-        0
-      );
-
-  const pemeliharaanKategoriTahunan =
-    pemeliharaanList
-      .filter(
-        (p) =>
-          p.kategori_pengeluaran ===
-          "Pemeliharaan"
-      )
-      .reduce(
-        (sum, item) =>
-          sum +
-          Number(
-            item.total_biaya || 0
-          ),
-        0
-      );
-
-  const bensinBulanan =
-    pemeliharaanBulanIni
-      .filter(
-        (p) =>
-          p.kategori_pengeluaran ===
-          "Bensin"
-      )
-      .reduce(
-        (sum, item) =>
-          sum +
-          Number(
-            item.total_biaya || 0
-          ),
-        0
-      );
-
-  const pemeliharaanKategoriBulanan =
-    pemeliharaanBulanIni
-      .filter(
-        (p) =>
-          p.kategori_pengeluaran ===
-          "Pemeliharaan"
-      )
-      .reduce(
-        (sum, item) =>
-          sum +
-          Number(
-            item.total_biaya || 0
-          ),
-        0
-      );
-
-  // ==========================================
-  // FILTER PENCARIAN & BULAN
-  // ==========================================
-
-  const filteredPemeliharaanList =
-    pemeliharaanList.filter(
-      (item) => {
-        // FILTER BULAN
-        if (item.tanggal_pengajuan) {
-          const monthStr =
-            item.tanggal_pengajuan.split(
-              "-"
-            )[1];
-
-          if (
-            parseInt(
-              monthStr,
-              10
-            ) !== selectedMonth
-          ) {
-            return false;
-          }
-        } else {
-          return false;
-        }
-
-        // SEARCH
-        if (!searchQuery) {
-          return true;
-        }
-
-        const searchLower =
-          searchQuery.toLowerCase();
-
-        const namaKendaraan =
-          item.inventaris_kib_b
-            ?.nama_barang
-            ?.toLowerCase() || "";
-
-        const platNomor =
-          item.inventaris_kib_b
-            ?.no_polisi
-            ?.toLowerCase() || "";
-
-        return (
-          namaKendaraan.includes(
-            searchLower
-          ) ||
-          platNomor.includes(
-            searchLower
-          )
-        );
-      }
-    );
-
-  // ==========================================
-  // PAGINATION
-  // ==========================================
-
-  const totalItems =
-    filteredPemeliharaanList.length;
-
-  const totalPages =
-    Math.ceil(
-      totalItems /
-      itemsPerPage
-    ) || 1;
-
-  const startIndex =
-    (currentPage - 1) *
-    itemsPerPage;
-
-  const endIndex =
-    startIndex +
-    itemsPerPage;
-
-  const paginatedList =
-    filteredPemeliharaanList.slice(
-      startIndex,
-      endIndex
-    );
-
-  // ==========================================
-  // HAPUS DATA
-  // ==========================================
-
-  const handleDelete = (
-    id: number,
-    platNomor: string
-  ) => {
     Swal.fire({
-      title:
-        "Apakah Anda yakin?",
+      title: "Menyiapkan nota...",
+      text: "Sedang mengambil data pemeliharaan dan membuat PDF.",
+      allowOutsideClick: false,
+      allowEscapeKey: false,
+      showConfirmButton: false,
+      didOpen: () => {
+        Swal.showLoading();
+      },
+    });
+
+    try {
+      const { data, error } = await supabase
+        .from("pemeliharaan")
+        .select(`id, tanggal_pengajuan, bengkel_rekanan, total_biaya, kategori_pengeluaran, inventaris_kib_b ( nama_barang, merk_type, no_polisi ), pemeliharaan_detail ( id, nama_barang, banyaknya, unit, harga_unit, jumlah, keterangan )`)
+        .eq("id", pemeliharaanId)
+        .single();
+
+      if (error) throw error;
+      if (!data) throw new Error("Data pemeliharaan tidak ditemukan.");
+
+      const rawData = data as unknown as VehicleRepairPrintData;
+      const normalizedData: VehicleRepairPrintData = {
+        ...rawData,
+        inventaris_kib_b: Array.isArray(rawData.inventaris_kib_b) ? rawData.inventaris_kib_b[0] ?? null : rawData.inventaris_kib_b,
+        pemeliharaan_detail: rawData.pemeliharaan_detail ?? [],
+      };
+
+      Swal.close();
+
+      // Passing keterangan dari inputan user ke fungsi print
+      generateVehicleRepairNotaPdf(normalizedData, keteranganInput || "-");
+
+      await Swal.fire({
+        icon: "success",
+        title: "Berhasil",
+        text: "3 Halaman Nota & Kwitansi berhasil dibuat.",
+        confirmButtonColor: "#2563eb",
+        timer: 1500,
+        showConfirmButton: false,
+      });
+    } catch (error: unknown) {
+      Swal.close();
+      console.error("Gagal membuat nota:", error);
+      const message = error instanceof Error ? error.message : "Gagal membuat nota.";
+      await Swal.fire({
+        icon: "error",
+        title: "Gagal Mencetak",
+        text: message,
+        confirmButtonColor: "#2563eb",
+      });
+    } finally {
+      setIsPrinting(false);
+    }
+  };
+
+  const paguBulanan = Math.round(paguTahunan / 12);
+  const realisasiTahunan = pemeliharaanList.reduce((sum, item) => sum + Number(item.total_biaya || 0), 0);
+
+  const pemeliharaanBulanIni = pemeliharaanList.filter((p) => {
+    if (!p.tanggal_pengajuan) return false;
+    const monthStr = p.tanggal_pengajuan.split("-")[1];
+    return parseInt(monthStr, 10) === selectedMonth;
+  });
+
+  const realisasiBulanIni = pemeliharaanBulanIni.reduce((sum, item) => sum + Number(item.total_biaya || 0), 0);
+  const sisaPaguTahunan = paguTahunan - realisasiTahunan;
+  const sisaPaguBulanIni = paguBulanan - realisasiBulanIni;
+
+  const bensinTahunan = pemeliharaanList.filter((p) => p.kategori_pengeluaran === "Bensin").reduce((sum, item) => sum + Number(item.total_biaya || 0), 0);
+  const pemeliharaanKategoriTahunan = pemeliharaanList.filter((p) => p.kategori_pengeluaran === "Pemeliharaan").reduce((sum, item) => sum + Number(item.total_biaya || 0), 0);
+  const bensinBulanan = pemeliharaanBulanIni.filter((p) => p.kategori_pengeluaran === "Bensin").reduce((sum, item) => sum + Number(item.total_biaya || 0), 0);
+  const pemeliharaanKategoriBulanan = pemeliharaanBulanIni.filter((p) => p.kategori_pengeluaran === "Pemeliharaan").reduce((sum, item) => sum + Number(item.total_biaya || 0), 0);
+
+  const filteredPemeliharaanList = pemeliharaanList.filter((item) => {
+    if (item.tanggal_pengajuan) {
+      const monthStr = item.tanggal_pengajuan.split("-")[1];
+      if (parseInt(monthStr, 10) !== selectedMonth) return false;
+    } else {
+      return false;
+    }
+    if (!searchQuery) return true;
+    const searchLower = searchQuery.toLowerCase();
+    const namaKendaraan = item.inventaris_kib_b?.nama_barang?.toLowerCase() || "";
+    const platNomor = item.inventaris_kib_b?.no_polisi?.toLowerCase() || "";
+    return namaKendaraan.includes(searchLower) || platNomor.includes(searchLower);
+  });
+
+  const totalItems = filteredPemeliharaanList.length;
+  const totalPages = Math.ceil(totalItems / itemsPerPage) || 1;
+  const startIndex = (currentPage - 1) * itemsPerPage;
+  const endIndex = startIndex + itemsPerPage;
+  const paginatedList = filteredPemeliharaanList.slice(startIndex, endIndex);
+
+  const handleDelete = (id: number, platNomor: string) => {
+    Swal.fire({
+      title: "Apakah Anda yakin?",
       text: `Data pemeliharaan untuk kendaraan ${platNomor} akan dihapus!`,
       icon: "warning",
       showCancelButton: true,
       confirmButtonColor: "#d33",
-      cancelButtonColor:
-        "#3085d6",
-      confirmButtonText:
-        "Ya, Hapus!",
-      cancelButtonText:
-        "Batal",
-    }).then(
-      async (result) => {
-        if (
-          result.isConfirmed
-        ) {
-          try {
-            const {
-              error,
-            } = await supabase
-              .from(
-                "pemeliharaan"
-              )
-              .delete()
-              .eq(
-                "id",
-                id
-              );
-
-            if (error) {
-              throw error;
-            }
-
-            setPemeliharaanList(
-              (prev) =>
-                prev.filter(
-                  (item) =>
-                    item.id !== id
-                )
-            );
-
-            Swal.fire(
-              "Terhapus!",
-              "Data berhasil dihapus.",
-              "success"
-            ).then(() => {
-              window.location.reload();
-            });
-          } catch {
-            Swal.fire(
-              "Error",
-              "Gagal menghapus data.",
-              "error"
-            );
-          }
+      cancelButtonColor: "#3085d6",
+      confirmButtonText: "Ya, Hapus!",
+      cancelButtonText: "Batal",
+    }).then(async (result) => {
+      if (result.isConfirmed) {
+        try {
+          const { error } = await supabase.from("pemeliharaan").delete().eq("id", id);
+          if (error) throw error;
+          setPemeliharaanList((prev) => prev.filter((item) => item.id !== id));
+          Swal.fire("Terhapus!", "Data berhasil dihapus.", "success").then(() => { window.location.reload(); });
+        } catch {
+          Swal.fire("Error", "Gagal menghapus data.", "error");
         }
       }
-    );
+    });
   };
-
-  // ==========================================
-  // EDIT PAGU
-  // ==========================================
 
   const openEditPaguModal = () => {
-    setEditPaguInput(
-      paguTahunan.toString()
-    );
-
-    setIsEditPaguModalOpen(
-      true
-    );
+    setEditPaguInput(paguTahunan.toString());
+    setIsEditPaguModalOpen(true);
   };
 
-  const handleSaveEditPagu =
-    async () => {
-      if (
-        !editPaguInput ||
-        isNaN(
-          Number(
-            editPaguInput
-          )
-        )
-      ) {
-        Swal.fire(
-          "Error",
-          "Harap masukkan nominal yang valid.",
-          "error"
-        );
+  const handleSaveEditPagu = async () => {
+    if (!editPaguInput || isNaN(Number(editPaguInput))) {
+      Swal.fire("Error", "Harap masukkan nominal yang valid.", "error");
+      return;
+    }
+    setIsSubmittingEditPagu(true);
+    try {
+      const { error } = await supabase.from("pagu").upsert({ tahun: parseInt(selectedYear, 10), nominal_tahunan: Number(editPaguInput) }, { onConflict: "tahun" });
+      if (error) throw error;
+      setPaguTahunan(Number(editPaguInput));
+      setIsEditPaguModalOpen(false);
+      Swal.fire("Tersimpan!", "PAGU Tahunan berhasil diperbarui.", "success");
+    } catch (error: unknown) {
+      const message = error instanceof Error ? error.message : "Terjadi kesalahan tidak dikenal";
+      Swal.fire("Error", `Gagal menyimpan: ${message}`, "error");
+    } finally {
+      setIsSubmittingEditPagu(false);
+    }
+  };
 
-        return;
-      }
-
-      setIsSubmittingEditPagu(
-        true
-      );
-
-      try {
-        const {
-          error,
-        } = await supabase
-          .from("pagu")
-          .upsert(
-            {
-              tahun:
-                parseInt(
-                  selectedYear,
-                  10
-                ),
-              nominal_tahunan:
-                Number(
-                  editPaguInput
-                ),
-            },
-            {
-              onConflict:
-                "tahun",
-            }
-          );
-
-        if (error) {
-          throw error;
-        }
-
-        setPaguTahunan(
-          Number(
-            editPaguInput
-          )
-        );
-
-        setIsEditPaguModalOpen(
-          false
-        );
-
-        Swal.fire(
-          "Tersimpan!",
-          "PAGU Tahunan berhasil diperbarui.",
-          "success"
-        );
-      } catch (error: unknown) {
-        const message =
-          error instanceof Error
-            ? error.message
-            : "Terjadi kesalahan tidak dikenal";
-
-        Swal.fire(
-          "Error",
-          `Gagal menyimpan: ${message}`,
-          "error"
-        );
-      } finally {
-        setIsSubmittingEditPagu(
-          false
-        );
-      }
-    };
-
-  // ==========================================
-  // TAMBAH TAHUN
-  // ==========================================
-
-  const handleAddYear =
-    async () => {
-      if (
-        !newYearInput ||
-        isNaN(
-          Number(
-            newYearInput
-          )
-        )
-      ) {
-        Swal.fire(
-          "Error",
-          "Harap masukkan tahun yang valid.",
-          "error"
-        );
-
-        return;
-      }
-
-      const yearToInsert =
-        parseInt(
-          newYearInput,
-          10
-        );
-
-      if (
-        availableYears.includes(
-          yearToInsert
-        )
-      ) {
-        Swal.fire({
-          title:
-            "Tahun Sudah Ada!",
-          text: `Tahun anggaran ${yearToInsert} sudah ada di database. Silakan pilih di menu dropdown.`,
-          icon: "warning",
-          confirmButtonColor:
-            "#3b82f6",
-        });
-
-        return;
-      }
-
-      setIsSubmittingYear(
-        true
-      );
-
-      try {
-        const paguToInsert =
-          Number(
-            newPaguInput
-          ) || 0;
-
-        const {
-          error,
-        } = await supabase
-          .from("pagu")
-          .insert([
-            {
-              tahun:
-                yearToInsert,
-              nominal_tahunan:
-                paguToInsert,
-            },
-          ]);
-
-        if (
-          error &&
-          error.code !== "23505"
-        ) {
-          throw error;
-        }
-
-        const updatedYears =
-          [
-            ...availableYears,
-            yearToInsert,
-          ].sort(
-            (a, b) => b - a
-          );
-
-        setAvailableYears(
-          updatedYears
-        );
-
-        setSelectedYear(
-          yearToInsert.toString()
-        );
-
-        setIsAddYearModalOpen(
-          false
-        );
-
-        setNewYearInput("");
-        setNewPaguInput("");
-
-        Swal.fire(
-          "Berhasil",
-          "Tahun anggaran berhasil ditambahkan.",
-          "success"
-        );
-      } catch (error: unknown) {
-        const message =
-          error instanceof Error
-            ? error.message
-            : "Terjadi kesalahan tidak dikenal";
-
-        Swal.fire(
-          "Error",
-          "Gagal menambahkan tahun: " +
-          message,
-          "error"
-        );
-      } finally {
-        setIsSubmittingYear(
-          false
-        );
-      }
-    };
+  const handleAddYear = async () => {
+    if (!newYearInput || isNaN(Number(newYearInput))) {
+      Swal.fire("Error", "Harap masukkan tahun yang valid.", "error");
+      return;
+    }
+    const yearToInsert = parseInt(newYearInput, 10);
+    if (availableYears.includes(yearToInsert)) {
+      Swal.fire({ title: "Tahun Sudah Ada!", text: `Tahun anggaran ${yearToInsert} sudah ada di database. Silakan pilih di menu dropdown.`, icon: "warning", confirmButtonColor: "#3b82f6" });
+      return;
+    }
+    setIsSubmittingYear(true);
+    try {
+      const paguToInsert = Number(newPaguInput) || 0;
+      const { error } = await supabase.from("pagu").insert([{ tahun: yearToInsert, nominal_tahunan: paguToInsert }]);
+      if (error && error.code !== "23505") throw error;
+      const updatedYears = [...availableYears, yearToInsert].sort((a, b) => b - a);
+      setAvailableYears(updatedYears);
+      setSelectedYear(yearToInsert.toString());
+      setIsAddYearModalOpen(false);
+      setNewYearInput("");
+      setNewPaguInput("");
+      Swal.fire("Berhasil", "Tahun anggaran berhasil ditambahkan.", "success");
+    } catch (error: unknown) {
+      const message = error instanceof Error ? error.message : "Terjadi kesalahan tidak dikenal";
+      Swal.fire("Error", "Gagal menambahkan tahun: " + message, "error");
+    } finally {
+      setIsSubmittingYear(false);
+    }
+  };
 
   return (
     <div className="p-6 max-w-full overflow-hidden flex flex-col min-h-screen">
-
-      {/* ========================================== */}
-      {/* HEADER & FILTER TAHUN - BULAN */}
-      {/* ========================================== */}
-
       <div className="flex flex-col md:flex-row md:items-end justify-between gap-4 mb-6">
-
         <div>
-          <h1 className="text-2xl font-bold text-gray-800">
-            Daftar Kendaraan & PAGU
-          </h1>
-
-          <p className="text-gray-500 text-sm mt-1">
-            Monitoring anggaran (PAGU) dan daftar pemeliharaan kendaraan dinas.
-          </p>
+          <h1 className="text-2xl font-bold text-gray-800">Daftar Kendaraan & PAGU</h1>
+          <p className="text-gray-500 text-sm mt-1">Monitoring anggaran (PAGU) dan daftar pemeliharaan kendaraan dinas.</p>
         </div>
-
         <div className="flex flex-wrap items-center gap-2">
-
-          {/* FILTER BULAN */}
           <div className="flex items-center gap-2 bg-white text-black border border-gray-300 rounded-lg px-3 py-2 shadow-sm w-fit">
-
-            <Calendar
-              size={18}
-              className="text-gray-500"
-            />
-
-            <select
-              value={
-                selectedMonth
-              }
-              onChange={(e) =>
-                setSelectedMonth(
-                  parseInt(
-                    e.target.value,
-                    10
-                  )
-                )
-              }
-              className="bg-transparent text-sm font-medium text-gray-800 focus:outline-none cursor-pointer"
-            >
-              {months.map(
-                (m) => (
-                  <option
-                    key={
-                      m.value
-                    }
-                    value={
-                      m.value
-                    }
-                  >
-                    Bulan{" "}
-                    {
-                      m.label
-                    }
-                  </option>
-                )
-              )}
+            <Calendar size={18} className="text-gray-500" />
+            <select value={selectedMonth} onChange={(e) => setSelectedMonth(parseInt(e.target.value, 10))} className="bg-transparent text-sm font-medium text-gray-800 focus:outline-none cursor-pointer">
+              {months.map((m) => (<option key={m.value} value={m.value}>Bulan {m.label}</option>))}
             </select>
-
           </div>
-
-          {/* FILTER TAHUN */}
           <div className="flex items-center gap-2 bg-white text-black border border-gray-300 rounded-lg px-3 py-2 shadow-sm w-fit">
-
-            <select
-              value={
-                selectedYear
-              }
-              onChange={(e) =>
-                setSelectedYear(
-                  e.target.value
-                )
-              }
-              className="bg-transparent text-sm font-medium text-gray-800 focus:outline-none cursor-pointer"
-            >
-              {availableYears.map(
-                (year) => (
-                  <option
-                    key={
-                      year
-                    }
-                    value={
-                      year
-                    }
-                  >
-                    Tahun Anggaran{" "}
-                    {
-                      year
-                    }
-                  </option>
-                )
-              )}
+            <select value={selectedYear} onChange={(e) => setSelectedYear(e.target.value)} className="bg-transparent text-sm font-medium text-gray-800 focus:outline-none cursor-pointer">
+              {availableYears.map((year) => (<option key={year} value={year}>Tahun Anggaran {year}</option>))}
             </select>
-
           </div>
-
-          {/* TAMBAH TAHUN */}
-          <button
-            type="button"
-            onClick={() =>
-              setIsAddYearModalOpen(
-                true
-              )
-            }
-            className="flex items-center justify-center p-2 bg-white border border-gray-300 rounded-lg shadow-sm hover:bg-gray-50 transition text-gray-600"
-            title="Tambah Tahun Anggaran"
-          >
-            <Plus
-              size={18}
-            />
+          <button type="button" onClick={() => setIsAddYearModalOpen(true)} className="flex items-center justify-center p-2 bg-white border border-gray-300 rounded-lg shadow-sm hover:bg-gray-50 transition text-gray-600" title="Tambah Tahun Anggaran">
+            <Plus size={18} />
           </button>
-
         </div>
       </div>
-
-      {/* ========================================== */}
-      {/* RINGKASAN PAGU UTAMA */}
-      {/* ========================================== */}
 
       <div className="grid grid-cols-1 md:grid-cols-2 xl:grid-cols-4 gap-4 mb-4">
-
-        {/* TOTAL PAGU */}
         <div className="bg-white p-5 rounded-xl border border-gray-200 shadow-sm flex flex-col justify-between">
-
           <div className="flex items-center justify-between pb-2">
-
-            <h3 className="tracking-tight text-sm font-medium text-gray-500">
-              Total PAGU Tahunan
-            </h3>
-
-            <DollarSign
-              className="h-4 w-4 text-gray-400"
-            />
-
+            <h3 className="tracking-tight text-sm font-medium text-gray-500">Total PAGU Tahunan</h3>
+            <DollarSign className="h-4 w-4 text-gray-400" />
           </div>
-
           <div>
-
             <div className="flex items-center justify-between">
-
-              <div className="text-2xl font-bold text-gray-800">
-                Rp{" "}
-                {paguTahunan.toLocaleString(
-                  "id-ID"
-                )}
-              </div>
-
-              <button
-                type="button"
-                onClick={
-                  openEditPaguModal
-                }
-                className="p-1.5 text-blue-600 hover:bg-blue-50 rounded-md transition tooltip"
-                title="Sesuaikan PAGU"
-              >
-                <Edit3
-                  size={16}
-                />
+              <div className="text-2xl font-bold text-gray-800">Rp {paguTahunan.toLocaleString("id-ID")}</div>
+              <button type="button" onClick={openEditPaguModal} className="p-1.5 text-blue-600 hover:bg-blue-50 rounded-md transition tooltip" title="Sesuaikan PAGU">
+                <Edit3 size={16} />
               </button>
-
             </div>
-
-            <p className="text-xs text-gray-400 mt-1">
-              Anggaran pemeliharaan tahun ini
-            </p>
-
+            <p className="text-xs text-gray-400 mt-1">Anggaran pemeliharaan tahun ini</p>
           </div>
-
         </div>
-
-        {/* SISA PAGU TAHUNAN */}
         <div className="bg-white p-5 rounded-xl border border-gray-200 shadow-sm flex flex-col justify-between">
-
           <div className="flex items-center justify-between pb-2">
-
-            <h3 className="tracking-tight text-sm font-medium text-gray-500">
-              Sisa PAGU Tahunan
-            </h3>
-
-            <Wallet
-              className="h-4 w-4 text-gray-400"
-            />
-
+            <h3 className="tracking-tight text-sm font-medium text-gray-500">Sisa PAGU Tahunan</h3>
+            <Wallet className="h-4 w-4 text-gray-400" />
           </div>
-
           <div>
-
-            <div
-              className={`text-2xl font-bold ${sisaPaguTahunan <
-                  0
-                  ? "text-red-600"
-                  : "text-gray-800"
-                }`}
-            >
-              {sisaPaguTahunan <
-                0
-                ? `- Rp ${Math.abs(
-                  sisaPaguTahunan
-                ).toLocaleString(
-                  "id-ID"
-                )}`
-                : `Rp ${sisaPaguTahunan.toLocaleString(
-                  "id-ID"
-                )}`}
+            <div className={`text-2xl font-bold ${sisaPaguTahunan < 0 ? "text-red-600" : "text-gray-800"}`}>
+              {sisaPaguTahunan < 0 ? `- Rp ${Math.abs(sisaPaguTahunan).toLocaleString("id-ID")}` : `Rp ${sisaPaguTahunan.toLocaleString("id-ID")}`}
             </div>
-
-            <p className="text-xs text-gray-400 mt-1">
-              Sisa anggaran untuk tahun{" "}
-              {
-                selectedYear
-              }
-            </p>
-
+            <p className="text-xs text-gray-400 mt-1">Sisa anggaran untuk tahun {selectedYear}</p>
           </div>
-
         </div>
-
-        {/* PAGU BULANAN */}
         <div className="bg-white p-5 rounded-xl border border-gray-200 shadow-sm flex flex-col justify-between">
-
           <div className="flex items-center justify-between pb-2">
-
-            <h3 className="tracking-tight text-sm font-medium text-gray-500">
-              Alokasi Jatah Bulanan
-            </h3>
-
-            <CreditCard
-              className="h-4 w-4 text-gray-400"
-            />
-
+            <h3 className="tracking-tight text-sm font-medium text-gray-500">Alokasi Jatah Bulanan</h3>
+            <CreditCard className="h-4 w-4 text-gray-400" />
           </div>
-
           <div>
-
-            <div className="text-2xl font-bold text-gray-800">
-              Rp{" "}
-              {paguBulanan.toLocaleString(
-                "id-ID"
-              )}
-            </div>
-
-            <p className="text-xs text-gray-400 mt-1">
-              Sistem bagi rata 12 bulan
-            </p>
-
+            <div className="text-2xl font-bold text-gray-800">Rp {paguBulanan.toLocaleString("id-ID")}</div>
+            <p className="text-xs text-gray-400 mt-1">Sistem bagi rata 12 bulan</p>
           </div>
-
         </div>
-
-        {/* STATUS BULAN */}
-        <div
-          className={`p-5 rounded-xl border shadow-sm flex flex-col justify-between ${sisaPaguBulanIni <
-              0
-              ? "bg-red-50 border-red-200"
-              : "bg-emerald-50 border-emerald-200"
-            }`}
-        >
-
+        <div className={`p-5 rounded-xl border shadow-sm flex flex-col justify-between ${sisaPaguBulanIni < 0 ? "bg-red-50 border-red-200" : "bg-emerald-50 border-emerald-200"}`}>
           <div className="flex items-center justify-between pb-2">
-
-            <h3
-              className={`tracking-tight text-sm font-medium ${sisaPaguBulanIni <
-                  0
-                  ? "text-red-600"
-                  : "text-emerald-700"
-                }`}
-            >
-              Status Bulan{" "}
-              {
-                selectedMonthName
-              }{" "}
-              {
-                selectedYear
-              }
+            <h3 className={`tracking-tight text-sm font-medium ${sisaPaguBulanIni < 0 ? "text-red-600" : "text-emerald-700"}`}>
+              Status Bulan {selectedMonthName} {selectedYear}
             </h3>
-
-            <Activity
-              className={`h-4 w-4 ${sisaPaguBulanIni <
-                  0
-                  ? "text-red-400"
-                  : "text-emerald-400"
-                }`}
-            />
-
+            <Activity className={`h-4 w-4 ${sisaPaguBulanIni < 0 ? "text-red-400" : "text-emerald-400"}`} />
           </div>
-
           <div>
-
-            <div
-              className={`text-2xl font-bold ${sisaPaguBulanIni <
-                  0
-                  ? "text-red-700"
-                  : "text-emerald-800"
-                }`}
-            >
-              Rp{" "}
-              {realisasiBulanIni.toLocaleString(
-                "id-ID"
-              )}
+            <div className={`text-2xl font-bold ${sisaPaguBulanIni < 0 ? "text-red-700" : "text-emerald-800"}`}>
+              Rp {realisasiBulanIni.toLocaleString("id-ID")}
             </div>
-
-            <div
-              className={`flex items-center gap-1.5 mt-1 text-xs font-bold uppercase tracking-wide ${sisaPaguBulanIni <
-                  0
-                  ? "text-red-600"
-                  : "text-emerald-600"
-                }`}
-            >
-
-              {sisaPaguBulanIni <
-                0 ? (
-                <TrendingDown
-                  size={14}
-                />
-              ) : (
-                <TrendingUp
-                  size={14}
-                />
-              )}
-
-              {sisaPaguBulanIni <
-                0
-                ? `Kekurangan Rp ${Math.abs(
-                  sisaPaguBulanIni
-                ).toLocaleString(
-                  "id-ID"
-                )}`
-                : `Sisa Rp ${sisaPaguBulanIni.toLocaleString(
-                  "id-ID"
-                )}`}
-
+            <div className={`flex items-center gap-1.5 mt-1 text-xs font-bold uppercase tracking-wide ${sisaPaguBulanIni < 0 ? "text-red-600" : "text-emerald-600"}`}>
+              {sisaPaguBulanIni < 0 ? <TrendingDown size={14} /> : <TrendingUp size={14} />}
+              {sisaPaguBulanIni < 0 ? `Kekurangan Rp ${Math.abs(sisaPaguBulanIni).toLocaleString("id-ID")}` : `Sisa Rp ${sisaPaguBulanIni.toLocaleString("id-ID")}`}
             </div>
-
           </div>
-
         </div>
-
       </div>
-
-      {/* ========================================== */}
-      {/* RINGKASAN KATEGORI */}
-      {/* ========================================== */}
 
       <div className="grid grid-cols-1 md:grid-cols-2 xl:grid-cols-4 gap-4 mb-8">
-
-        {/* BENSIN TAHUNAN */}
         <div className="bg-white p-5 rounded-xl border border-gray-200 shadow-sm flex flex-col justify-between">
-
           <div className="flex items-center justify-between pb-2">
-
-            <h3 className="tracking-tight text-sm font-medium text-gray-500">
-              Total Bensin Pertahun
-            </h3>
-
+            <h3 className="tracking-tight text-sm font-medium text-gray-500">Total Bensin Pertahun</h3>
             <Fuel className="h-4 w-4 text-orange-500" />
-
           </div>
-
           <div>
-
-            <div className="text-xl font-bold text-gray-800">
-              Rp{" "}
-              {bensinTahunan.toLocaleString(
-                "id-ID"
-              )}
-            </div>
-
-            <p className="text-xs text-gray-400 mt-1">
-              Total pengeluaran bensin{" "}
-              {
-                selectedYear
-              }
-            </p>
-
+            <div className="text-xl font-bold text-gray-800">Rp {bensinTahunan.toLocaleString("id-ID")}</div>
+            <p className="text-xs text-gray-400 mt-1">Total pengeluaran bensin {selectedYear}</p>
           </div>
-
         </div>
-
-        {/* BENSIN BULANAN */}
         <div className="bg-white p-5 rounded-xl border border-gray-200 shadow-sm flex flex-col justify-between">
-
           <div className="flex items-center justify-between pb-2">
-
-            <h3 className="tracking-tight text-sm font-medium text-gray-500">
-              Total Bensin Perbulan
-            </h3>
-
+            <h3 className="tracking-tight text-sm font-medium text-gray-500">Total Bensin Perbulan</h3>
             <Fuel className="h-4 w-4 text-orange-500" />
-
           </div>
-
           <div>
-
-            <div className="text-xl font-bold text-gray-800">
-              Rp{" "}
-              {bensinBulanan.toLocaleString(
-                "id-ID"
-              )}
-            </div>
-
-            <p className="text-xs text-gray-400 mt-1">
-              Pengeluaran bensin bulan{" "}
-              {
-                selectedMonthName
-              }
-            </p>
-
+            <div className="text-xl font-bold text-gray-800">Rp {bensinBulanan.toLocaleString("id-ID")}</div>
+            <p className="text-xs text-gray-400 mt-1">Pengeluaran bensin bulan {selectedMonthName}</p>
           </div>
-
         </div>
-
-        {/* PEMELIHARAAN TAHUNAN */}
         <div className="bg-white p-5 rounded-xl border border-gray-200 shadow-sm flex flex-col justify-between">
-
           <div className="flex items-center justify-between pb-2">
-
-            <h3 className="tracking-tight text-sm font-medium text-gray-500">
-              Total Pemeliharaan Pertahun
-            </h3>
-
+            <h3 className="tracking-tight text-sm font-medium text-gray-500">Total Pemeliharaan Pertahun</h3>
             <Wrench className="h-4 w-4 text-blue-500" />
-
           </div>
-
           <div>
-
-            <div className="text-xl font-bold text-gray-800">
-              Rp{" "}
-              {pemeliharaanKategoriTahunan.toLocaleString(
-                "id-ID"
-              )}
-            </div>
-
-            <p className="text-xs text-gray-400 mt-1">
-              Total biaya pemeliharaan{" "}
-              {
-                selectedYear
-              }
-            </p>
-
+            <div className="text-xl font-bold text-gray-800">Rp {pemeliharaanKategoriTahunan.toLocaleString("id-ID")}</div>
+            <p className="text-xs text-gray-400 mt-1">Total biaya pemeliharaan {selectedYear}</p>
           </div>
-
         </div>
-
-        {/* PEMELIHARAAN BULANAN */}
         <div className="bg-white p-5 rounded-xl border border-gray-200 shadow-sm flex flex-col justify-between">
-
           <div className="flex items-center justify-between pb-2">
-
-            <h3 className="tracking-tight text-sm font-medium text-gray-500">
-              Total Pemeliharaan Perbulan
-            </h3>
-
+            <h3 className="tracking-tight text-sm font-medium text-gray-500">Total Pemeliharaan Perbulan</h3>
             <Wrench className="h-4 w-4 text-blue-500" />
-
           </div>
-
           <div>
-
-            <div className="text-xl font-bold text-gray-800">
-              Rp{" "}
-              {pemeliharaanKategoriBulanan.toLocaleString(
-                "id-ID"
-              )}
-            </div>
-
-            <p className="text-xs text-gray-400 mt-1">
-              Biaya pemeliharaan bulan{" "}
-              {
-                selectedMonthName
-              }
-            </p>
-
+            <div className="text-xl font-bold text-gray-800">Rp {pemeliharaanKategoriBulanan.toLocaleString("id-ID")}</div>
+            <p className="text-xs text-gray-400 mt-1">Biaya pemeliharaan bulan {selectedMonthName}</p>
           </div>
-
         </div>
-
       </div>
-
-      {/* ========================================== */}
-      {/* TOOLBAR SEARCH */}
-      {/* ========================================== */}
 
       <div className="flex flex-col sm:flex-row justify-between items-center gap-4 mb-6">
-
         <div className="relative w-full sm:w-96">
-
           <div className="absolute inset-y-0 left-0 pl-3 flex items-center pointer-events-none">
-
-            <Search
-              className="h-4 w-4 text-gray-400"
-            />
-
+            <Search className="h-4 w-4 text-gray-400" />
           </div>
-
-          <input
-            type="text"
-            value={searchQuery}
-            onChange={(e) =>
-              setSearchQuery(
-                e.target.value
-              )
-            }
-            className="block w-full pl-10 pr-3 py-2 border border-gray-300 rounded-lg focus:ring-blue-500 focus:border-blue-500 text-sm shadow-sm font-medium text-black placeholder:font-normal placeholder:text-gray-400"
-            placeholder="Cari plat nomor atau nama kendaraan..."
-          />
-
+          <input type="text" value={searchQuery} onChange={(e) => setSearchQuery(e.target.value)} className="block w-full pl-10 pr-3 py-2 border border-gray-300 rounded-lg focus:ring-blue-500 focus:border-blue-500 text-sm shadow-sm font-medium text-black placeholder:font-normal placeholder:text-gray-400" placeholder="Cari plat nomor atau nama kendaraan..." />
         </div>
-
         <div className="flex gap-2 w-full sm:w-auto">
-
-          <button
-            type="button"
-            className="flex items-center gap-2 px-4 py-2 border border-gray-300 bg-white text-gray-700 rounded-lg text-sm font-medium hover:bg-gray-50 shadow-sm transition"
-          >
-            <Filter
-              size={16}
-            />
-            Filter
+          <button type="button" className="flex items-center gap-2 px-4 py-2 border border-gray-300 bg-white text-gray-700 rounded-lg text-sm font-medium hover:bg-gray-50 shadow-sm transition">
+            <Filter size={16} /> Filter
           </button>
-
-          <button
-            type="button"
-            onClick={() =>
-              setIsModalOpen(
-                true
-              )
-            }
-            className="flex items-center gap-2 px-4 py-2 bg-blue-600 text-white rounded-lg text-sm font-medium hover:bg-blue-700 shadow-sm transition"
-          >
-            <Plus
-              size={16}
-            />
-            Ajukan
+          <button type="button" onClick={() => setIsModalOpen(true)} className="flex items-center gap-2 px-4 py-2 bg-blue-600 text-white rounded-lg text-sm font-medium hover:bg-blue-700 shadow-sm transition">
+            <Plus size={16} /> Ajukan
           </button>
-
         </div>
-
       </div>
-
-      {/* ========================================== */}
-      {/* TABEL DATA */}
-      {/* ========================================== */}
 
       <div className="bg-white border border-gray-200 rounded-xl shadow-sm overflow-hidden flex flex-col flex-1">
-
         <div className="overflow-x-auto">
-
           <table className="w-full text-sm text-left">
-
             <thead className="bg-gray-50/80 text-gray-600 font-semibold border-b border-gray-200">
-
               <tr>
-
-                <th className="px-6 py-4 w-16">
-                  NO
-                </th>
-
-                <th className="px-6 py-4">
-                  NAMA KENDARAAN
-                </th>
-
-                <th className="px-6 py-4">
-                  PLAT NOMOR
-                </th>
-
-                <th className="px-6 py-4">
-                  KATEGORI PENGELUARAN
-                </th>
-
-                <th className="px-6 py-4">
-                  TOTAL BIAYA
-                </th>
-
-                <th className="px-6 py-4 text-center">
-                  AKSI
-                </th>
-
+                <th className="px-6 py-4 w-16">NO</th>
+                <th className="px-6 py-4">NAMA KENDARAAN</th>
+                <th className="px-6 py-4">PLAT NOMOR</th>
+                <th className="px-6 py-4">KATEGORI PENGELUARAN</th>
+                <th className="px-6 py-4">TOTAL BIAYA</th>
+                <th className="px-6 py-4 text-center">AKSI</th>
               </tr>
-
             </thead>
-
             <tbody className="divide-y divide-gray-200">
-
               {isLoading ? (
-
                 <tr>
-
-                  <td
-                    colSpan={6}
-                    className="px-6 py-4 text-center text-gray-500 font-medium"
-                  >
-                    Memuat data dari database...
-                  </td>
-
+                  <td colSpan={6} className="px-6 py-4 text-center text-gray-500 font-medium">Memuat data dari database...</td>
                 </tr>
-
-              ) : paginatedList.length ===
-                0 ? (
-
+              ) : paginatedList.length === 0 ? (
                 <tr>
-
-                  <td
-                    colSpan={6}
-                    className="px-6 py-4 text-center text-gray-500"
-                  >
-                    {searchQuery
-                      ? "Data tidak ditemukan."
-                      : "Belum ada pengajuan pemeliharaan untuk bulan ini."}
-                  </td>
-
+                  <td colSpan={6} className="px-6 py-4 text-center text-gray-500">{searchQuery ? "Data tidak ditemukan." : "Belum ada pengajuan pemeliharaan untuk bulan ini."}</td>
                 </tr>
-
               ) : (
-
-                paginatedList.map(
-                  (item, index) => (
-
-                    <tr
-                      key={item.id}
-                      className="hover:bg-gray-50/50 transition"
-                    >
-
-                      <td className="px-6 py-4 text-gray-500">
-                        {startIndex +
-                          index +
-                          1}
-                      </td>
-
-                      <td className="px-6 py-4 text-gray-600 font-medium">
-
-                        {item.inventaris_kib_b
-                          ?.nama_barang}
-
-                        {item
-                          .inventaris_kib_b
-                          ?.merk_type
-                          ? ` - ${item.inventaris_kib_b.merk_type}`
-                          : ""}
-
-                      </td>
-
-                      <td className="px-6 py-4 font-bold text-gray-900">
-
-                        {item
-                          .inventaris_kib_b
-                          ?.no_polisi ||
-                          "-"}
-
-                      </td>
-
-                      <td className="px-6 py-4">
-
-                        <span className="inline-flex items-center px-2.5 py-1 rounded-full text-xs font-medium bg-blue-100 text-blue-700">
-
-                          {item.kategori_pengeluaran ||
-                            "Pemeliharaan"}
-
-                        </span>
-
-                      </td>
-
-                      <td className="px-6 py-4 font-semibold text-gray-800">
-
-                        Rp{" "}
-                        {Number(
-                          item.total_biaya ||
-                          0
-                        ).toLocaleString(
-                          "id-ID"
-                        )}
-
-                      </td>
-
-                      <td className="px-6 py-4">
-
-                        <div className="flex justify-center items-center gap-3 text-gray-400">
-
-                          {/* DETAIL */}
-                          <button
-                            type="button"
-                            onClick={() => {
-
-                              setSelectedDetailId(
-                                item.id
-                              );
-
-                              setIsDetailModalOpen(
-                                true
-                              );
-
-                            }}
-                            className="hover:text-gray-700 transition"
-                            title="Lihat Detail"
-                          >
-
-                            <Eye
-                              size={18}
-                            />
-
-                          </button>
-
-                          {/* EDIT */}
-                          <button
-                            type="button"
-                            onClick={() => {
-
-                              setSelectedEditId(
-                                item.id
-                              );
-
-                              setIsEditModalOpen(
-                                true
-                              );
-
-                            }}
-                            className="hover:text-blue-600 transition"
-                            title="Edit"
-                          >
-
-                            <SquarePen
-                              size={18}
-                            />
-
-                          </button>
-
-                          {/* PRINT */}
-                          <button
-                            type="button"
-                            className="hover:text-green-600 transition"
-                            title="Cetak SPK/Nota"
-                          >
-
-                            <Printer
-                              size={18}
-                            />
-
-                          </button>
-
-                          {/* DELETE */}
-                          <button
-                            type="button"
-                            onClick={() =>
-                              handleDelete(
-                                item.id,
-                                item
-                                  .inventaris_kib_b
-                                  ?.no_polisi ||
-                                "-"
-                              )
-                            }
-                            className="hover:text-red-600 transition"
-                            title="Hapus"
-                          >
-
-                            <Trash2
-                              size={18}
-                            />
-
-                          </button>
-
-                        </div>
-
-                      </td>
-
-                    </tr>
-
-                  )
-                )
-
+                paginatedList.map((item, index) => (
+                  <tr key={item.id} className="hover:bg-gray-50/50 transition">
+                    <td className="px-6 py-4 text-gray-500">{startIndex + index + 1}</td>
+                    <td className="px-6 py-4 text-gray-600 font-medium">{item.inventaris_kib_b?.nama_barang}{item.inventaris_kib_b?.merk_type ? ` - ${item.inventaris_kib_b.merk_type}` : ""}</td>
+                    <td className="px-6 py-4 font-bold text-gray-900">{item.inventaris_kib_b?.no_polisi || "-"}</td>
+                    <td className="px-6 py-4">
+                      <span className="inline-flex items-center px-2.5 py-1 rounded-full text-xs font-medium bg-blue-100 text-blue-700">{item.kategori_pengeluaran || "Pemeliharaan"}</span>
+                    </td>
+                    <td className="px-6 py-4 font-semibold text-gray-800">Rp {Number(item.total_biaya || 0).toLocaleString("id-ID")}</td>
+                    <td className="px-6 py-4">
+                      <div className="flex justify-center items-center gap-3 text-gray-400">
+                        <button type="button" onClick={() => { setSelectedDetailId(item.id); setIsDetailModalOpen(true); }} className="hover:text-gray-700 transition" title="Lihat Detail"><Eye size={18} /></button>
+                        <button type="button" onClick={() => { setSelectedEditId(item.id); setIsEditModalOpen(true); }} className="hover:text-blue-600 transition" title="Edit"><SquarePen size={18} /></button>
+                        <button type="button" onClick={() => void handlePrint(item.id)} disabled={isPrinting} className="hover:text-green-600 transition disabled:opacity-50 disabled:cursor-not-allowed" title={isPrinting ? "Sedang membuat nota..." : "Cetak 2 Nota"}><Printer size={18} /></button>
+                        <button type="button" onClick={() => handleDelete(item.id, item.inventaris_kib_b?.no_polisi || "-")} className="hover:text-red-600 transition" title="Hapus"><Trash2 size={18} /></button>
+                      </div>
+                    </td>
+                  </tr>
+                ))
               )}
-
             </tbody>
-
           </table>
-
         </div>
-
-        {/* ========================================== */}
-        {/* PAGINATION */}
-        {/* ========================================== */}
-
         <div className="px-6 py-4 border-t border-gray-200 bg-white flex flex-col sm:flex-row items-center justify-between gap-4 mt-auto">
-
-          <span className="text-sm text-gray-500 font-medium">
-
-            Menampilkan{" "}
-
-            {totalItems === 0
-              ? 0
-              : startIndex + 1}
-
-            -
-
-            {Math.min(
-              endIndex,
-              totalItems
-            )}{" "}
-
-            dari{" "}
-            {
-              totalItems
-            }{" "}
-            data
-
-          </span>
-
+          <span className="text-sm text-gray-500 font-medium">Menampilkan {totalItems === 0 ? 0 : startIndex + 1}-{Math.min(endIndex, totalItems)} dari {totalItems} data</span>
           <div className="flex flex-col sm:flex-row items-center gap-4 sm:gap-6">
-
-            {/* ROWS PER PAGE */}
             <div className="flex items-center gap-2">
-
-              <span className="text-sm font-medium text-slate-700">
-                Rows per page
-              </span>
-
-              <select
-                value={
-                  itemsPerPage
-                }
-                onChange={(e) => {
-
-                  setItemsPerPage(
-                    Number(
-                      e.target.value
-                    )
-                  );
-
-                  setCurrentPage(
-                    1
-                  );
-
-                }}
-                className="border border-slate-200 rounded-md px-2 py-1 text-sm text-slate-700 outline-none focus:ring-2 focus:ring-blue-600 focus:border-blue-600 bg-white cursor-pointer"
-              >
-
-                <option
-                  value={10}
-                >
-                  10
-                </option>
-
-                <option
-                  value={20}
-                >
-                  20
-                </option>
-
-                <option
-                  value={50}
-                >
-                  50
-                </option>
-
-                <option
-                  value={100}
-                >
-                  100
-                </option>
-
+              <span className="text-sm font-medium text-slate-700">Rows per page</span>
+              <select value={itemsPerPage} onChange={(e) => { setItemsPerPage(Number(e.target.value)); setCurrentPage(1); }} className="border border-slate-200 rounded-md px-2 py-1 text-sm text-slate-700 outline-none focus:ring-2 focus:ring-blue-600 focus:border-blue-600 bg-white cursor-pointer">
+                <option value={10}>10</option>
+                <option value={20}>20</option>
+                <option value={50}>50</option>
+                <option value={100}>100</option>
               </select>
-
             </div>
-
-            {/* PAGINATION BUTTON */}
             <div className="flex items-center gap-2">
-
-              <button
-                type="button"
-                onClick={() =>
-                  setCurrentPage(
-                    (prev) =>
-                      Math.max(
-                        prev - 1,
-                        1
-                      )
-                  )
-                }
-                disabled={
-                  currentPage ===
-                  1 ||
-                  totalPages === 0
-                }
-                className="flex items-center gap-1 px-3 py-1.5 text-sm font-medium text-slate-700 hover:text-blue-600 hover:bg-blue-50 rounded-md disabled:opacity-50 disabled:hover:text-slate-700 disabled:hover:bg-transparent transition-colors"
-              >
-
-                <ChevronLeft
-                  size={16}
-                />
-
-                Previous
-
-              </button>
-
-              <button
-                type="button"
-                onClick={() =>
-                  setCurrentPage(
-                    (prev) =>
-                      Math.min(
-                        prev + 1,
-                        totalPages
-                      )
-                  )
-                }
-                disabled={
-                  currentPage ===
-                  totalPages ||
-                  totalPages ===
-                  0
-                }
-                className="flex items-center gap-1 px-3 py-1.5 text-sm font-medium text-slate-700 hover:text-blue-600 hover:bg-blue-50 rounded-md disabled:opacity-50 disabled:hover:text-slate-700 disabled:hover:bg-transparent transition-colors"
-              >
-
-                Next
-
-                <ChevronRight
-                  size={16}
-                />
-
-              </button>
-
+              <button type="button" onClick={() => setCurrentPage((prev) => Math.max(prev - 1, 1))} disabled={currentPage === 1 || totalPages === 0} className="flex items-center gap-1 px-3 py-1.5 text-sm font-medium text-slate-700 hover:text-blue-600 hover:bg-blue-50 rounded-md disabled:opacity-50 disabled:hover:text-slate-700 disabled:hover:bg-transparent transition-colors"><ChevronLeft size={16} />Previous</button>
+              <button type="button" onClick={() => setCurrentPage((prev) => Math.min(prev + 1, totalPages))} disabled={currentPage === totalPages || totalPages === 0} className="flex items-center gap-1 px-3 py-1.5 text-sm font-medium text-slate-700 hover:text-blue-600 hover:bg-blue-50 rounded-md disabled:opacity-50 disabled:hover:text-slate-700 disabled:hover:bg-transparent transition-colors">Next<ChevronRight size={16} /></button>
             </div>
-
           </div>
-
         </div>
-
       </div>
 
-      {/* ========================================== */}
-      {/* MODAL TAMBAH TAHUN */}
-      {/* ========================================== */}
-
       {isAddYearModalOpen && (
-
         <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/50 backdrop-blur-sm">
-
           <div className="bg-white w-full max-w-md rounded-xl shadow-lg border overflow-hidden mx-4">
-
             <div className="p-6">
-
-              <h2 className="text-lg font-semibold tracking-tight text-gray-900">
-                Tambah Tahun Anggaran
-              </h2>
-
-              <p className="text-sm text-gray-500 mt-1.5">
-                Masukkan tahun anggaran baru untuk ditambahkan ke dalam filter.
-              </p>
-
+              <h2 className="text-lg font-semibold tracking-tight text-gray-900">Tambah Tahun Anggaran</h2>
+              <p className="text-sm text-gray-500 mt-1.5">Masukkan tahun anggaran baru untuk ditambahkan ke dalam filter.</p>
               <div className="mt-6 space-y-4">
-
                 <div>
-
-                  <label className="block text-sm font-medium text-gray-700 mb-2">
-                    Tahun
-                  </label>
-
-                  <input
-                    type="number"
-                    value={
-                      newYearInput
-                    }
-                    onChange={(e) =>
-                      setNewYearInput(
-                        e.target.value
-                      )
-                    }
-                    className="w-full px-3 py-2 border border-gray-300 rounded-md focus:outline-none focus:ring-2 focus:ring-blue-500 text-sm font-medium text-gray-900 placeholder:text-gray-400 [appearance:textfield] [&::-webkit-outer-spin-button]:appearance-none [&::-webkit-inner-spin-button]:appearance-none"
-                    placeholder="Contoh: 2027"
-                  />
-
+                  <label className="block text-sm font-medium text-gray-700 mb-2">Tahun</label>
+                  <input type="number" value={newYearInput} onChange={(e) => setNewYearInput(e.target.value)} className="w-full px-3 py-2 border border-gray-300 rounded-md focus:outline-none focus:ring-2 focus:ring-blue-500 text-sm font-medium text-gray-900 placeholder:text-gray-400 [appearance:textfield] [&::-webkit-outer-spin-button]:appearance-none [&::-webkit-inner-spin-button]:appearance-none" placeholder="Contoh: 2027" />
                 </div>
-
                 <div>
-
-                  <label className="block text-sm font-medium text-gray-700 mb-2">
-                    Nominal PAGU Tahunan
-                  </label>
-
+                  <label className="block text-sm font-medium text-gray-700 mb-2">Nominal PAGU Tahunan</label>
                   <div className="relative">
-
-                    <span className="absolute inset-y-0 left-0 flex items-center pl-3 text-gray-900 text-sm font-medium">
-                      Rp.
-                    </span>
-
-                    <input
-                      type="number"
-                      value={
-                        newPaguInput
-                      }
-                      onChange={(e) =>
-                        setNewPaguInput(
-                          e.target.value
-                        )
-                      }
-                      className="w-full pl-10 pr-3 py-2 border border-gray-300 rounded-md focus:outline-none focus:ring-2 focus:ring-blue-500 text-sm font-medium text-gray-900 placeholder:text-gray-400 [appearance:textfield] [&::-webkit-outer-spin-button]:appearance-none [&::-webkit-inner-spin-button]:appearance-none"
-                      placeholder="0"
-                    />
-
+                    <span className="absolute inset-y-0 left-0 flex items-center pl-3 text-gray-900 text-sm font-medium">Rp.</span>
+                    <input type="number" value={newPaguInput} onChange={(e) => setNewPaguInput(e.target.value)} className="w-full pl-10 pr-3 py-2 border border-gray-300 rounded-md focus:outline-none focus:ring-2 focus:ring-blue-500 text-sm font-medium text-gray-900 placeholder:text-gray-400 [appearance:textfield] [&::-webkit-outer-spin-button]:appearance-none [&::-webkit-inner-spin-button]:appearance-none" placeholder="0" />
                   </div>
-
                 </div>
-
               </div>
-
             </div>
-
             <div className="px-6 py-4 bg-gray-50 flex items-center justify-end gap-2 border-t">
-
-              <button
-                type="button"
-                onClick={() =>
-                  setIsAddYearModalOpen(
-                    false
-                  )
-                }
-                className="px-4 py-2 border border-gray-300 rounded-md text-gray-700 font-medium hover:bg-gray-100 transition text-sm"
-              >
-                Batal
-              </button>
-
-              <button
-                type="button"
-                onClick={
-                  handleAddYear
-                }
-                disabled={
-                  isSubmittingYear
-                }
-                className="px-4 py-2 bg-slate-900 text-white rounded-md font-medium hover:bg-slate-800 transition shadow-sm text-sm disabled:opacity-50"
-              >
-                {
-                  isSubmittingYear
-                    ? "Menyimpan..."
-                    : "Simpan Tahun"
-                }
-              </button>
-
+              <button type="button" onClick={() => setIsAddYearModalOpen(false)} className="px-4 py-2 border border-gray-300 rounded-md text-gray-700 font-medium hover:bg-gray-100 transition text-sm">Batal</button>
+              <button type="button" onClick={handleAddYear} disabled={isSubmittingYear} className="px-4 py-2 bg-slate-900 text-white rounded-md font-medium hover:bg-slate-800 transition shadow-sm text-sm disabled:opacity-50">{isSubmittingYear ? "Menyimpan..." : "Simpan Tahun"}</button>
             </div>
-
           </div>
-
         </div>
-
       )}
-
-      {/* ========================================== */}
-      {/* MODAL EDIT PAGU */}
-      {/* ========================================== */}
 
       {isEditPaguModalOpen && (
-
         <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/50 backdrop-blur-sm">
-
           <div className="bg-white w-full max-w-md rounded-xl shadow-lg border overflow-hidden mx-4">
-
             <div className="p-6">
-
-              <h2 className="text-lg font-semibold tracking-tight text-gray-900">
-                Sesuaikan PAGU Tahunan
-              </h2>
-
-              <p className="text-sm text-gray-500 mt-1.5">
-                Ubah anggaran pemeliharaan untuk tahun berjalan (
-                {
-                  selectedYear
-                }
-                ).
-              </p>
-
+              <h2 className="text-lg font-semibold tracking-tight text-gray-900">Sesuaikan PAGU Tahunan</h2>
+              <p className="text-sm text-gray-500 mt-1.5">Ubah anggaran pemeliharaan untuk tahun berjalan ({selectedYear}).</p>
               <div className="mt-6">
-
-                <label className="block text-sm font-medium text-gray-700 mb-2">
-                  Nominal PAGU Tahunan
-                </label>
-
+                <label className="block text-sm font-medium text-gray-700 mb-2">Nominal PAGU Tahunan</label>
                 <div className="relative">
-
-                  <span className="absolute inset-y-0 left-0 flex items-center pl-3 text-gray-900 text-sm font-medium">
-                    Rp.
-                  </span>
-
-                  <input
-                    type="number"
-                    value={
-                      editPaguInput
-                    }
-                    onChange={(e) =>
-                      setEditPaguInput(
-                        e.target.value
-                      )
-                    }
-                    className="w-full pl-10 pr-3 py-2 border border-gray-300 rounded-md focus:outline-none focus:ring-2 focus:ring-blue-500 text-sm font-medium text-gray-900 placeholder:text-gray-400 [appearance:textfield] [&::-webkit-outer-spin-button]:appearance-none [&::-webkit-inner-spin-button]:appearance-none"
-                    placeholder="0"
-                  />
-
+                  <span className="absolute inset-y-0 left-0 flex items-center pl-3 text-gray-900 text-sm font-medium">Rp.</span>
+                  <input type="number" value={editPaguInput} onChange={(e) => setEditPaguInput(e.target.value)} className="w-full pl-10 pr-3 py-2 border border-gray-300 rounded-md focus:outline-none focus:ring-2 focus:ring-blue-500 text-sm font-medium text-gray-900 placeholder:text-gray-400 [appearance:textfield] [&::-webkit-outer-spin-button]:appearance-none [&::-webkit-inner-spin-button]:appearance-none" placeholder="0" />
                 </div>
-
               </div>
-
             </div>
-
             <div className="px-6 py-4 bg-gray-50 flex items-center justify-end gap-2 border-t">
-
-              <button
-                type="button"
-                onClick={() =>
-                  setIsEditPaguModalOpen(
-                    false
-                  )
-                }
-                className="px-4 py-2 border border-gray-300 rounded-md text-gray-700 font-medium hover:bg-gray-100 transition text-sm"
-              >
-                Batal
-              </button>
-
-              <button
-                type="button"
-                onClick={
-                  handleSaveEditPagu
-                }
-                disabled={
-                  isSubmittingEditPagu
-                }
-                className="px-4 py-2 bg-blue-600 text-white rounded-md font-medium hover:bg-blue-700 transition shadow-sm text-sm disabled:opacity-50"
-              >
-                {
-                  isSubmittingEditPagu
-                    ? "Menyimpan..."
-                    : "Simpan Perubahan"
-                }
-              </button>
-
+              <button type="button" onClick={() => setIsEditPaguModalOpen(false)} className="px-4 py-2 border border-gray-300 rounded-md text-gray-700 font-medium hover:bg-gray-100 transition text-sm">Batal</button>
+              <button type="button" onClick={handleSaveEditPagu} disabled={isSubmittingEditPagu} className="px-4 py-2 bg-blue-600 text-white rounded-md font-medium hover:bg-blue-700 transition shadow-sm text-sm disabled:opacity-50">{isSubmittingEditPagu ? "Menyimpan..." : "Simpan Perubahan"}</button>
             </div>
-
           </div>
-
         </div>
-
       )}
 
-      {/* ========================================== */}
-      {/* MODAL COMPONENTS */}
-      {/* ========================================== */}
-
-      <VehicleRepairModal
-        isOpen={isModalOpen}
-        onClose={() =>
-          setIsModalOpen(false)
-        }
-      />
-
-      <VehicleRepairDetailModal
-        isOpen={
-          isDetailModalOpen
-        }
-        onClose={() =>
-          setIsDetailModalOpen(
-            false
-          )
-        }
-        pemeliharaanId={
-          selectedDetailId
-        }
-      />
-
+      <VehicleRepairModal isOpen={isModalOpen} onClose={() => setIsModalOpen(false)} />
+      <VehicleRepairDetailModal isOpen={isDetailModalOpen} onClose={() => setIsDetailModalOpen(false)} pemeliharaanId={selectedDetailId} />
       <VehicleRepairEditModal
-        isOpen={
-          isEditModalOpen
-        }
-        onClose={() =>
-          setIsEditModalOpen(
-            false
-          )
-        }
-        pemeliharaanId={
-          selectedEditId
-        }
-        onSaved={(
-          updatedData
-        ) => {
-
-          setPemeliharaanList(
-            (prev) =>
-              prev.map(
-                (item) =>
-                  item.id ===
-                    updatedData.id
-                    ? {
-                      ...item,
-                      tanggal_pengajuan:
-                        updatedData.tanggal_pengajuan,
-                      bengkel_rekanan:
-                        updatedData.bengkel_rekanan,
-                      total_biaya:
-                        updatedData.total_biaya,
-                      kategori_pengeluaran:
-                        updatedData.kategori_pengeluaran,
-                      inventaris_kib_b:
-                        updatedData.inventaris_kib_b,
-                    }
-                    : item
-              )
+        isOpen={isEditModalOpen}
+        onClose={() => setIsEditModalOpen(false)}
+        pemeliharaanId={selectedEditId}
+        onSaved={(updatedData) => {
+          setPemeliharaanList((prev) =>
+            prev.map((item) =>
+              item.id === updatedData.id
+                ? {
+                    ...item,
+                    tanggal_pengajuan: updatedData.tanggal_pengajuan,
+                    bengkel_rekanan: updatedData.bengkel_rekanan,
+                    total_biaya: updatedData.total_biaya,
+                    kategori_pengeluaran: updatedData.kategori_pengeluaran,
+                    inventaris_kib_b: updatedData.inventaris_kib_b,
+                  }
+                : item
+            )
           );
-
         }}
       />
-
     </div>
   );
-}
+} 

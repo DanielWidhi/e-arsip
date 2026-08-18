@@ -170,6 +170,15 @@ export default function AdminSidebar({ isOpen, setIsOpen }: AdminSidebarProps) {
                     Kendaraan
                   </Link>
                 </li>
+                <li>
+                  <Link
+                    onClick={closeMenuMobile}
+                    href="/admin/pemeliharaan/list"
+                    className={`block px-3 py-2 rounded-lg text-sm font-medium transition-colors ${pathname === "/admin/pemeliharaan/list" ? "text-blue-400 bg-slate-800" : "text-slate-400 hover:text-slate-200 hover:bg-slate-800/50"}`}
+                  >
+                    List
+                  </Link>
+                </li>
               </ul>
             </div>
           </li>
