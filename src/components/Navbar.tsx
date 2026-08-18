@@ -74,7 +74,7 @@ export default function Navbar() {
         <div className="flex items-center gap-4">
           <Link href="/" className="flex items-center gap-2.5 text-xl font-extrabold text-blue-700 tracking-tight" onClick={closeMenu}>
             {/* eslint-disable-next-line @next/next/no-img-element */}
-            <img src="/images/assets/logos-sate.png" alt="Logo" className="w-8 h-8 md:w-10 md:h-10 object-contain drop-shadow-sm bg-white rounded-md p-0.5" />
+            <img src="/images/assets/logos-sate.webp" alt="Logo" className="w-8 h-8 md:w-10 md:h-10 object-contain drop-shadow-sm bg-white rounded-md p-0.5" />
             <span>
               SATE <span className="text-slate-800 text-sm md:text-lg">Kuta Selatan</span>
             </span>
