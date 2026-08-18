@@ -4,6 +4,7 @@ import React, {
   useState,
   useEffect,
   useMemo,
+  useCallback,
 } from "react";
 import {
   Search,
@@ -25,7 +26,6 @@ import {
   ChevronRight,
   Fuel,
   Wrench,
-  X,
 } from "lucide-react";
 import Swal from "sweetalert2";
 
@@ -66,9 +66,9 @@ interface PemeliharaanQueryItem {
   total_biaya: number | null;
   kategori_pengeluaran: string | null;
   inventaris_kib_b:
-    | VehicleRelation[]
-    | VehicleRelation
-    | null;
+  | VehicleRelation[]
+  | VehicleRelation
+  | null;
 }
 
 interface YearData {
@@ -130,12 +130,14 @@ export default function KendaraanPage() {
   const selectedMonthName = months.find((m) => m.value === selectedMonth)?.label;
 
   useEffect(() => {
+    // eslint-disable-next-line react-hooks/set-state-in-effect
     setCurrentPage(1);
   }, [searchQuery, selectedYear, selectedMonth, itemsPerPage]);
 
   useEffect(() => {
     const savedMonth = localStorage.getItem("sate_selected_month");
     if (savedMonth) {
+      // eslint-disable-next-line react-hooks/set-state-in-effect
       setSelectedMonth(parseInt(savedMonth, 10));
     }
   }, []);
@@ -199,61 +201,62 @@ export default function KendaraanPage() {
     if (selectedMonth) localStorage.setItem("sate_selected_month", selectedMonth.toString());
   }, [selectedMonth]);
 
-  useEffect(() => {
-    const fetchData = async () => {
-      if (!selectedYear) {
-        setIsLoading(false);
+  const fetchData = useCallback(async () => {
+    if (!selectedYear) {
+      setIsLoading(false);
+      setPaguTahunan(0);
+      setPemeliharaanList([]);
+      return;
+    }
+
+    setIsLoading(true);
+    try {
+      const { data: paguData } = await supabase
+        .from("pagu")
+        .select("nominal_tahunan")
+        .eq("tahun", parseInt(selectedYear, 10))
+        .single();
+
+      if (paguData) {
+        setPaguTahunan(Number(paguData.nominal_tahunan));
+      } else {
         setPaguTahunan(0);
-        setPemeliharaanList([]);
-        return;
       }
 
-      setIsLoading(true);
-      try {
-        const { data: paguData } = await supabase
-          .from("pagu")
-          .select("nominal_tahunan")
-          .eq("tahun", parseInt(selectedYear, 10))
-          .single();
+      const startOfYear = `${selectedYear}-01-01`;
+      const endOfYear = `${selectedYear}-12-31`;
 
-        if (paguData) {
-          setPaguTahunan(Number(paguData.nominal_tahunan));
-        } else {
-          setPaguTahunan(0);
-        }
+      const { data: pemeliharaanData, error } = await supabase
+        .from("pemeliharaan")
+        .select(`id, tanggal_pengajuan, bengkel_rekanan, total_biaya, kategori_pengeluaran, inventaris_kib_b ( nama_barang, merk_type, no_polisi )`)
+        .gte("tanggal_pengajuan", startOfYear)
+        .lte("tanggal_pengajuan", endOfYear)
+        .order("tanggal_pengajuan", { ascending: false });
 
-        const startOfYear = `${selectedYear}-01-01`;
-        const endOfYear = `${selectedYear}-12-31`;
+      if (error) throw error;
 
-        const { data: pemeliharaanData, error } = await supabase
-          .from("pemeliharaan")
-          .select(`id, tanggal_pengajuan, bengkel_rekanan, total_biaya, kategori_pengeluaran, inventaris_kib_b ( nama_barang, merk_type, no_polisi )`)
-          .gte("tanggal_pengajuan", startOfYear)
-          .lte("tanggal_pengajuan", endOfYear)
-          .order("tanggal_pengajuan", { ascending: false });
+      const rawData = (pemeliharaanData || []) as unknown as PemeliharaanQueryItem[];
+      const normalizedData: PemeliharaanItem[] = rawData.map((item) => ({
+        id: item.id,
+        tanggal_pengajuan: item.tanggal_pengajuan,
+        bengkel_rekanan: item.bengkel_rekanan,
+        total_biaya: item.total_biaya,
+        kategori_pengeluaran: item.kategori_pengeluaran,
+        inventaris_kib_b: Array.isArray(item.inventaris_kib_b) ? item.inventaris_kib_b[0] ?? null : item.inventaris_kib_b,
+      }));
 
-        if (error) throw error;
-
-        const rawData = (pemeliharaanData || []) as unknown as PemeliharaanQueryItem[];
-        const normalizedData: PemeliharaanItem[] = rawData.map((item) => ({
-          id: item.id,
-          tanggal_pengajuan: item.tanggal_pengajuan,
-          bengkel_rekanan: item.bengkel_rekanan,
-          total_biaya: item.total_biaya,
-          kategori_pengeluaran: item.kategori_pengeluaran,
-          inventaris_kib_b: Array.isArray(item.inventaris_kib_b) ? item.inventaris_kib_b[0] ?? null : item.inventaris_kib_b,
-        }));
-
-        setPemeliharaanList(normalizedData);
-      } catch (error) {
-        console.error("Gagal mengambil data dari Supabase:", error);
-      } finally {
-        setIsLoading(false);
-      }
-    };
-
-    void fetchData();
+      setPemeliharaanList(normalizedData);
+    } catch (error) {
+      console.error("Gagal mengambil data dari Supabase:", error);
+    } finally {
+      setIsLoading(false);
+    }
   }, [selectedYear, supabase]);
+
+  useEffect(() => {
+    // eslint-disable-next-line react-hooks/set-state-in-effect
+    void fetchData();
+  }, [fetchData]);
 
   // ==========================================
   // PRINT DATA / GENERATE PDF 
@@ -742,7 +745,7 @@ export default function KendaraanPage() {
         </div>
       )}
 
-      <VehicleRepairModal isOpen={isModalOpen} onClose={() => { setIsModalOpen(false); void refreshPageData(); }} />
+      <VehicleRepairModal isOpen={isModalOpen} onClose={() => { setIsModalOpen(false); void fetchData(); }} />
       <VehicleRepairDetailModal isOpen={isDetailModalOpen} onClose={() => setIsDetailModalOpen(false)} pemeliharaanId={selectedDetailId} />
       <VehicleRepairEditModal
         isOpen={isEditModalOpen}
@@ -753,13 +756,13 @@ export default function KendaraanPage() {
             prev.map((item) =>
               item.id === updatedData.id
                 ? {
-                    ...item,
-                    tanggal_pengajuan: updatedData.tanggal_pengajuan,
-                    bengkel_rekanan: updatedData.bengkel_rekanan,
-                    total_biaya: updatedData.total_biaya,
-                    kategori_pengeluaran: updatedData.kategori_pengeluaran,
-                    inventaris_kib_b: updatedData.inventaris_kib_b,
-                  }
+                  ...item,
+                  tanggal_pengajuan: updatedData.tanggal_pengajuan,
+                  bengkel_rekanan: updatedData.bengkel_rekanan,
+                  total_biaya: updatedData.total_biaya,
+                  kategori_pengeluaran: updatedData.kategori_pengeluaran,
+                  inventaris_kib_b: updatedData.inventaris_kib_b,
+                }
                 : item
             )
           );

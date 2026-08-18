@@ -242,7 +242,7 @@ export default function PemeliharaanListPage() {
         .filter((year) => !Number.isNaN(year));
 
       setAvailableYears(Array.from(new Set(years)).sort((a, b) => b - a));
-    } catch (error: any) {
+    } catch (error: unknown) {
       console.error(
         "Gagal mengambil daftar tahun PAGU:",
         JSON.stringify(error, null, 2)
@@ -276,7 +276,7 @@ export default function PemeliharaanListPage() {
         .filter((plate) => plate !== "");
 
       setAvailablePlates(Array.from(new Set(plates)));
-    } catch (error: any) {
+    } catch (error: unknown) {
       console.error(
         "Gagal mengambil daftar plat nomor:",
         JSON.stringify(error, null, 2)
@@ -349,7 +349,7 @@ export default function PemeliharaanListPage() {
       }));
 
       setPemeliharaanList(normalizedData);
-    } catch (error: any) {
+    } catch (error: unknown) {
       console.error(
         "Gagal mengambil data pemeliharaan:",
         JSON.stringify(error, null, 2)
@@ -611,7 +611,7 @@ export default function PemeliharaanListPage() {
       });
 
       await refreshPageData();
-    } catch (error: any) {
+    } catch (error: unknown) {
       console.error("Gagal menghapus:", JSON.stringify(error, null, 2));
       const message = error instanceof Error ? error.message : "Gagal menghapus data.";
       Swal.fire({

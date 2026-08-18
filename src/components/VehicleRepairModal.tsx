@@ -17,7 +17,6 @@ import {
 } from "lucide-react";
 import Swal from "sweetalert2";
 import { createClient } from "@/lib/supabase";
-import { useRouter } from "next/navigation";
 
 interface ItemDetail {
   id: number;
@@ -47,7 +46,6 @@ export default function VehicleRepairModal({
   // Gunakan instance Supabase yang stabil
   // agar tidak dibuat ulang setiap render.
   const supabase = useMemo(() => createClient(), []);
-  const router = useRouter();
 
   // ==========================================
   // STATE INFORMASI PENGAJUAN
@@ -83,10 +81,9 @@ export default function VehicleRepairModal({
     useState(false);
 
   // ==========================================
-  // RESET FORM SAAT MODAL DIBUKA
-  // ==========================================
   useEffect(() => {
     if (isOpen) {
+      /* eslint-disable react-hooks/set-state-in-effect */
       setTanggal("");
       setBengkel("");
       setKendaraanId("");
@@ -105,6 +102,7 @@ export default function VehicleRepairModal({
       ]);
 
       setIsVehicleDropdownOpen(false);
+      /* eslint-enable react-hooks/set-state-in-effect */
     }
   }, [isOpen]);
 

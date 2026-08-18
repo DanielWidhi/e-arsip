@@ -97,7 +97,6 @@ export default function DetailArsipPage() {
     if (idBarang) {
       fetchAssetDetail();
     }
-    // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [idBarang]);
 
   const downloadQRCode = () => {

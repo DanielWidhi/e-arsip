@@ -221,6 +221,7 @@ const drawOrderBarangPage = (
     },
   });
 
+  // eslint-disable-next-line @typescript-eslint/no-explicit-any
   const finalY = (doc as any).lastAutoTable?.finalY || 155;
   const signatureTop = finalY + 7;
 
@@ -311,6 +312,7 @@ const drawNotaPage = (
     },
   });
 
+  // eslint-disable-next-line @typescript-eslint/no-explicit-any
   const finalY = (doc as any).lastAutoTable?.finalY || 175;
   const signatureTop = finalY + 7;
   const signatureLeftX = 55;

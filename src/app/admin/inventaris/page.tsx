@@ -29,7 +29,6 @@ function InventarisContent() {
 
   const [isCreateModalOpen, setIsCreateModalOpen] = useState(false);
   const [isEditModalOpen, setIsEditModalOpen] = useState(false);
-  const [isDetailModalOpen, setIsDetailModalOpen] = useState(false);
   const [isImportModalOpen, setIsImportModalOpen] = useState(false); // State Modal Import CSV
   const [selectedAsset, setSelectedAsset] = useState<AssetType | null>(null);
   const [assetToEdit, setAssetToEdit] = useState<AssetItem | null>(null);
@@ -145,6 +144,7 @@ function InventarisContent() {
   });
 
   useEffect(() => {
+    // eslint-disable-next-line react-hooks/set-state-in-effect
     setCurrentPage(1);
   }, [searchTerm, filterTahun, filterKondisi, filterKir]);
 
@@ -158,7 +158,6 @@ function InventarisContent() {
 
   const handleOpenDetail = (item: AssetItem) => {
     setSelectedAsset(item as unknown as AssetType);
-    setIsDetailModalOpen(true);
   };
 
   // PEMANGGILAN EKSPOR ASLI

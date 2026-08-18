@@ -1,7 +1,7 @@
 "use client";
 
 import { useState, useEffect } from "react";
-import { Search, Loader2, Edit, Eye, AlertTriangle, Wrench } from "lucide-react";
+import { Search, Edit, Eye, AlertTriangle, Wrench } from "lucide-react";
 import { createClient } from "@/lib/supabase";
 import AssetDetailModal, { AssetType } from "@/components/AssetDetailModal";
 import AssetEditModal from "@/components/AssetEditModal";
