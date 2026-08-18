@@ -25,6 +25,7 @@ import {
   ChevronRight,
   Fuel,
   Wrench,
+  X,
 } from "lucide-react";
 import Swal from "sweetalert2";
 
@@ -113,6 +114,11 @@ export default function KendaraanPage() {
   const [isEditPaguModalOpen, setIsEditPaguModalOpen] = useState(false);
   const [editPaguInput, setEditPaguInput] = useState("");
   const [isSubmittingEditPagu, setIsSubmittingEditPagu] = useState(false);
+
+  // STATE BARU: Modal Print Shadcn Style
+  const [isPrintModalOpen, setIsPrintModalOpen] = useState(false);
+  const [printKeterangan, setPrintKeterangan] = useState("");
+  const [printPemeliharaanId, setPrintPemeliharaanId] = useState<number | null>(null);
 
   const months = [
     { value: 1, label: "Januari" }, { value: 2, label: "Februari" }, { value: 3, label: "Maret" },
@@ -250,27 +256,19 @@ export default function KendaraanPage() {
   }, [selectedYear, supabase]);
 
   // ==========================================
-  // PRINT DATA / GENERATE PDF DENGAN INPUT KETERANGAN
+  // PRINT DATA / GENERATE PDF 
   // ==========================================
 
-  const handlePrint = async (pemeliharaanId: number) => {
-    if (isPrinting) return;
+  const openPrintModal = (id: number) => {
+    setPrintPemeliharaanId(id);
+    setPrintKeterangan("");
+    setIsPrintModalOpen(true);
+  };
 
-    // 1. Prompt Input Text (Untuk Pembayaran Kwitansi)
-    const { value: keteranganInput, isDismissed } = await Swal.fire({
-      title: 'Keterangan Kwitansi',
-      text: 'Masukkan keterangan "Untuk Pembayaran" yang akan tercetak di Kwitansi.',
-      input: 'textarea',
-      inputPlaceholder: 'Contoh: Belanja Jasa Tenaga Kerja Non Pegawai (Jasa Pengangkutan Sampah)...',
-      showCancelButton: true,
-      confirmButtonText: 'Cetak Dokumen',
-      cancelButtonText: 'Batal',
-      confirmButtonColor: '#2563eb',
-    });
+  const handleConfirmPrint = async () => {
+    if (!printPemeliharaanId || isPrinting) return;
 
-    // Jika user klik Batal, hentikan proses
-    if (isDismissed) return;
-
+    setIsPrintModalOpen(false);
     setIsPrinting(true);
 
     Swal.fire({
@@ -288,7 +286,7 @@ export default function KendaraanPage() {
       const { data, error } = await supabase
         .from("pemeliharaan")
         .select(`id, tanggal_pengajuan, bengkel_rekanan, total_biaya, kategori_pengeluaran, inventaris_kib_b ( nama_barang, merk_type, no_polisi ), pemeliharaan_detail ( id, nama_barang, banyaknya, unit, harga_unit, jumlah, keterangan )`)
-        .eq("id", pemeliharaanId)
+        .eq("id", printPemeliharaanId)
         .single();
 
       if (error) throw error;
@@ -303,8 +301,8 @@ export default function KendaraanPage() {
 
       Swal.close();
 
-      // Passing keterangan dari inputan user ke fungsi print
-      generateVehicleRepairNotaPdf(normalizedData, keteranganInput || "-");
+      // Passing keterangan dari inputan modal ke fungsi print
+      generateVehicleRepairNotaPdf(normalizedData, printKeterangan || "-");
 
       await Swal.fire({
         icon: "success",
@@ -326,6 +324,7 @@ export default function KendaraanPage() {
       });
     } finally {
       setIsPrinting(false);
+      setPrintPemeliharaanId(null);
     }
   };
 
@@ -624,7 +623,7 @@ export default function KendaraanPage() {
                       <div className="flex justify-center items-center gap-3 text-gray-400">
                         <button type="button" onClick={() => { setSelectedDetailId(item.id); setIsDetailModalOpen(true); }} className="hover:text-gray-700 transition" title="Lihat Detail"><Eye size={18} /></button>
                         <button type="button" onClick={() => { setSelectedEditId(item.id); setIsEditModalOpen(true); }} className="hover:text-blue-600 transition" title="Edit"><SquarePen size={18} /></button>
-                        <button type="button" onClick={() => void handlePrint(item.id)} disabled={isPrinting} className="hover:text-green-600 transition disabled:opacity-50 disabled:cursor-not-allowed" title={isPrinting ? "Sedang membuat nota..." : "Cetak 2 Nota"}><Printer size={18} /></button>
+                        <button type="button" onClick={() => openPrintModal(item.id)} disabled={isPrinting} className="hover:text-green-600 transition disabled:opacity-50 disabled:cursor-not-allowed" title={isPrinting ? "Sedang membuat nota..." : "Cetak 3 Nota"}><Printer size={18} /></button>
                         <button type="button" onClick={() => handleDelete(item.id, item.inventaris_kib_b?.no_polisi || "-")} className="hover:text-red-600 transition" title="Hapus"><Trash2 size={18} /></button>
                       </div>
                     </td>
@@ -704,7 +703,46 @@ export default function KendaraanPage() {
         </div>
       )}
 
-      <VehicleRepairModal isOpen={isModalOpen} onClose={() => setIsModalOpen(false)} />
+      {/* MODAL 3: Print Keterangan Pembayaran (Shadcn Style) */}
+      {isPrintModalOpen && (
+        <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/50 backdrop-blur-sm">
+          <div className="bg-white w-full max-w-md rounded-xl shadow-lg border overflow-hidden mx-4">
+            <div className="p-6">
+              <h2 className="text-lg font-semibold tracking-tight text-gray-900">Keterangan Kwitansi</h2>
+              <p className="text-sm text-gray-500 mt-1.5">Masukkan keterangan &quot;Untuk Pembayaran&quot; yang akan tercetak di Kwitansi.</p>
+              <div className="mt-4">
+                <label className="block text-sm font-medium text-gray-700 mb-2">Untuk Pembayaran</label>
+                <textarea
+                  value={printKeterangan}
+                  onChange={(e) => setPrintKeterangan(e.target.value)}
+                  rows={4}
+                  className="w-full px-3 py-2 border border-gray-300 rounded-md focus:outline-none focus:ring-2 focus:ring-blue-500 text-sm font-medium text-gray-900 placeholder:text-gray-400 placeholder:font-normal resize-none"
+                  placeholder="Contoh: Belanja Jasa Tenaga Kerja Non Pegawai (Jasa Pengangkutan Sampah)..."
+                ></textarea>
+              </div>
+            </div>
+            <div className="px-6 py-4 bg-gray-50 flex items-center justify-end gap-2 border-t">
+              <button
+                type="button"
+                onClick={() => setIsPrintModalOpen(false)}
+                className="px-4 py-2 border border-gray-300 rounded-md text-gray-700 font-medium hover:bg-gray-100 transition text-sm"
+              >
+                Batal
+              </button>
+              <button
+                type="button"
+                onClick={handleConfirmPrint}
+                disabled={isPrinting}
+                className="px-4 py-2 bg-blue-600 text-white rounded-md font-medium hover:bg-blue-700 transition shadow-sm text-sm disabled:opacity-50 flex items-center gap-2"
+              >
+                {isPrinting ? 'Menyiapkan...' : 'Cetak Dokumen'}
+              </button>
+            </div>
+          </div>
+        </div>
+      )}
+
+      <VehicleRepairModal isOpen={isModalOpen} onClose={() => { setIsModalOpen(false); void refreshPageData(); }} />
       <VehicleRepairDetailModal isOpen={isDetailModalOpen} onClose={() => setIsDetailModalOpen(false)} pemeliharaanId={selectedDetailId} />
       <VehicleRepairEditModal
         isOpen={isEditModalOpen}
@@ -729,4 +767,4 @@ export default function KendaraanPage() {
       />
     </div>
   );
-} 
+}

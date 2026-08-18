@@ -387,7 +387,7 @@ const drawKwitansiPage = (
   doc.text(":", marginLeft + 40, 55);
 
   // Kotak Biru Muda (Terbilang Huruf)
-  doc.setFillColor(204, 255, 255);
+  doc.setFillColor(224, 224, 224);
   doc.rect(marginLeft + 45, 49, 135, 12, "FD");
   doc.text(terbilangStr, marginLeft + 47, 56);
 
@@ -403,7 +403,7 @@ const drawKwitansiPage = (
   doc.setFont("times", "italic");
   doc.setFontSize(14);
   doc.text("Terbilang Rp.", marginLeft, 98);
-  doc.setFillColor(204, 255, 255);
+  doc.setFillColor(224, 224, 224);
   doc.rect(marginLeft + 45, 90, 50, 12, "FD");
   doc.setFont("helvetica", "bold");
   doc.text(formatRupiah(totalBiaya), marginLeft + 70, 98, { align: "center" });
