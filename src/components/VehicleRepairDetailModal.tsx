@@ -12,6 +12,13 @@ import {
   Printer,
 } from "lucide-react";
 import { createClient } from "@/lib/supabase";
+import Swal from "sweetalert2";
+
+// Import fungsi PDF
+import {
+  generateVehicleRepairNotaPdf,
+  VehicleRepairPrintData,
+} from "@/utils/exportVehicleRepairNota";
 
 // ==========================================
 // TYPE DATA
@@ -71,17 +78,21 @@ export default function VehicleRepairDetailModal({
   const [isLoading, setIsLoading] =
     useState(false);
 
+  const [isPrinting, setIsPrinting] = 
+    useState(false);
+
+  // STATE BARU: Modal Print Shadcn Style
+  const [isPrintModalOpen, setIsPrintModalOpen] = useState(false);
+  const [printKeterangan, setPrintKeterangan] = useState("");
+
   // ==========================================
   // FETCH DETAIL
   // ==========================================
 
   useEffect(() => {
     if (!isOpen || pemeliharaanId === null) {
-      // Rule react-hooks/set-state-in-effect
-      // dimatikan hanya untuk reset data ketika modal ditutup.
       // eslint-disable-next-line react-hooks/set-state-in-effect
       setData(null);
-
       return;
     }
 
@@ -89,10 +100,6 @@ export default function VehicleRepairDetailModal({
       setIsLoading(true);
 
       try {
-        // Query:
-        // Header pemeliharaan
-        // Relasi kendaraan
-        // Detail barang/jasa
         const {
           data: detailData,
           error,
@@ -116,10 +123,6 @@ export default function VehicleRepairDetailModal({
           throw error;
         }
 
-        // Normalisasi data hasil Supabase.
-        //
-        // Relasi Supabase dapat terbaca sebagai object
-        // atau array tergantung relationship yang tersedia.
         const rawData =
           detailData as unknown as PemeliharaanData;
 
@@ -178,6 +181,72 @@ export default function VehicleRepairDetailModal({
         year: "numeric",
       }
     );
+  };
+
+  // ==========================================
+  // PRINT DATA / GENERATE PDF (DIUBAH)
+  // ==========================================
+
+  const openPrintModal = () => {
+    if (!data) return;
+    setPrintKeterangan("");
+    setIsPrintModalOpen(true);
+  };
+
+  const handleConfirmPrint = async () => {
+    if (isPrinting || !data) return;
+
+    setIsPrintModalOpen(false);
+    setIsPrinting(true);
+
+    Swal.fire({
+      title: "Menyiapkan nota...",
+      text: "Sedang membuat PDF.",
+      allowOutsideClick: false,
+      allowEscapeKey: false,
+      showConfirmButton: false,
+      didOpen: () => {
+        Swal.showLoading();
+      },
+    });
+
+    try {
+      const rawData = data as unknown as VehicleRepairPrintData;
+      
+      const normalizedData: VehicleRepairPrintData = {
+        ...rawData,
+        inventaris_kib_b: Array.isArray(rawData.inventaris_kib_b) 
+          ? rawData.inventaris_kib_b[0] ?? null 
+          : rawData.inventaris_kib_b,
+        pemeliharaan_detail: rawData.pemeliharaan_detail ?? [],
+      };
+
+      Swal.close();
+
+      // Passing keterangan dari inputan user ke fungsi print
+      generateVehicleRepairNotaPdf(normalizedData, printKeterangan || "-");
+
+      await Swal.fire({
+        icon: "success",
+        title: "Berhasil",
+        text: "3 Halaman Nota & Kwitansi berhasil dibuat.",
+        confirmButtonColor: "#2563eb",
+        timer: 1500,
+        showConfirmButton: false,
+      });
+    } catch (error: unknown) {
+      Swal.close();
+      console.error("Gagal membuat nota:", error);
+      const message = error instanceof Error ? error.message : "Gagal membuat nota.";
+      await Swal.fire({
+        icon: "error",
+        title: "Gagal Mencetak",
+        text: message,
+        confirmButtonColor: "#2563eb",
+      });
+    } finally {
+      setIsPrinting(false);
+    }
   };
 
   // ==========================================
@@ -400,7 +469,7 @@ export default function VehicleRepairDetailModal({
                     0 ? (
 
                     data.pemeliharaan_detail.map(
-                      (item) => (
+                      (item: PemeliharaanDetail) => ( // <-- PERBAIKAN: Tipe 'any' diganti
 
                         <div
                           key={item.id}
@@ -556,7 +625,9 @@ export default function VehicleRepairDetailModal({
 
             <button
               type="button"
-              className="px-4 py-2 bg-white border border-gray-300 rounded-md text-gray-700 font-medium hover:bg-gray-100 transition text-sm flex items-center gap-2"
+              onClick={openPrintModal}
+              disabled={isPrinting || !data || isLoading}
+              className="px-4 py-2 bg-white border border-gray-300 rounded-md text-gray-700 font-medium hover:bg-gray-100 transition text-sm flex items-center gap-2 disabled:opacity-50 disabled:cursor-not-allowed"
             >
               <Printer size={16} />
               Cetak
@@ -575,6 +646,49 @@ export default function VehicleRepairDetailModal({
         </div>
 
       </div>
+
+      {/* ========================================== */}
+      {/* MODAL PRINT (KETERANGAN KWITANSI) SHADCN */}
+      {/* ========================================== */}
+
+      {isPrintModalOpen && (
+        <div className="fixed inset-0 z-[60] flex items-center justify-center bg-black/50 backdrop-blur-sm">
+          <div className="bg-white w-full max-w-md rounded-xl shadow-lg border overflow-hidden mx-4">
+            <div className="p-6">
+              <h2 className="text-lg font-semibold tracking-tight text-gray-900">Keterangan Kwitansi</h2>
+              <p className="text-sm text-gray-500 mt-1.5">Masukkan keterangan &quot;Untuk Pembayaran&quot; yang akan tercetak di Kwitansi.</p>
+              <div className="mt-4">
+                <label className="block text-sm font-medium text-gray-700 mb-2">Untuk Pembayaran</label>
+                <textarea
+                  value={printKeterangan}
+                  onChange={(e) => setPrintKeterangan(e.target.value)}
+                  rows={4}
+                  className="w-full px-3 py-2 border border-gray-300 rounded-md focus:outline-none focus:ring-2 focus:ring-blue-500 text-sm font-medium text-gray-900 placeholder:text-gray-400 placeholder:font-normal resize-none"
+                  placeholder="Contoh: Belanja Jasa Tenaga Kerja Non Pegawai (Jasa Pengangkutan Sampah)..."
+                ></textarea>
+              </div>
+            </div>
+            <div className="px-6 py-4 bg-gray-50 flex items-center justify-end gap-2 border-t">
+              <button
+                type="button"
+                onClick={() => setIsPrintModalOpen(false)}
+                className="px-4 py-2 border border-gray-300 rounded-md text-gray-700 font-medium hover:bg-gray-100 transition text-sm"
+              >
+                Batal
+              </button>
+              <button
+                type="button"
+                onClick={handleConfirmPrint}
+                disabled={isPrinting}
+                className="px-4 py-2 bg-blue-600 text-white rounded-md font-medium hover:bg-blue-700 transition shadow-sm text-sm disabled:opacity-50 flex items-center gap-2"
+              >
+                {isPrinting ? 'Menyiapkan...' : 'Cetak Dokumen'}
+              </button>
+            </div>
+          </div>
+        </div>
+      )}
+
     </div>
   );
 }
