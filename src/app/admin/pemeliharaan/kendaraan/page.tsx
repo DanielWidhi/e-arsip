@@ -30,6 +30,8 @@ import {
 import Swal from "sweetalert2";
 
 import VehicleRepairModal from "@/components/VehicleRepairModal";
+import { Skeleton } from "@/components/ui/skeleton";
+import PemeliharaanStats from "@/components/PemeliharaanStats";
 import VehicleRepairDetailModal from "@/components/VehicleRepairDetailModal";
 import VehicleRepairEditModal from "@/components/VehicleRepairEditModal";
 
@@ -473,105 +475,20 @@ export default function KendaraanPage() {
         </div>
       </div>
 
-      <div className="grid grid-cols-1 md:grid-cols-2 xl:grid-cols-4 gap-4 mb-4">
-        <div className="bg-white p-5 rounded-xl border border-gray-200 shadow-sm flex flex-col justify-between">
-          <div className="flex items-center justify-between pb-2">
-            <h3 className="tracking-tight text-sm font-medium text-gray-500">Total PAGU Tahunan</h3>
-            <DollarSign className="h-4 w-4 text-gray-400" />
-          </div>
-          <div>
-            <div className="flex items-center justify-between">
-              <div className="text-2xl font-bold text-gray-800">Rp {paguTahunan.toLocaleString("id-ID")}</div>
-              <button type="button" onClick={openEditPaguModal} className="p-1.5 text-blue-600 hover:bg-blue-50 rounded-md transition tooltip" title="Sesuaikan PAGU">
-                <Edit3 size={16} />
-              </button>
-            </div>
-            <p className="text-xs text-gray-400 mt-1">Anggaran pemeliharaan tahun ini</p>
-          </div>
-        </div>
-        <div className="bg-white p-5 rounded-xl border border-gray-200 shadow-sm flex flex-col justify-between">
-          <div className="flex items-center justify-between pb-2">
-            <h3 className="tracking-tight text-sm font-medium text-gray-500">Sisa PAGU Tahunan</h3>
-            <Wallet className="h-4 w-4 text-gray-400" />
-          </div>
-          <div>
-            <div className={`text-2xl font-bold ${sisaPaguTahunan < 0 ? "text-red-600" : "text-gray-800"}`}>
-              {sisaPaguTahunan < 0 ? `- Rp ${Math.abs(sisaPaguTahunan).toLocaleString("id-ID")}` : `Rp ${sisaPaguTahunan.toLocaleString("id-ID")}`}
-            </div>
-            <p className="text-xs text-gray-400 mt-1">Sisa anggaran untuk tahun {selectedYear}</p>
-          </div>
-        </div>
-        <div className="bg-white p-5 rounded-xl border border-gray-200 shadow-sm flex flex-col justify-between">
-          <div className="flex items-center justify-between pb-2">
-            <h3 className="tracking-tight text-sm font-medium text-gray-500">Alokasi Jatah Bulanan</h3>
-            <CreditCard className="h-4 w-4 text-gray-400" />
-          </div>
-          <div>
-            <div className="text-2xl font-bold text-gray-800">Rp {paguBulanan.toLocaleString("id-ID")}</div>
-            <p className="text-xs text-gray-400 mt-1">Sistem bagi rata 12 bulan</p>
-          </div>
-        </div>
-        <div className={`p-5 rounded-xl border shadow-sm flex flex-col justify-between ${sisaPaguBulanIni < 0 ? "bg-red-50 border-red-200" : "bg-emerald-50 border-emerald-200"}`}>
-          <div className="flex items-center justify-between pb-2">
-            <h3 className={`tracking-tight text-sm font-medium ${sisaPaguBulanIni < 0 ? "text-red-600" : "text-emerald-700"}`}>
-              Status Bulan {selectedMonthName} {selectedYear}
-            </h3>
-            <Activity className={`h-4 w-4 ${sisaPaguBulanIni < 0 ? "text-red-400" : "text-emerald-400"}`} />
-          </div>
-          <div>
-            <div className={`text-2xl font-bold ${sisaPaguBulanIni < 0 ? "text-red-700" : "text-emerald-800"}`}>
-              Rp {realisasiBulanIni.toLocaleString("id-ID")}
-            </div>
-            <div className={`flex items-center gap-1.5 mt-1 text-xs font-bold uppercase tracking-wide ${sisaPaguBulanIni < 0 ? "text-red-600" : "text-emerald-600"}`}>
-              {sisaPaguBulanIni < 0 ? <TrendingDown size={14} /> : <TrendingUp size={14} />}
-              {sisaPaguBulanIni < 0 ? `Kekurangan Rp ${Math.abs(sisaPaguBulanIni).toLocaleString("id-ID")}` : `Sisa Rp ${sisaPaguBulanIni.toLocaleString("id-ID")}`}
-            </div>
-          </div>
-        </div>
-      </div>
-
-      <div className="grid grid-cols-1 md:grid-cols-2 xl:grid-cols-4 gap-4 mb-8">
-        <div className="bg-white p-5 rounded-xl border border-gray-200 shadow-sm flex flex-col justify-between">
-          <div className="flex items-center justify-between pb-2">
-            <h3 className="tracking-tight text-sm font-medium text-gray-500">Total Bensin Pertahun</h3>
-            <Fuel className="h-4 w-4 text-orange-500" />
-          </div>
-          <div>
-            <div className="text-xl font-bold text-gray-800">Rp {bensinTahunan.toLocaleString("id-ID")}</div>
-            <p className="text-xs text-gray-400 mt-1">Total pengeluaran bensin {selectedYear}</p>
-          </div>
-        </div>
-        <div className="bg-white p-5 rounded-xl border border-gray-200 shadow-sm flex flex-col justify-between">
-          <div className="flex items-center justify-between pb-2">
-            <h3 className="tracking-tight text-sm font-medium text-gray-500">Total Bensin Perbulan</h3>
-            <Fuel className="h-4 w-4 text-orange-500" />
-          </div>
-          <div>
-            <div className="text-xl font-bold text-gray-800">Rp {bensinBulanan.toLocaleString("id-ID")}</div>
-            <p className="text-xs text-gray-400 mt-1">Pengeluaran bensin bulan {selectedMonthName}</p>
-          </div>
-        </div>
-        <div className="bg-white p-5 rounded-xl border border-gray-200 shadow-sm flex flex-col justify-between">
-          <div className="flex items-center justify-between pb-2">
-            <h3 className="tracking-tight text-sm font-medium text-gray-500">Total Pemeliharaan Pertahun</h3>
-            <Wrench className="h-4 w-4 text-blue-500" />
-          </div>
-          <div>
-            <div className="text-xl font-bold text-gray-800">Rp {pemeliharaanKategoriTahunan.toLocaleString("id-ID")}</div>
-            <p className="text-xs text-gray-400 mt-1">Total biaya pemeliharaan {selectedYear}</p>
-          </div>
-        </div>
-        <div className="bg-white p-5 rounded-xl border border-gray-200 shadow-sm flex flex-col justify-between">
-          <div className="flex items-center justify-between pb-2">
-            <h3 className="tracking-tight text-sm font-medium text-gray-500">Total Pemeliharaan Perbulan</h3>
-            <Wrench className="h-4 w-4 text-blue-500" />
-          </div>
-          <div>
-            <div className="text-xl font-bold text-gray-800">Rp {pemeliharaanKategoriBulanan.toLocaleString("id-ID")}</div>
-            <p className="text-xs text-gray-400 mt-1">Biaya pemeliharaan bulan {selectedMonthName}</p>
-          </div>
-        </div>
-      </div>
+      <PemeliharaanStats
+        paguTahunan={paguTahunan}
+        sisaPaguTahunan={sisaPaguTahunan}
+        paguBulanan={paguBulanan}
+        realisasiBulanIni={realisasiBulanIni}
+        sisaPaguBulanIni={sisaPaguBulanIni}
+        bensinTahunan={bensinTahunan}
+        bensinBulanan={bensinBulanan}
+        pemeliharaanKategoriTahunan={pemeliharaanKategoriTahunan}
+        pemeliharaanKategoriBulanan={pemeliharaanKategoriBulanan}
+        selectedYear={selectedYear}
+        selectedMonthName={selectedMonthName}
+        onEditPagu={openEditPaguModal}
+      />
 
       <div className="flex flex-col sm:flex-row justify-between items-center gap-4 mb-6">
         <div className="relative w-full sm:w-96">
@@ -581,9 +498,6 @@ export default function KendaraanPage() {
           <input type="text" value={searchQuery} onChange={(e) => setSearchQuery(e.target.value)} className="block w-full pl-10 pr-3 py-2 border border-gray-300 rounded-lg focus:ring-blue-500 focus:border-blue-500 text-sm shadow-sm font-medium text-black placeholder:font-normal placeholder:text-gray-400" placeholder="Cari plat nomor atau nama kendaraan..." />
         </div>
         <div className="flex gap-2 w-full sm:w-auto">
-          <button type="button" className="flex items-center gap-2 px-4 py-2 border border-gray-300 bg-white text-gray-700 rounded-lg text-sm font-medium hover:bg-gray-50 shadow-sm transition">
-            <Filter size={16} /> Filter
-          </button>
           <button type="button" onClick={() => setIsModalOpen(true)} className="flex items-center gap-2 px-4 py-2 bg-blue-600 text-white rounded-lg text-sm font-medium hover:bg-blue-700 shadow-sm transition">
             <Plus size={16} /> Ajukan
           </button>
@@ -605,9 +519,23 @@ export default function KendaraanPage() {
             </thead>
             <tbody className="divide-y divide-gray-200">
               {isLoading ? (
-                <tr>
-                  <td colSpan={6} className="px-6 py-4 text-center text-gray-500 font-medium">Memuat data dari database...</td>
-                </tr>
+                Array.from({ length: 5 }).map((_, index) => (
+                  <tr key={index} className="border-b border-gray-100">
+                    <td className="px-6 py-5"><Skeleton className="h-4 w-6" /></td>
+                    <td className="px-6 py-5"><Skeleton className="h-4 w-48" /></td>
+                    <td className="px-6 py-5"><Skeleton className="h-4 w-28" /></td>
+                    <td className="px-6 py-5"><Skeleton className="h-6 w-24 rounded-full" /></td>
+                    <td className="px-6 py-5"><Skeleton className="h-4 w-28" /></td>
+                    <td className="px-6 py-5 text-center">
+                      <div className="flex justify-center gap-2">
+                        <Skeleton className="h-7 w-7" />
+                        <Skeleton className="h-7 w-7" />
+                        <Skeleton className="h-7 w-7" />
+                        <Skeleton className="h-7 w-7" />
+                      </div>
+                    </td>
+                  </tr>
+                ))
               ) : paginatedList.length === 0 ? (
                 <tr>
                   <td colSpan={6} className="px-6 py-4 text-center text-gray-500">{searchQuery ? "Data tidak ditemukan." : "Belum ada pengajuan pemeliharaan untuk bulan ini."}</td>

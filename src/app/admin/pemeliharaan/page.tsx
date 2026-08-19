@@ -5,6 +5,7 @@ import { Search, Edit, Eye, AlertTriangle, Wrench } from "lucide-react";
 import { createClient } from "@/lib/supabase";
 import AssetDetailModal, { AssetType } from "@/components/AssetDetailModal";
 import AssetEditModal from "@/components/AssetEditModal";
+import { Skeleton } from "@/components/ui/skeleton";
 import { AssetItem } from "@/utils/exportPdfKibB";
 
 export default function PemeliharaanPage() {
@@ -103,24 +104,27 @@ export default function PemeliharaanPage() {
               {isLoading ? (
                 /* SKELETON LOADER UNTUK 3 BARIS TABEL */
                 Array.from({ length: 3 }).map((_, i) => (
-                  <tr key={i} className="animate-pulse border-b border-slate-100">
+                  <tr key={i} className="border-b border-slate-100">
                     <td className="px-6 py-5">
-                      <div className="h-4 w-6 bg-slate-200 rounded-md" />
+                      <Skeleton className="h-4 w-6" />
                     </td>
                     <td className="px-6 py-5">
-                      <div className="h-4 w-28 bg-slate-200 rounded-md" />
+                      <Skeleton className="h-4 w-28" />
                     </td>
                     <td className="px-6 py-5">
-                      <div className="h-4 w-48 bg-slate-200 rounded-md" />
+                      <Skeleton className="h-4 w-48" />
                     </td>
                     <td className="px-6 py-5">
-                      <div className="h-4 w-24 bg-slate-200 rounded-md" />
+                      <Skeleton className="h-4 w-24" />
                     </td>
                     <td className="px-6 py-5">
-                      <div className="h-4 w-32 bg-slate-200 rounded-md" />
+                      <Skeleton className="h-4 w-32" />
                     </td>
                     <td className="px-6 py-5 text-center">
-                      <div className="inline-block h-8 w-16 bg-slate-200 rounded-md" />
+                      <div className="flex justify-center gap-2">
+                        <Skeleton className="h-8 w-8" />
+                        <Skeleton className="h-8 w-8" />
+                      </div>
                     </td>
                   </tr>
                 ))

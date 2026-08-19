@@ -28,6 +28,7 @@ import { autoTable } from "jspdf-autotable";
 import { createClient } from "@/lib/supabase";
 
 import VehicleRepairModal from "@/components/VehicleRepairModal";
+import { Skeleton } from "@/components/ui/skeleton";
 import VehicleRepairDetailModal from "@/components/VehicleRepairDetailModal";
 import VehicleRepairEditModal from "@/components/VehicleRepairEditModal";
 
@@ -909,17 +910,18 @@ export default function PemeliharaanListPage() {
             <tbody className="divide-y divide-slate-200 text-sm text-slate-700">
               {isLoading ? (
                 Array.from({ length: 5 }).map((_, index) => (
-                  <tr key={index} className="animate-pulse">
-                    <td className="px-6 py-5"><div className="h-4 w-6 bg-slate-200 rounded-md" /></td>
-                    <td className="px-6 py-5"><div className="h-4 w-48 bg-slate-200 rounded-md" /></td>
-                    <td className="px-6 py-5"><div className="h-4 w-28 bg-slate-200 rounded-md" /></td>
-                    <td className="px-6 py-5"><div className="h-6 w-24 bg-slate-200 rounded-full" /></td>
-                    <td className="px-6 py-5"><div className="h-4 w-28 bg-slate-200 rounded-md" /></td>
+                  <tr key={index} className="border-b border-slate-100">
+                    <td className="px-6 py-5"><Skeleton className="h-4 w-6" /></td>
+                    <td className="px-6 py-5"><Skeleton className="h-4 w-48" /></td>
+                    <td className="px-6 py-5"><Skeleton className="h-4 w-28" /></td>
+                    <td className="px-6 py-5"><Skeleton className="h-6 w-24 rounded-full" /></td>
+                    <td className="px-6 py-5"><Skeleton className="h-4 w-28" /></td>
                     <td className="px-6 py-5 text-center">
                       <div className="flex justify-center gap-2">
-                        <div className="h-7 w-7 bg-slate-200 rounded-md" />
-                        <div className="h-7 w-7 bg-slate-200 rounded-md" />
-                        <div className="h-7 w-7 bg-slate-200 rounded-md" />
+                        <Skeleton className="h-7 w-7" />
+                        <Skeleton className="h-7 w-7" />
+                        <Skeleton className="h-7 w-7" />
+                        <Skeleton className="h-7 w-7" />
                       </div>
                     </td>
                   </tr>

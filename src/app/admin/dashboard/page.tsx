@@ -4,11 +4,12 @@ import { useState, useEffect } from "react";
 import { Package, CheckCircle, Wrench, Wallet, Calendar, Loader2, BarChart3, DollarSign, Activity, TrendingDown, TrendingUp, CreditCard } from "lucide-react";
 import { createClient } from "@/lib/supabase";
 import Link from "next/link";
-import { useRouter } from "next/navigation"; 
+import { useRouter } from "next/navigation";
 
 import AssetDetailModal, { AssetType } from "@/components/AssetDetailModal";
 import AssetEditModal from "@/components/AssetEditModal";
 import { AssetItem } from "@/utils/exportPdfKibB";
+import PemeliharaanStats from "@/components/PemeliharaanStats";
 
 interface SupabaseAsset {
   id: number;
@@ -42,7 +43,7 @@ type ChartData = {
 };
 
 export default function AdminDashboardPage() {
-  const router = useRouter(); 
+  const router = useRouter();
   const [currentDate, setCurrentDate] = useState("");
   const [isLoading, setIsLoading] = useState(true);
   const [userName, setUserName] = useState("Admin");
@@ -86,7 +87,7 @@ export default function AdminDashboardPage() {
 
   const fetchDashboardData = async () => {
     setIsLoading(true);
-    
+
     // 1. FETCH DATA INVENTARIS KIB B
     const { data, error } = await supabase.from("inventaris_kib_b").select("*, kir:master_kir(nama_ruangan), asal_usul:master_asal_usul(nama_asal)").order("id", { ascending: false });
 
@@ -160,7 +161,7 @@ export default function AdminDashboardPage() {
         .select('nominal_tahunan')
         .eq('tahun', currentYear)
         .single();
-        
+
       const paguTahunan = paguData ? Number(paguData.nominal_tahunan) : 0;
       const paguBulanan = Math.round(paguTahunan / 12);
 
@@ -184,7 +185,7 @@ export default function AdminDashboardPage() {
 
           // Cek bulan berjalan (dinamis)
           if (p.tanggal_pengajuan) {
-            const monthStr = p.tanggal_pengajuan.split('-')[1]; 
+            const monthStr = p.tanggal_pengajuan.split('-')[1];
             if (parseInt(monthStr, 10) === currentMonthNum) {
               realisasiBulanIni += biaya;
             }
@@ -307,88 +308,18 @@ export default function AdminDashboardPage() {
           ======================================================== */}
       <div>
         <h3 className="text-lg font-bold text-slate-900 mb-4">Ringkasan Anggaran Kendaraan (PAGU) {currentYear}</h3>
-        
-        <div className="grid grid-cols-1 md:grid-cols-2 xl:grid-cols-4 gap-4">
-          
-          {/* Card 1: PAGU Tahunan */}
-          <div 
-            onClick={handlePaguClick}
-            className="bg-white p-5 rounded-xl border border-slate-200 shadow-sm hover:shadow-md hover:border-blue-300 cursor-pointer transition-all flex flex-col justify-between group"
-          >
-            <div className="flex items-center justify-between pb-2">
-              <h3 className="tracking-tight text-sm font-medium text-slate-500 group-hover:text-blue-600 transition-colors">Total PAGU Tahunan</h3>
-              <DollarSign className="h-4 w-4 text-slate-400 group-hover:text-blue-500 transition-colors" />
-            </div>
-            <div>
-              <div className="text-2xl font-bold text-slate-800">
-                {isLoading ? <Loader2 size={20} className="animate-spin text-slate-300" /> : `Rp ${paguStats.totalTahunan.toLocaleString('id-ID')}`}
-              </div>
-              <p className="text-xs text-slate-400 mt-1">Anggaran pemeliharaan tahun {currentYear}</p>
-            </div>
-          </div>
 
-          {/* Card 2: Sisa PAGU Tahunan */}
-          <div 
-            onClick={handlePaguClick}
-            className="bg-white p-5 rounded-xl border border-slate-200 shadow-sm hover:shadow-md hover:border-blue-300 cursor-pointer transition-all flex flex-col justify-between group"
-          >
-            <div className="flex items-center justify-between pb-2">
-              <h3 className="tracking-tight text-sm font-medium text-slate-500 group-hover:text-blue-600 transition-colors">Sisa PAGU Tahunan</h3>
-              <Wallet className="h-4 w-4 text-slate-400 group-hover:text-blue-500 transition-colors" />
-            </div>
-            <div>
-              <div className={`text-2xl font-bold ${paguStats.sisaTahunan < 0 ? 'text-red-600' : 'text-slate-800'}`}>
-                {isLoading ? <Loader2 size={20} className="animate-spin text-slate-300" /> : paguStats.sisaTahunan < 0 ? `- Rp ${Math.abs(paguStats.sisaTahunan).toLocaleString('id-ID')}` : `Rp ${paguStats.sisaTahunan.toLocaleString('id-ID')}`}
-              </div>
-              <p className="text-xs text-slate-400 mt-1">Sisa anggaran untuk tahun {currentYear}</p>
-            </div>
-          </div>
-
-          {/* Card 3: Alokasi Jatah Bulanan */}
-          <div 
-            onClick={handlePaguClick}
-            className="bg-white p-5 rounded-xl border border-slate-200 shadow-sm hover:shadow-md hover:border-blue-300 cursor-pointer transition-all flex flex-col justify-between group"
-          >
-            <div className="flex items-center justify-between pb-2">
-              <h3 className="tracking-tight text-sm font-medium text-slate-500 group-hover:text-blue-600 transition-colors">Alokasi Jatah Bulanan</h3>
-              <CreditCard className="h-4 w-4 text-slate-400 group-hover:text-blue-500 transition-colors" />
-            </div>
-            <div>
-              <div className="text-2xl font-bold text-slate-800">
-                {isLoading ? <Loader2 size={20} className="animate-spin text-slate-300" /> : `Rp ${alokasiJatahBulanan.toLocaleString('id-ID')}`}
-              </div>
-              <p className="text-xs text-slate-400 mt-1">Sistem bagi rata 12 bulan</p>
-            </div>
-          </div>
-
-          {/* CARD 4: REVISI STATUS BULAN BERJALAN SESUAI PERMINTAAN */}
-          <div 
-            onClick={handlePaguClick}
-            className={`p-5 rounded-xl border shadow-sm hover:shadow-md cursor-pointer transition-all flex flex-col justify-between group ${isLoading ? 'bg-white border-slate-200' : paguStats.sisaBulanIni < 0 ? 'bg-red-50 border-red-200 hover:border-red-300' : 'bg-emerald-50 border-emerald-200 hover:border-emerald-300'}`}
-          >
-            <div className="flex items-center justify-between pb-2">
-              <h3 className={`tracking-tight text-sm font-medium transition-colors ${isLoading ? 'text-slate-500' : paguStats.sisaBulanIni < 0 ? 'text-red-600 group-hover:text-red-700' : 'text-emerald-700 group-hover:text-emerald-800'}`}>
-                Status Bulan {currentMonthName} {currentYear}
-              </h3>
-              <Activity className={`h-4 w-4 transition-colors ${isLoading ? 'text-slate-400' : paguStats.sisaBulanIni < 0 ? 'text-red-400 group-hover:text-red-500' : 'text-emerald-400 group-hover:text-emerald-500'}`} />
-            </div>
-            
-            <div>
-              <div className={`text-2xl font-bold ${isLoading ? 'text-slate-800' : paguStats.sisaBulanIni < 0 ? 'text-red-700' : 'text-emerald-800'}`}>
-                {isLoading ? <Loader2 size={20} className="animate-spin text-slate-300" /> : `Rp ${paguStats.realisasiBulanIni.toLocaleString('id-ID')}`}
-              </div>
-              
-              {!isLoading && (
-                <div className={`flex items-center gap-1.5 mt-1 text-xs font-bold uppercase tracking-wide ${paguStats.sisaBulanIni < 0 ? 'text-red-600' : 'text-emerald-600'}`}>
-                  {paguStats.sisaBulanIni < 0 ? <TrendingDown size={14} /> : <TrendingUp size={14} />}
-                  {paguStats.sisaBulanIni < 0 
-                    ? `Kekurangan Rp ${Math.abs(paguStats.sisaBulanIni).toLocaleString('id-ID')}`
-                    : `Sisa Rp ${paguStats.sisaBulanIni.toLocaleString('id-ID')}`}
-                </div>
-              )}
-            </div>
-          </div>
-
+        <div onClick={handlePaguClick} className="cursor-pointer">
+          <PemeliharaanStats
+            paguTahunan={paguStats.totalTahunan}
+            sisaPaguTahunan={paguStats.sisaTahunan}
+            paguBulanan={alokasiJatahBulanan}
+            realisasiBulanIni={paguStats.realisasiBulanIni}
+            sisaPaguBulanIni={paguStats.sisaBulanIni}
+            selectedYear={currentYear}
+            selectedMonthName={currentMonthName}
+            hideBensinStats={true}
+          />
         </div>
       </div>
       {/* ======================================================== */}

@@ -9,6 +9,7 @@ import { Folder, CheckCircle, Wrench, Search, Building, Loader2 } from "lucide-r
 import { createClient } from "@/lib/supabase";
 import Link from "next/link";
 import SurveyCTA from "@/components/SurveyCTA";
+import ServicesSection from "@/components/ServicesSection";
 
 // IMPORT AOS
 import AOS from "aos";
@@ -153,6 +154,8 @@ export default function Home() {
             <p className="text-3xl md:text-4xl font-bold text-amber-600 mt-2">{isLoading ? <Loader2 className="animate-spin text-slate-300" size={24} /> : stats.rusakRingan}</p>
           </Link>
         </div>
+
+        <ServicesSection />
 
         <SurveyCTA />
       </main>

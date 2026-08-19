@@ -25,10 +25,26 @@ export type AssetItem = {
 };
 
 // 2. Fungsi Utama untuk Menggambar Template PDF
-export const generatePdfKibB = (data: AssetItem[]) => {
+export const generatePdfKibB = async (data: AssetItem[]) => {
   // Buat dokumen A4 Landscape
   const doc = new jsPDF("landscape", "mm", "a4");
   const pageWidth = doc.internal.pageSize.getWidth();
+
+  // Load Image
+  const imgUrl = "/images/logo-badung.png";
+  const img = new Image();
+  img.src = imgUrl;
+
+  await new Promise((resolve) => {
+    img.onload = resolve;
+    img.onerror = resolve;
+  });
+
+  if (img.complete && img.naturalWidth > 0) {
+    const logoWidth = 20;
+    const logoHeight = (img.naturalHeight / img.naturalWidth) * logoWidth;
+    doc.addImage(img, "PNG", 15, 12, logoWidth, logoHeight);
+  }
 
   // --- KOP SURAT ---
   doc.setFont("helvetica", "bold");
@@ -100,9 +116,11 @@ export const generatePdfKibB = (data: AssetItem[]) => {
   autoTable(doc, {
     startY: 62,
     theme: "grid",
+    showFoot: "lastPage",
     styles: { fontSize: 7, font: "helvetica", lineColor: [0, 0, 0], lineWidth: 0.1, textColor: [0, 0, 0] },
     headStyles: { fillColor: [255, 255, 255], textColor: [0, 0, 0], halign: "center", valign: "middle", fontStyle: "bold" },
     bodyStyles: { valign: "top" },
+    footStyles: { fillColor: [255, 255, 255], textColor: [0, 0, 0] },
     head: [
       [
         { content: "No", rowSpan: 2 },
@@ -135,7 +153,13 @@ export const generatePdfKibB = (data: AssetItem[]) => {
 
   // --- TANDA TANGAN ---
   // eslint-disable-next-line @typescript-eslint/no-explicit-any
-  const finalY = (doc as any).lastAutoTable.finalY + 15;
+  let finalY = (doc as any).lastAutoTable.finalY + 15;
+  const pageHeight = doc.internal.pageSize.getHeight();
+
+  if (finalY + 40 > pageHeight) {
+    doc.addPage();
+    finalY = 20;
+  }
 
   // Kiri
   doc.setFont("helvetica", "normal");
