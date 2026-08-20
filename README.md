@@ -81,15 +81,15 @@ Teknologi yang digunakan dalam pengembangan SATE:
 
 # 📸 Cuplikan Layar (Screenshots)
 
-Berikut adalah beberapa bagian antarmuka dari aplikasi SATE:
+Berikut adalah beberapa tampilan antarmuka dari aplikasi **SATE**.
 
 ### 1. 🏠 Dashboard
 
 Halaman dashboard yang menampilkan ringkasan informasi sistem dan data aset secara terpusat.
 
-**Dashboard SATE**
-
-> 📷 *Tambahkan screenshot dashboard di sini.*
+<p align="center">
+  <img src="./public/screenshots/dashboard.png" alt="Dashboard SATE" width="100%">
+</p>
 
 ---
 
@@ -97,9 +97,9 @@ Halaman dashboard yang menampilkan ringkasan informasi sistem dan data aset seca
 
 Halaman yang digunakan untuk melihat dan mengelola data aset yang tersimpan dalam sistem.
 
-**Manajemen Aset**
-
-> 📷 *Tambahkan screenshot halaman manajemen aset di sini.*
+<p align="center">
+  <img src="./public/screenshots/manajemen-aset.png" alt="Manajemen Aset SATE" width="100%">
+</p>
 
 ---
 
@@ -107,9 +107,9 @@ Halaman yang digunakan untuk melihat dan mengelola data aset yang tersimpan dala
 
 Halaman untuk mengelola dan melihat data arsip secara digital.
 
-**Manajemen Arsip**
-
-> 📷 *Tambahkan screenshot halaman manajemen arsip di sini.*
+<p align="center">
+  <img src="./public/screenshots/manajemen-arsip.png" alt="Manajemen Arsip SATE" width="100%">
+</p>
 
 ---
 
@@ -117,9 +117,9 @@ Halaman untuk mengelola dan melihat data arsip secara digital.
 
 Halaman yang membantu pengguna melihat rekapitulasi data untuk kebutuhan monitoring dan pelaporan.
 
-**Rekapitulasi Data**
-
-> 📷 *Tambahkan screenshot halaman rekapitulasi di sini.*
+<p align="center">
+  <img src="./public/screenshots/rekapitulasi.png" alt="Rekapitulasi SATE" width="100%">
+</p>
 
 ---
 
@@ -127,9 +127,9 @@ Halaman yang membantu pengguna melihat rekapitulasi data untuk kebutuhan monitor
 
 Fitur untuk mengekspor data sistem ke dalam format PDF maupun spreadsheet.
 
-**Export Data**
-
-> 📷 *Tambahkan screenshot fitur export di sini.*
+<p align="center">
+  <img src="./public/screenshots/export-data.png" alt="Export Data SATE" width="100%">
+</p>
 
 ---
 
