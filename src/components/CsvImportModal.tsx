@@ -109,10 +109,10 @@ export default function CsvImportModal({ isOpen, onClose, onSuccess }: CsvImport
 
   if (!isOpen) return null;
 
-  // FUNGSI 1: DOWNLOAD TEMPLATE CSV UNTUK ADMIN
+  // FUNGSI 1: DOWNLOAD TEMPLATE CSV UNTUK ADMIN (DENGAN BOM UTF-8)
   const downloadTemplate = () => {
     const templateHeader =
-      "kode_barang,nama_barang,nomor_register,merk_type,ukuran_cc,bahan,tahun_beli,pabrik,no_rangka,no_mesin,no_polisi,no_bpkb,harga,kondisi,keterangan\n02.06.01.01.01,Laptop Core i5,0001,Lenovo,14 Inch,Plastik,2023,Lenovo,-,-,-,-,12000000,Baik,Pengadaan Baru 2023\n02.03.01.04.01,Motor Supra X,0002,Honda,125 CC,Besi,2020,Astra Honda,MH123,KE456,DK 1234 A,12345,18500000,Baik,Kendaraan Operasional";
+      "\ufeffkode_barang,nama_barang,nomor_register,merk_type,ukuran_cc,bahan,tahun_beli,pabrik,no_rangka,no_mesin,no_polisi,no_bpkb,harga,kondisi,keterangan\n02.06.01.01.01,Laptop Core i5,0001,Lenovo,14 Inch,Plastik,2023,Lenovo,-,-,-,-,12000000,Baik,Pengadaan Baru 2023\n02.03.01.04.01,Motor Supra X,0002,Honda,125 CC,Besi,2020,Astra Honda,MH123,KE456,DK 1234 A,12345,18500000,Baik,Kendaraan Operasional";
     const blob = new Blob([templateHeader], { type: "text/csv;charset=utf-8;" });
     const url = URL.createObjectURL(blob);
     const link = document.createElement("a");
@@ -123,13 +123,16 @@ export default function CsvImportModal({ isOpen, onClose, onSuccess }: CsvImport
     document.body.removeChild(link);
   };
 
-  // FUNGSI 2: LOGIKA TERPUSAT MENGOLAH FILE CSV (DIPAKAI OLEH KLIK & DRAG-DROP)
+  // FUNGSI 2: LOGIKA TERPUSAT MENGOLAH FILE CSV
   const processCsvFile = (file: File) => {
     setFileName(file.name);
 
+    // AUTO-DETECT PEMISAH KOMA (,) ATAU TITIK KOMA (;)
     Papa.parse(file, {
       header: true,
-      skipEmptyLines: true,
+      skipEmptyLines: "greedy",
+      delimitersToGuess: [",", ";", "\t", "|"],
+      transformHeader: (h) => h.replace(/^\ufeff/, "").trim(),
       // eslint-disable-next-line @typescript-eslint/no-explicit-any
       complete: (results: any) => {
         setParsedData(results.data);
@@ -167,7 +170,7 @@ export default function CsvImportModal({ isOpen, onClose, onSuccess }: CsvImport
     }
   };
 
-  // FUNGSI 3: BULK INSERT MASSAL KE SUPABASE
+  // FUNGSI 3: BULK INSERT MASSAL KE SUPABASE (MENGGUNAKAN LOGIKA PENGAMAN TINGKAT TINGGI)
   const handleImportSubmit = async () => {
     if (parsedData.length === 0) {
       Swal.fire({ icon: "warning", title: "File Kosong", text: "Silakan pilih file CSV yang berisi data terlebih dahulu.", confirmButtonColor: "#2563eb" });
@@ -178,31 +181,81 @@ export default function CsvImportModal({ isOpen, onClose, onSuccess }: CsvImport
 
     try {
       const formattedPayload = parsedData
-        .filter((row) => {
-          const kode = getRowVal(row, "kode_barang", "kode", "kode barang");
-          const nama = getRowVal(row, "nama_barang", "nama", "nama barang");
-          return kode !== "" || nama !== "";
-        })
         .map((row) => {
-          const hargaStr = getRowVal(row, "harga", "harga (rp)", "hargarp", "harga_barang");
+          let kode = getRowVal(row, "kode_barang", "kode", "kode barang");
+          let nama = getRowVal(row, "nama_barang", "nama", "nama barang");
+          let register = getRowVal(row, "nomor_register", "no_register", "nomor register", "no register");
+          let merk = getRowVal(row, "merk_type", "merk", "type", "merk / type", "merk/type");
+          let ukuran = getRowVal(row, "ukuran_cc", "ukuran", "cc", "ukuran / cc", "ukuran/cc");
+          let bahan = getRowVal(row, "bahan");
+          let tahun = getRowVal(row, "tahun_beli", "tahun", "tahun beli");
+          let pabrik = getRowVal(row, "pabrik");
+          let rangka = getRowVal(row, "no_rangka", "rangka", "no rangka");
+          let mesin = getRowVal(row, "no_mesin", "mesin", "no mesin");
+          let polisi = getRowVal(row, "no_polisi", "polisi", "nopol", "no polisi");
+          let bpkb = getRowVal(row, "no_bpkb", "bpkb", "no bpkb");
+          let hargaStr = getRowVal(row, "harga", "harga (rp)", "hargarp", "harga_barang");
+          let kondisi = getRowVal(row, "kondisi");
+          let keterangan = getRowVal(row, "keterangan");
+
+          // 🛡️ PENGAMAN TINGKAT TINGGI: JIKA EXCEL MENGGABUNGKAN SEMUANYA KE SATU STRING
+          if (kode.includes(",") && (!nama || nama === "")) {
+            // Pecah string secara manual
+            const parts = kode.split(",").map((p) => p.trim());
+            kode = parts[0] || "00.00.00.00.00";
+            nama = parts[1] || "Aset Tanpa Nama";
+            register = parts[2] || "0000";
+            merk = parts[3] || "-";
+            ukuran = parts[4] || "-";
+            bahan = parts[5] || "-";
+            tahun = parts[6] || "-";
+            pabrik = parts[7] || "-";
+            rangka = parts[8] || "-";
+            mesin = parts[9] || "-";
+            polisi = parts[10] || "-";
+            bpkb = parts[11] || "-";
+            hargaStr = parts[12] || "0";
+            kondisi = parts[13] || "Baik";
+            keterangan = parts[14] || "-";
+          } else if (kode.includes(";") && (!nama || nama === "")) {
+            const parts = kode.split(";").map((p) => p.trim());
+            kode = parts[0] || "00.00.00.00.00";
+            nama = parts[1] || "Aset Tanpa Nama";
+            register = parts[2] || "0000";
+            merk = parts[3] || "-";
+            ukuran = parts[4] || "-";
+            bahan = parts[5] || "-";
+            tahun = parts[6] || "-";
+            pabrik = parts[7] || "-";
+            rangka = parts[8] || "-";
+            mesin = parts[9] || "-";
+            polisi = parts[10] || "-";
+            bpkb = parts[11] || "-";
+            hargaStr = parts[12] || "0";
+            kondisi = parts[13] || "Baik";
+            keterangan = parts[14] || "-";
+          }
+
+          // MAPPING KE SNAKE_CASE AGAR SESUAI DENGAN SUPABASE
           return {
-            kode_barang: getRowVal(row, "kode_barang", "kode", "kode barang") || "00.00.00.00.00",
-            nama_barang: getRowVal(row, "nama_barang", "nama", "nama barang") || "Barang Tanpa Nama",
-            nomor_register: getRowVal(row, "nomor_register", "no_register", "nomor register", "no register") || "0000",
-            merk_type: getRowVal(row, "merk_type", "merk", "type", "merk / type", "merk/type") || "-",
-            ukuran_cc: getRowVal(row, "ukuran_cc", "ukuran", "cc", "ukuran / cc", "ukuran/cc") || "-",
-            bahan: getRowVal(row, "bahan") || "-",
-            tahun_beli: getRowVal(row, "tahun_beli", "tahun", "tahun beli") || "-",
-            pabrik: getRowVal(row, "pabrik") || "-",
-            no_rangka: getRowVal(row, "no_rangka", "rangka", "no rangka") || "-",
-            no_mesin: getRowVal(row, "no_mesin", "mesin", "no mesin") || "-",
-            no_polisi: getRowVal(row, "no_polisi", "polisi", "nopol", "no polisi") || "-",
-            no_bpkb: getRowVal(row, "no_bpkb", "bpkb", "no bpkb") || "-",
+            kode_barang: kode || "00.00.00.00.00",
+            nama_barang: nama || "Aset Tanpa Nama",
+            nomor_register: register || "0000",
+            merk_type: merk || "-",
+            ukuran_cc: ukuran || "-",
+            bahan: bahan || "-",
+            tahun_beli: tahun || "-",
+            pabrik: pabrik || "-",
+            no_rangka: rangka || "-",
+            no_mesin: mesin || "-",
+            no_polisi: polisi || "-",
+            no_bpkb: bpkb || "-",
             harga: parseHarga(hargaStr),
-            kondisi: parseKondisi(getRowVal(row, "kondisi")),
-            keterangan: getRowVal(row, "keterangan") || "-",
+            kondisi: parseKondisi(kondisi),
+            keterangan: keterangan || "-",
           };
-        });
+        })
+        .filter((item) => item.kode_barang !== "00.00.00.00.00" || item.nama_barang !== "Aset Tanpa Nama");
 
       if (formattedPayload.length === 0) {
         Swal.fire({ icon: "warning", title: "Data Tidak Valid", text: "Tidak ditemukan baris data yang valid dalam file CSV.", confirmButtonColor: "#2563eb" });
@@ -308,37 +361,23 @@ export default function CsvImportModal({ isOpen, onClose, onSuccess }: CsvImport
             </div>
           </div>
 
-          {/* Preview Data */}
+          {/* Preview Data (Gaya Shadcn) */}
           {parsedData.length > 0 && (
-            <div className="max-h-44 overflow-y-auto border border-slate-200 rounded-lg text-xs shadow-inner bg-white">
+            <div className="max-h-44 overflow-y-auto border border-slate-200 rounded-lg text-xs shadow-inner bg-white custom-scrollbar">
               <table className="w-full text-left border-collapse whitespace-nowrap">
                 <thead className="bg-slate-100 sticky top-0 z-10 border-b border-slate-200">
                   <tr>
-                    <th className="p-2.5 font-bold text-slate-700 uppercase tracking-wider">Kode</th>
-                    <th className="p-2.5 font-bold text-slate-700 uppercase tracking-wider">Nama Barang</th>
-                    <th className="p-2.5 font-bold text-slate-700 uppercase tracking-wider">Kondisi</th>
-                    <th className="p-2.5 font-bold text-slate-700 uppercase tracking-wider text-right">Harga (Rp)</th>
+                    <th className="p-2.5 font-bold text-slate-700 uppercase tracking-wider">Status Preview</th>
+                    <th className="p-2.5 font-bold text-slate-700 uppercase tracking-wider">Total Baris</th>
                   </tr>
                 </thead>
                 <tbody className="divide-y divide-slate-100 text-slate-800">
-                  {parsedData.slice(0, 5).map((row, idx) => {
-                    const kode = getRowVal(row, "kode_barang", "kode", "kode barang");
-                    const nama = getRowVal(row, "nama_barang", "nama", "nama barang");
-                    const kondisi = parseKondisi(getRowVal(row, "kondisi"));
-                    const hargaRaw = getRowVal(row, "harga", "harga (rp)", "hargarp", "harga_barang");
-                    const hargaParsed = parseHarga(hargaRaw);
-                    return (
-                      <tr key={idx} className="hover:bg-slate-50 transition-colors">
-                        <td className="p-2.5 font-mono text-slate-600">{kode || "-"}</td>
-                        <td className="p-2.5 font-semibold text-slate-900">{nama || "-"}</td>
-                        <td className="p-2.5 text-slate-700">{kondisi || "-"}</td>
-                        <td className="p-2.5 text-slate-800 font-mono text-right">{hargaParsed.toLocaleString("id-ID")}</td>
-                      </tr>
-                    );
-                  })}
+                  <tr>
+                    <td className="p-2.5 text-emerald-600 font-bold">File Siap Diproses & Dipisahkan Otomatis</td>
+                    <td className="p-2.5 font-mono">{parsedData.length} Data Aset Terdeteksi</td>
+                  </tr>
                 </tbody>
               </table>
-              {parsedData.length > 5 && <p className="p-2.5 text-center text-slate-500 font-medium italic bg-slate-50 border-t border-slate-100">...dan {parsedData.length - 5} baris data lainnya</p>}
             </div>
           )}
         </div>
@@ -362,4 +401,3 @@ export default function CsvImportModal({ isOpen, onClose, onSuccess }: CsvImport
     </div>
   );
 }
-
